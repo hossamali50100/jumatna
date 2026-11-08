@@ -1,0 +1,307 @@
+-- ============================================================
+-- جمعتنا — قاعدة البيانات + الحماية (Row Level Security)
+-- شغّل الملف ده كله مرة واحدة في Supabase > SQL Editor > Run
+-- ============================================================
+
+-- ---------- الجداول ----------
+create table public.profiles (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  name        text not null default 'مستخدم' check (char_length(name) between 1 and 60),
+  avatar_url  text,
+  role        text not null default 'user'  check (role in ('user','admin','mod','support')),
+  plan        text not null default 'free'  check (plan in ('free','premium')),
+  plan_until  timestamptz,
+  banned      boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+
+create table public.groups (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null references public.profiles(id) on delete cascade,
+  name        text not null check (char_length(name) between 2 and 80),
+  description text not null default '' check (char_length(description) <= 500),
+  cover_url   text,
+  privacy     text not null default 'public' check (privacy in ('public','private')),
+  created_at  timestamptz not null default now()
+);
+
+create table public.group_members (
+  group_id    uuid not null references public.groups(id) on delete cascade,
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  role        text not null default 'member' check (role in ('owner','admin','member')),
+  status      text not null default 'active' check (status in ('active','pending')),
+  created_at  timestamptz not null default now(),
+  primary key (group_id, user_id)
+);
+
+create table public.posts (
+  id          uuid primary key default gen_random_uuid(),
+  group_id    uuid not null references public.groups(id) on delete cascade,
+  author_id   uuid not null references public.profiles(id) on delete cascade,
+  body        text not null check (char_length(body) between 1 and 5000),
+  image_url   text,
+  created_at  timestamptz not null default now()
+);
+create index posts_group_idx on public.posts (group_id, created_at desc);
+create index posts_author_idx on public.posts (author_id, created_at desc);
+
+create table public.comments (
+  id          uuid primary key default gen_random_uuid(),
+  post_id     uuid not null references public.posts(id) on delete cascade,
+  author_id   uuid not null references public.profiles(id) on delete cascade,
+  body        text not null check (char_length(body) between 1 and 2000),
+  created_at  timestamptz not null default now()
+);
+create index comments_post_idx on public.comments (post_id, created_at);
+create index comments_author_idx on public.comments (author_id, created_at desc);
+
+create table public.likes (
+  post_id     uuid not null references public.posts(id) on delete cascade,
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+create table public.reports (
+  id          uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  post_id     uuid references public.posts(id) on delete cascade,
+  reason      text not null check (char_length(reason) between 2 and 500),
+  status      text not null default 'open' check (status in ('open','done')),
+  created_at  timestamptz not null default now()
+);
+
+-- ---------- دوال مساعدة (security definer عشان RLS ما تدخلش في دايرة) ----------
+create or replace function public.is_staff() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from profiles where id = auth.uid() and role in ('admin','mod','support'));
+$$;
+
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from profiles where id = auth.uid() and role = 'admin');
+$$;
+
+create or replace function public.is_banned() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select banned from profiles where id = auth.uid()), true);
+$$;
+
+create or replace function public.is_member(gid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from group_members
+                 where group_id = gid and user_id = auth.uid() and status = 'active');
+$$;
+
+create or replace function public.is_group_admin(gid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from group_members
+                 where group_id = gid and user_id = auth.uid()
+                   and status = 'active' and role in ('owner','admin'));
+$$;
+
+create or replace function public.group_is_public(gid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from groups where id = gid and privacy = 'public');
+$$;
+
+create or replace function public.can_see_post(pid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from posts p
+                 where p.id = pid
+                   and (public.group_is_public(p.group_id) or public.is_member(p.group_id) or public.is_staff()));
+$$;
+
+-- ---------- Triggers ----------
+-- 1) إنشاء بروفايل تلقائي أول ما حد يسجل (جوجل أو إيميل)
+create or replace function public.handle_new_user() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into profiles (id, name, avatar_url)
+  values (
+    new.id,
+    left(coalesce(nullif(new.raw_user_meta_data->>'full_name',''),
+                  nullif(new.raw_user_meta_data->>'name',''),
+                  split_part(new.email,'@',1), 'مستخدم'), 60),
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  return new;
+end $$;
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- 2) حد الإنشاء: مجاني = مجموعة واحدة، مميز = 10 (بيتفرض من السيرفر مش من الموقع)
+create or replace function public.enforce_group_limit() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  p profiles%rowtype;
+  lim int;
+  cnt int;
+begin
+  select * into p from profiles where id = new.owner_id;
+  if p.banned then raise exception 'الحساب محظور'; end if;
+  if p.plan = 'premium' and (p.plan_until is null or p.plan_until > now()) then lim := 10; else lim := 1; end if;
+  select count(*) into cnt from groups where owner_id = new.owner_id;
+  if cnt >= lim then
+    raise exception 'وصلت للحد الأقصى من المجموعات (%). رقّي حسابك لإنشاء المزيد.', lim;
+  end if;
+  return new;
+end $$;
+create trigger groups_limit before insert on public.groups
+  for each row execute function public.enforce_group_limit();
+
+-- 3) صاحب المجموعة يتضاف كعضو (owner) تلقائيًا
+create or replace function public.add_owner_member() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into group_members (group_id, user_id, role, status) values (new.id, new.owner_id, 'owner', 'active');
+  return new;
+end $$;
+create trigger groups_add_owner after insert on public.groups
+  for each row execute function public.add_owner_member();
+
+-- 4) منع السبام: حد أقصى للبوستات والتعليقات في الساعة
+create or replace function public.rate_limit_posts() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from posts where author_id = new.author_id and created_at > now() - interval '1 hour') >= 20 then
+    raise exception 'بوستات كتير في وقت قصير، جرّب بعد شوية.';
+  end if;
+  return new;
+end $$;
+create trigger posts_rate before insert on public.posts
+  for each row execute function public.rate_limit_posts();
+
+create or replace function public.rate_limit_comments() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from comments where author_id = new.author_id and created_at > now() - interval '1 hour') >= 60 then
+    raise exception 'تعليقات كتير في وقت قصير، جرّب بعد شوية.';
+  end if;
+  return new;
+end $$;
+create trigger comments_rate before insert on public.comments
+  for each row execute function public.rate_limit_comments();
+
+-- ---------- تفعيل الحماية على كل الجداول ----------
+alter table public.profiles       enable row level security;
+alter table public.groups         enable row level security;
+alter table public.group_members  enable row level security;
+alter table public.posts          enable row level security;
+alter table public.comments       enable row level security;
+alter table public.likes          enable row level security;
+alter table public.reports        enable row level security;
+
+-- ---------- الصلاحيات (policies) ----------
+-- profiles: الكل المسجّل يشوف الأسماء؛ كل واحد يعدّل اسمه وصورته بس (مش الباقة ولا الصلاحية ولا الحظر)
+create policy profiles_select on public.profiles for select to authenticated using (true);
+create policy profiles_update_own on public.profiles for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
+revoke update on public.profiles from authenticated, anon;
+grant  update (name, avatar_url) on public.profiles to authenticated;
+-- الأدمن يعدّل الباقة والحظر عن طريق دوال محمية (تحت)
+
+-- groups
+create policy groups_select on public.groups for select to authenticated
+  using (privacy = 'public' or public.is_member(id) or public.is_staff());
+create policy groups_insert on public.groups for insert to authenticated
+  with check (owner_id = auth.uid() and not public.is_banned());
+create policy groups_update on public.groups for update to authenticated
+  using (public.is_group_admin(id) or public.is_admin())
+  with check (public.is_group_admin(id) or public.is_admin());
+create policy groups_delete on public.groups for delete to authenticated
+  using (owner_id = auth.uid() or public.is_admin());
+
+-- group_members
+create policy gm_select on public.group_members for select to authenticated
+  using (user_id = auth.uid() or public.group_is_public(group_id)
+         or public.is_member(group_id) or public.is_staff());
+create policy gm_join on public.group_members for insert to authenticated
+  with check (
+    user_id = auth.uid() and role = 'member' and not public.is_banned()
+    and ( (public.group_is_public(group_id) and status = 'active')
+       or (not public.group_is_public(group_id) and status = 'pending') )
+  );
+create policy gm_update on public.group_members for update to authenticated
+  using (public.is_group_admin(group_id) and role <> 'owner')
+  with check (public.is_group_admin(group_id) and role in ('admin','member'));
+create policy gm_delete on public.group_members for delete to authenticated
+  using ((user_id = auth.uid() and role <> 'owner') or public.is_group_admin(group_id) or public.is_admin());
+
+-- posts
+create policy posts_select on public.posts for select to authenticated
+  using (public.group_is_public(group_id) or public.is_member(group_id) or public.is_staff());
+create policy posts_insert on public.posts for insert to authenticated
+  with check (author_id = auth.uid() and public.is_member(group_id) and not public.is_banned());
+create policy posts_update on public.posts for update to authenticated
+  using (author_id = auth.uid()) with check (author_id = auth.uid());
+create policy posts_delete on public.posts for delete to authenticated
+  using (author_id = auth.uid() or public.is_group_admin(group_id) or public.is_staff());
+
+-- comments
+create policy comments_select on public.comments for select to authenticated
+  using (public.can_see_post(post_id));
+create policy comments_insert on public.comments for insert to authenticated
+  with check (author_id = auth.uid() and not public.is_banned()
+              and exists (select 1 from posts p where p.id = post_id and public.is_member(p.group_id)));
+create policy comments_delete on public.comments for delete to authenticated
+  using (author_id = auth.uid() or public.is_staff()
+         or exists (select 1 from posts p where p.id = post_id and public.is_group_admin(p.group_id)));
+
+-- likes
+create policy likes_select on public.likes for select to authenticated using (public.can_see_post(post_id));
+create policy likes_insert on public.likes for insert to authenticated
+  with check (user_id = auth.uid() and exists (select 1 from posts p where p.id = post_id and public.is_member(p.group_id)));
+create policy likes_delete on public.likes for delete to authenticated using (user_id = auth.uid());
+
+-- reports: أي عضو يبلّغ، والإدارة بس هي اللي تشوف
+create policy reports_insert on public.reports for insert to authenticated
+  with check (reporter_id = auth.uid());
+create policy reports_select on public.reports for select to authenticated using (public.is_staff());
+create policy reports_update on public.reports for update to authenticated
+  using (public.is_staff()) with check (public.is_staff());
+
+-- ---------- دوال الإدارة (الأدمن بس، والتحقق من السيرفر) ----------
+create or replace function public.admin_set_plan(target uuid, new_plan text, days int default 30)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'غير مسموح'; end if;
+  if new_plan not in ('free','premium') then raise exception 'باقة غير صحيحة'; end if;
+  update profiles set plan = new_plan,
+         plan_until = case when new_plan = 'premium' then now() + make_interval(days => days) else null end
+   where id = target;
+end $$;
+
+create or replace function public.admin_set_banned(target uuid, flag boolean)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_staff() then raise exception 'غير مسموح'; end if;
+  if (select role from profiles where id = target) in ('admin','mod','support') then
+    raise exception 'مينفعش تحظر حد من الإدارة';
+  end if;
+  update profiles set banned = flag where id = target;
+end $$;
+
+revoke all on function public.admin_set_plan(uuid,text,int) from public, anon;
+revoke all on function public.admin_set_banned(uuid,boolean) from public, anon;
+grant execute on function public.admin_set_plan(uuid,text,int) to authenticated;
+grant execute on function public.admin_set_banned(uuid,boolean) to authenticated;
+
+-- ---------- تخزين الصور ----------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('media', 'media', true, 5242880, array['image/jpeg','image/png','image/webp','image/gif'])
+on conflict (id) do update set file_size_limit = excluded.file_size_limit,
+                               allowed_mime_types = excluded.allowed_mime_types;
+
+-- الرفع مسموح بس جوه فولدر باسم الـ id بتاع صاحب الصورة
+create policy media_upload on storage.objects for insert to authenticated
+  with check (bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy media_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy media_read on storage.objects for select using (bucket_id = 'media');
+
+-- ============================================================
+-- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
+--   update public.profiles set role = 'admin'
+--   where id = (select id from auth.users where email = 'hossamali50100@gmail.com');
+-- ============================================================
