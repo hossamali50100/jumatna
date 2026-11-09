@@ -9,6 +9,8 @@ import CreateGroup from './pages/CreateGroup'
 import GroupPage from './pages/GroupPage'
 import Profile from './pages/Profile'
 import Plans from './pages/Plans'
+import MyGroups from './pages/MyGroups'
+import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
   const { session, profile, loading, signOut } = useAuth()
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="g/:id" element={<GroupPage />} />
         <Route path="profile" element={<Profile />} />
         <Route path="plans" element={<Plans />} />
+        <Route path="groups" element={<MyGroups />} />
+        <Route path="soon/:what" element={<ComingSoon />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

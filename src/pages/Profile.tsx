@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg, isPremium, uploadImage } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { Avatar, Check, Err } from '../components/ui'
+import { Avatar, Check, Err } from '../lib/ui'
 
 export default function Profile() {
   const { session, profile, refresh, signOut } = useAuth()
@@ -41,7 +41,7 @@ export default function Profile() {
         <Err>{err}</Err>{ok && <div className="okmsg">{ok}</div>}
         <button className="btn p" disabled={busy || name.trim().length < 1 || name.trim() === profile.name} onClick={() => save({ name: name.trim() })}>حفظ الاسم</button>
       </div>
-      <button className="btn danger" onClick={signOut}>تسجيل الخروج</button>
+      <button className="btn line danger" onClick={signOut}>تسجيل الخروج</button>
     </div>
   )
 }

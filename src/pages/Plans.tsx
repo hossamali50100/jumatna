@@ -1,4 +1,4 @@
-import { Check } from '../components/ui'
+import { Check } from '../lib/ui'
 import { useAuth } from '../lib/auth'
 import { isPremium } from '../lib/supabase'
 

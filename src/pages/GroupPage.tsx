@@ -4,7 +4,7 @@ import { supabase, errMsg, type Group, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import PostCard from '../components/PostCard'
 import Composer from '../components/Composer'
-import { Avatar, Err } from '../components/ui'
+import { Avatar, Err, gcolor } from '../lib/ui'
 import { POST_SELECT, likedSet } from './Home'
 
 type Pending = { user_id: string; profiles: { name: string; avatar_url: string | null } | null }
@@ -27,7 +27,7 @@ export default function GroupPage() {
     const gid = id!
     const { data: grp } = await supabase.from('groups').select('*').eq('id', gid).maybeSingle()
     if (!grp) return setMissing(true)
-    setG(grp as Group)
+    setMissing(false); setG(grp as Group)
     const [m, c, p] = await Promise.all([
       supabase.from('group_members').select('role,status').eq('group_id', gid).eq('user_id', uid).maybeSingle(),
       supabase.from('group_members').select('*', { count: 'exact', head: true }).eq('group_id', gid).eq('status', 'active'),
@@ -42,10 +42,10 @@ export default function GroupPage() {
       setPend((data as unknown as Pending[]) ?? [])
     }
   }, [id, uid])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { setG(null); load() }, [load])
 
-  if (missing) return <div className="card">المجموعة غير موجودة أو مش مسموح لك تشوفها.</div>
-  if (!g) return <div className="mut">جاري التحميل…</div>
+  if (missing) return <div className="crd">المجموعة غير موجودة أو مش مسموح لك تشوفها.</div>
+  if (!g) return <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>
 
   const active = mem?.status === 'active'
   const isAdmin = active && ['owner', 'admin'].includes(mem!.role)
@@ -74,32 +74,39 @@ export default function GroupPage() {
   }
 
   return (
-    <div className="col">
-      <div className="cover" style={g.cover_url ? { backgroundImage: `url("${g.cover_url}")` } : undefined} />
-      <div className="card col" style={{ gap: 8 }}>
-        <div className="row"><b className="grow" style={{ fontSize: 20 }}>{g.name}</b><span className="pill">{g.privacy === 'public' ? 'عامة' : 'خاصة'}</span></div>
-        {g.description && <div className="body">{g.description}</div>}
-        <div className="mut">{count} عضو</div>
-        <div className="row">
-          {!mem && <button className="btn p" onClick={join}>{g.privacy === 'public' ? 'انضمام' : 'طلب انضمام'}</button>}
-          {mem?.status === 'pending' && <span className="mut">طلبك بانتظار موافقة المشرف</span>}
-          {active && mem!.role !== 'owner' && <button className="btn" onClick={leave}>مغادرة</button>}
-          {(mem?.role === 'owner' || profile?.role === 'admin') && <button className="btn danger" onClick={del}>حذف المجموعة</button>}
+    <>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ height: 150, background: g.cover_url ? `center/cover url("${g.cover_url}")` : gcolor(g.name) }} />
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="row" style={{ alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ marginTop: -44, border: '4px solid #fff', borderRadius: 20, background: '#fff' }}><Avatar name={g.name} url={g.cover_url} size={72} square /></div>
+            <div className="grow" style={{ lineHeight: 1.4 }}>
+              <b style={{ fontSize: 22 }}>{g.name}</b>
+              <div className="mut">{g.privacy === 'public' ? 'مجموعة عامة' : 'مجموعة خاصة'} · {count} عضو</div>
+            </div>
+          </div>
+          {g.description && <div className="body" style={{ fontSize: 15 }}>{g.description}</div>}
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            {!mem && <button className="btn p" onClick={join}>{g.privacy === 'public' ? 'انضم' : 'طلب انضمام'}</button>}
+            {mem?.status === 'pending' && <span className="pill">طلبك بانتظار موافقة المشرف</span>}
+            {active && mem!.role !== 'owner' && <button className="btn" onClick={leave}>مغادرة المجموعة</button>}
+            {(mem?.role === 'owner' || profile?.role === 'admin') && <button className="btn danger" onClick={del}>حذف المجموعة</button>}
+          </div>
         </div>
       </div>
       <Err>{err}</Err>
       {isAdmin && pend.length > 0 && (
-        <div className="card col"><b>طلبات الانضمام ({pend.length})</b>
+        <div className="crd col"><b>طلبات الانضمام ({pend.length})</b>
           {pend.map((r) => (
-            <div key={r.user_id} className="row"><Avatar name={r.profiles?.name} url={r.profiles?.avatar_url} size={34} /><span className="grow">{r.profiles?.name}</span>
+            <div key={r.user_id} className="row"><Avatar name={r.profiles?.name} url={r.profiles?.avatar_url} size={40} /><span className="grow">{r.profiles?.name}</span>
               <button className="btn p sm" onClick={() => decide(r.user_id, true)}>قبول</button>
               <button className="btn sm" onClick={() => decide(r.user_id, false)}>رفض</button></div>
           ))}
         </div>
       )}
-      {active && <Composer groupId={g.id} onPosted={load} />}
-      {posts.length === 0 && <div className="card mut">مفيش بوستات لسه.</div>}
+      {active && <Composer groups={[{ id: g.id, name: g.name }]} defaultGroup={g.id} onPosted={load} />}
+      {posts.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش بوستات لسه.</div>}
       {posts.map((p) => <PostCard key={p.id} post={p} liked={liked.has(p.id)} canModerate={isAdmin || staff} onDeleted={(x) => setPosts((l) => l.filter((y) => y.id !== x))} />)}
-    </div>
+    </>
   )
 }

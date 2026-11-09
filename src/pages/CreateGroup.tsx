@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, errMsg, isPremium, uploadImage } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { Err } from '../components/ui'
+import { Err } from '../lib/ui'
 
 export default function CreateGroup() {
   const { session, profile } = useAuth()
@@ -29,7 +29,7 @@ export default function CreateGroup() {
   }
 
   return (
-    <form className="card col" onSubmit={submit}>
+    <form className="card col" style={{ gap: 14 }} onSubmit={submit}>
       <b style={{ fontSize: 20 }}>مجموعة جديدة</b>
       <div className="okmsg">{isPremium(profile) ? 'حسابك مميز: تقدر تنشئ لحد 10 مجموعات.' : <>الحساب المجاني ينشئ مجموعة واحدة. <Link to="/plans"><u>رقّي حسابك</u></Link> لإنشاء حتى 10.</>}</div>
       <input className="in" placeholder="اسم المجموعة" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
