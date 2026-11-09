@@ -4,7 +4,7 @@ import { supabase, errMsg, uploadImage, type Group, type Post } from '../lib/sup
 import { useAuth } from '../lib/auth'
 import PostCard from '../components/PostCard'
 import Composer from '../components/Composer'
-import { Avatar, Err, Icon, Name, gcolor } from '../lib/ui'
+import { Avatar, Err, Icon, Name, gcolor, useIsMobile } from '../lib/ui'
 import { POST_SELECT, likedSet } from './Home'
 import { useFriends } from '../lib/friends'
 
@@ -24,6 +24,7 @@ export default function GroupPage() {
   const [pend, setPend] = useState<Pending[]>([])
   const [err, setErr] = useState('')
   const [missing, setMissing] = useState(false)
+  const mobile = useIsMobile()
   const [tab, setTab] = useState<'talk' | 'media' | 'members'>('talk')
   const [members, setMembers] = useState<Member[]>([])
   const [media, setMedia] = useState<{ id: string; image_url: string }[]>([])
@@ -136,22 +137,21 @@ export default function GroupPage() {
   return (
     <>
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ height: 180, position: 'relative', background: g.cover_url ? `center/cover url("${g.cover_url}")` : gcolor(g.name) }}>
+        <div style={{ height: mobile ? 170 : 330, position: 'relative', background: g.cover_url ? `center/cover url("${g.cover_url}")` : gcolor(g.name) }}>
           {isAdmin && (
             <label className="btn sm" style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الصورة
               <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => changeCover(e.target.files?.[0])} />
             </label>
           )}
         </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="row" style={{ alignItems: 'flex-start', gap: 14 }}>
-            <div style={{ position: 'relative', marginTop: -44, border: '4px solid #fff', borderRadius: 20, background: '#fff' }}><Avatar name={g.name} url={g.cover_url} size={72} square /></div>
-            <div className="grow" style={{ lineHeight: 1.4 }}>
-              <b style={{ fontSize: 22 }}>{g.name}</b>
+        <div style={{ padding: mobile ? '0 14px 12px' : '0 32px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="row" style={{ alignItems: 'flex-end', gap: mobile ? 12 : 20, flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', marginTop: mobile ? -50 : -84, border: '5px solid #fff', borderRadius: mobile ? 28 : 40, background: '#fff' }}><Avatar name={g.name} url={g.cover_url} size={mobile ? 100 : 168} square /></div>
+            <div className="grow" style={{ lineHeight: 1.5, paddingBottom: 8 }}>
+              <b style={{ fontSize: mobile ? 24 : 34 }}>{g.name}</b>
               <div className="mut">{g.privacy === 'public' ? 'مجموعة عامة' : 'مجموعة خاصة'} · {count} عضو</div>
             </div>
           </div>
-          {g.description && <div className="body" style={{ fontSize: 15 }}>{g.description}</div>}
           <div className="row" style={{ flexWrap: 'wrap' }}>
             {!mem && <button className="btn p" onClick={join}>{g.privacy === 'public' ? 'انضم' : 'طلب انضمام'}</button>}
             {mem?.status === 'pending' && <span className="pill">طلبك بانتظار موافقة المشرف</span>}
@@ -181,7 +181,17 @@ export default function GroupPage() {
         </div>
       </div>
       <Err>{err}</Err>
-      {tab === 'talk' && <>
+      {tab === 'talk' && <div className="pgrid pflip">
+      <aside className="col pside" style={{ gap: 16 }}>
+        <div className="crd col" style={{ gap: 10 }}>
+          <b style={{ fontSize: 18 }}>عن المجموعة</b>
+          {g.description ? <div className="body">{g.description}</div> : <span className="mut">مفيش وصف للمجموعة.</span>}
+          <div className="mut">{g.privacy === 'public' ? '🌐 مجموعة عامة: أي حد ينضم ويشوف البوستات' : '🔒 مجموعة خاصة: الانضمام بموافقة المشرف'}</div>
+          <div className="mut">{count} عضو</div>
+          <div className="mut">تأسست في {new Date(g.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long' })}</div>
+        </div>
+      </aside>
+      <div className="col" style={{ gap: 16, minWidth: 0 }}>
       {isAdmin && pend.length > 0 && (
         <div className="crd col"><b>طلبات الانضمام ({pend.length})</b>
           {pend.map((r) => (
@@ -193,8 +203,10 @@ export default function GroupPage() {
       )}
       {active && <Composer groups={[{ id: g.id, name: g.name }]} defaultGroup={g.id} onPosted={load} />}
       {posts.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش بوستات لسه.</div>}
-      {posts.map((p) => <PostCard key={p.id} post={p} liked={liked.has(p.id)} canModerate={isAdmin || staff} onDeleted={(x) => setPosts((l) => l.filter((y) => y.id !== x))} />)}
-      </>}
+      {posts.map((p) => <PostCard key={p.id} post={p} hideGroup liked={liked.has(p.id)} canModerate={isAdmin || staff} onDeleted={(x) => setPosts((l) => l.filter((y) => y.id !== x))} />)}
+      </div>
+      </div>}
+      {tab !== 'talk' && <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {tab === 'media' && (media.length === 0
         ? <div className="crd mut" style={{ textAlign: 'center' }}>مفيش صور أو وسائط لسه.</div>
         : <div className="crd" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 8 }}>
@@ -215,6 +227,7 @@ export default function GroupPage() {
           ))}
         </div>
       )}
+      </div>}
     </>
   )
 }

@@ -73,16 +73,16 @@ select pg_temp.t('A 6000-char post', format($q$insert into posts(group_id,author
 
 -- ===== personal posts =====
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
-select pg_temp.t('AUTH personal post (group null)', $q$insert into posts(id,group_id,author_id,body) values('55555555-5555-5555-5555-555555555555',null,'00000000-0000-0000-0000-00000000000c','mine')$q$, true);
-select pg_temp.t('AUTH likes own personal post', $q$insert into likes(post_id,user_id) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000c')$q$, true);
-select pg_temp.t('AUTH comments on own personal post', $q$insert into comments(post_id,author_id,body) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000c','c')$q$, true);
+select pg_temp.t('AUTH personal post (group null)', $q$insert into posts(id,group_id,author_id,body) values('66666666-6666-6666-6666-666666666666',null,'00000000-0000-0000-0000-00000000000c','mine')$q$, true);
+select pg_temp.t('AUTH likes own personal post', $q$insert into likes(post_id,user_id) values('66666666-6666-6666-6666-666666666666','00000000-0000-0000-0000-00000000000c')$q$, true);
+select pg_temp.t('AUTH comments on own personal post', $q$insert into comments(post_id,author_id,body) values('66666666-6666-6666-6666-666666666666','00000000-0000-0000-0000-00000000000c','c')$q$, true);
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
-select pg_temp.t('OTHER sees A personal post (must be 0)', $q$do $d$ begin if (select count(*) from posts where id='55555555-5555-5555-5555-555555555555')>0 then raise exception 'LEAK'; end if; end $d$$q$, true);
-select pg_temp.t('OTHER comments on A personal post', $q$insert into comments(post_id,author_id,body) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000a','x')$q$, false);
-select pg_temp.t('OTHER likes A personal post', $q$insert into likes(post_id,user_id) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000a')$q$, false);
-select pg_temp.t('OTHER deletes A personal post', $q$do $d$ begin delete from posts where id='55555555-5555-5555-5555-555555555555'; if found then raise exception 'DEL'; end if; end $d$$q$, true);
+select pg_temp.t('OTHER sees A personal post (must be 0)', $q$do $d$ begin if (select count(*) from posts where id='66666666-6666-6666-6666-666666666666')>0 then raise exception 'LEAK'; end if; end $d$$q$, true);
+select pg_temp.t('OTHER comments on A personal post', $q$insert into comments(post_id,author_id,body) values('66666666-6666-6666-6666-666666666666','00000000-0000-0000-0000-00000000000a','x')$q$, false);
+select pg_temp.t('OTHER likes A personal post', $q$insert into likes(post_id,user_id) values('66666666-6666-6666-6666-666666666666','00000000-0000-0000-0000-00000000000a')$q$, false);
+select pg_temp.t('OTHER deletes A personal post', $q$do $d$ begin delete from posts where id='66666666-6666-6666-6666-666666666666'; if found then raise exception 'DEL'; end if; end $d$$q$, true);
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
-select pg_temp.t('admin sees personal post', $q$do $d$ begin if (select count(*) from posts where id='55555555-5555-5555-5555-555555555555')=0 then raise exception 'NO'; end if; end $d$$q$, true);
+select pg_temp.t('admin sees personal post', $q$do $d$ begin if (select count(*) from posts where id='66666666-6666-6666-6666-666666666666')=0 then raise exception 'NO'; end if; end $d$$q$, true);
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
 select pg_temp.t('AUTH personal post as B (spoof)', $q$insert into posts(group_id,author_id,body) values(null,'00000000-0000-0000-0000-00000000000b','x')$q$, false);
 -- anon
@@ -118,5 +118,23 @@ select pg_temp.t('I: B accepts invite', $q$select accept_group_invite('33333333-
 select pg_temp.t('I: B is now active member', $q$do $d$ begin if not is_member('33333333-3333-3333-3333-333333333333') then raise exception 'no'; end if; end $d$$q$, true);
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
 select pg_temp.t('I: C accepts nonexistent invite', $q$select accept_group_invite('33333333-3333-3333-3333-333333333333')$q$, false);
+reset role;
+reset role;
+-- A and B are friends (accepted) from earlier tests; C is not friend of A. A has personal post? create fresh as A
+set session_replication_role = replica;
+insert into posts(id,group_id,author_id,body) values('99999999-9999-9999-9999-999999999999',null,'00000000-0000-0000-0000-00000000000a','friends-only personal') on conflict do nothing;
+set session_replication_role = origin;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('P4: friend B sees A personal post', $q$do $d$ begin if (select count(*) from posts where id='99999999-9999-9999-9999-999999999999')<>1 then raise exception 'no'; end if; end $d$$q$, true);
+select pg_temp.t('P4: friend B likes it', $q$insert into likes(post_id,user_id) values('99999999-9999-9999-9999-999999999999','00000000-0000-0000-0000-00000000000b')$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.t('P4: stranger C cannot see it', $q$do $d$ begin if (select count(*) from posts where id='99999999-9999-9999-9999-999999999999')<>0 then raise exception 'LEAK'; end if; end $d$$q$, true);
+select pg_temp.t('P4: stranger C cannot like it', $q$insert into likes(post_id,user_id) values('99999999-9999-9999-9999-999999999999','00000000-0000-0000-0000-00000000000c')$q$, false);
+select pg_temp.t('P4: C sees accepted friendship A-B', $q$do $d$ begin if (select count(*) from friendships where status='accepted')<1 then raise exception 'no'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('P4: A edits bio', $q$update profiles set bio='hi', cover_url='http://x/y.png' where id='00000000-0000-0000-0000-00000000000a'$q$, true);
+select pg_temp.t('P4: A edits B bio', $q$do $d$ begin update profiles set bio='hack' where id='00000000-0000-0000-0000-00000000000b'; if not found then raise exception 'zero'; end if; end $d$$q$, false);
+select pg_temp.t('P4: A bio too long', $q$update profiles set bio=repeat('x',301) where id='00000000-0000-0000-0000-00000000000a'$q$, false);
 reset role;
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

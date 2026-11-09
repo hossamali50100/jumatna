@@ -8,7 +8,7 @@ import Home from './pages/Home'
 import Discover from './pages/Discover'
 import CreateGroup from './pages/CreateGroup'
 import GroupPage from './pages/GroupPage'
-import Profile from './pages/Profile'
+import UserPage from './pages/UserPage'
 import Plans from './pages/Plans'
 import MyGroups from './pages/MyGroups'
 import Friends from './pages/Friends'
@@ -37,7 +37,8 @@ export default function App() {
         <Route path="discover" element={<Discover />} />
         <Route path="create" element={<CreateGroup />} />
         <Route path="g/:id" element={<GroupPage />} />
-        <Route path="profile" element={<Profile />} />
+        <Route path="profile" element={<UserPage />} />
+        <Route path="u/:id" element={<UserPage />} />
         <Route path="plans" element={<Plans />} />
         <Route path="groups" element={<MyGroups />} />
         <Route path="friends" element={<Friends />} />

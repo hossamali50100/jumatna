@@ -23,6 +23,7 @@ function Desktop() {
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)
   }, [])
   const prem = isPremium(profile)
+  const wide = /^\/(profile|u\/|g\/)/.test(loc.pathname) // صفحات البروفايل بعرض كامل زي فيسبوك
   const tabs = [
     { to: '/', end: true, label: 'الرئيسية', i: 'home' },
     { to: '/groups', label: 'مجموعاتي', i: 'groups' },
@@ -65,17 +66,17 @@ function Desktop() {
           </div>
         </div>
       </header>
-      <div className="dbody">
-        <aside className="dside">
+      <div className={wide ? 'dbody wide' : 'dbody'}>
+        {!wide && <aside className="dside">
           <b style={{ padding: '4px 12px', fontSize: 15 }}>مجموعاتك</b>
           {groups.filter((g) => g.myStatus === 'active').slice(0, 6).map((g) => (
             <Link key={g.id} className="nav" to={`/g/${g.id}`}><Avatar name={g.name} url={g.cover_url} size={36} square />{g.name}</Link>
           ))}
           <Link className="nav" to="/groups" style={{ color: '#111111', fontWeight: 600 }}>عرض كل مجموعاتي</Link>
           <Link className="btn p" to="/create" style={{ marginTop: 8 }}>+ إنشاء مجموعة</Link>
-        </aside>
+        </aside>}
         <main className="dmain"><Outlet /></main>
-        {!prem && (
+        {!prem && !wide && (
           <aside className="dright">
             <div className="card col" style={{ gap: 10 }}>
               <div className="row" style={{ gap: 8 }}><span className="pill">ترقية</span><Check /></div>

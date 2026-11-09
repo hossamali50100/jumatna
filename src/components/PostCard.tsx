@@ -6,7 +6,7 @@ import { Avatar, Err, Icon, Name, timeAgo } from '../lib/ui'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
-export default function PostCard({ post, liked, canModerate, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; onDeleted: (id: string) => void }) {
+export default function PostCard({ post, liked, canModerate, hideGroup, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
   const me = session!.user.id
   const [isLiked, setLiked] = useState(liked)
@@ -75,19 +75,12 @@ export default function PostCard({ post, liked, canModerate, onDeleted }: { post
   return (
     <article className="crd">
       <div className="row">
-        {post.group_id ? (<>
-          <Link to={`/g/${post.group_id}`}><Avatar name={gname} size={44} square /></Link>
-          <div className="grow" style={{ lineHeight: 1.5 }}>
-            <Link to={`/g/${post.group_id}`}><b>{gname}</b></Link>
-            <div className="mut"><Name p={post.profiles} /> · {timeAgo(post.created_at)}</div>
-          </div>
-        </>) : (<>
-          <Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} />
-          <div className="grow" style={{ lineHeight: 1.5 }}>
-            <Name p={post.profiles} />
-            <div className="mut">منشور شخصي · {timeAgo(post.created_at)}</div>
-          </div>
-        </>)}
+        <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>
+        <div className="grow" style={{ lineHeight: 1.5 }}>
+          {post.group_id && !hideGroup && <Link to={`/g/${post.group_id}`} className="mut" style={{ display: 'block', fontSize: 13 }}>{gname}</Link>}
+          <Link to={`/u/${post.author_id}`}><Name p={post.profiles} /></Link>
+          <div className="mut">{!post.group_id && 'منشور شخصي · '}{timeAgo(post.created_at)}</div>
+        </div>
         <div ref={mref} style={{ position: 'relative' }}>
           <button className="mi" aria-label="خيارات البوست" onClick={() => setMenu(!menu)}><Icon n="more" /></button>
           {menu && (
@@ -115,10 +108,10 @@ export default function PostCard({ post, liked, canModerate, onDeleted }: { post
           {cms.length === 0 && <div className="mut" style={{ textAlign: 'center' }}>كن أول من يعلّق.</div>}
           {cms.map((c) => (
             <div key={c.id} className="row" style={{ alignItems: 'flex-start' }}>
-              <Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={36} />
+              <Link to={`/u/${c.author_id}`}><Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={36} /></Link>
               <div className="grow">
                 <div style={{ background: '#EFEFF1', borderRadius: 16, padding: '8px 14px', fontSize: 15 }}>
-                  <Name p={c.profiles} /><div className="body">{c.body}</div>
+                  <Link to={`/u/${c.author_id}`}><Name p={c.profiles} /></Link><div className="body">{c.body}</div>
                 </div>
                 <div className="mut" style={{ padding: '2px 8px' }}>{timeAgo(c.created_at)}
                   {(c.author_id === me || canModerate || staff) && <> · <button style={{ background: 'none', border: 0, color: '#C0392B', cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => delComment(c.id)}>حذف</button></>}

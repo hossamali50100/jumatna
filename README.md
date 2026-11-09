@@ -72,3 +72,8 @@ Supabase ← SQL Editor ← New snippet ← الصق محتوى الملف ← R
 
 شغّل ملف `supabase/migrations/003_friends_invites.sql` في Supabase ← SQL Editor ← New snippet ← الصق ← Run.
 بعدها: صفحة الأصدقاء (بحث، طلب صداقة، قبول)، وزر "دعوة" جوه المجموعة بيدعو أصدقاءك، وزر "مشاركة" بينسخ الرابط.
+
+## تحديث: الملف الشخصي (مرة واحدة)
+
+شغّل `supabase/migrations/004_profiles.sql` في SQL Editor (بعد 002 و003). بيضيف النبذة وصورة الغلاف، ويخلي المنشورات الشخصية تظهر لأصدقاء صاحبها.
+ملف `src/pages/Profile.tsx` القديم اتشال (اتحل محله `UserPage.tsx`): لو لسه موجود على GitHub امسحه.
