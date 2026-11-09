@@ -21,7 +21,7 @@
 
 ## الخطوة 4 — الرفع على Cloudflare Pages (مجاني)
 1. dash.cloudflare.com ← **Workers & Pages ← Create ← Pages ← Connect to Git** ← اختار الريبو.
-2. الإعدادات: Framework = **Vite** (أو Build command: `npm run build` و Output directory: `dist`).
+2. الإعدادات: Framework = **Vite** (أو Build command: `npm run build` — ولو الواجهة طلبت Deploy command سيبه `npx wrangler deploy`، وملف `wrangler.jsonc` موجود في المشروع).
 3. في **Environment variables** ضيف: `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY` بقيمك من الخطوة 1.
 4. **Save and Deploy**. هتاخد رابط `xxx.pages.dev`. لاحقًا اربط الدومين من **Custom domains**.
 5. ارجع لـ Supabase ← URL Configuration وحط رابط الموقع الحقيقي.
