@@ -37,7 +37,7 @@ export default function PostCard({ post, liked, canModerate, onDeleted }: { post
   }
   const loadComments = async () => {
     const { data, error } = await supabase.from('comments')
-      .select('id,body,created_at,author_id,profiles(name,avatar_url,plan,plan_until)')
+      .select('id,body,created_at,author_id,profiles!author_id(name,avatar_url,plan,plan_until)')
       .eq('post_id', post.id).order('created_at').limit(100)
     if (error) setErr(errMsg(error)); else setCms((data as unknown as Cm[]) ?? [])
   }
@@ -75,11 +75,19 @@ export default function PostCard({ post, liked, canModerate, onDeleted }: { post
   return (
     <article className="crd">
       <div className="row">
-        <Link to={`/g/${post.group_id}`}><Avatar name={gname} size={44} square /></Link>
-        <div className="grow" style={{ lineHeight: 1.5 }}>
-          <Link to={`/g/${post.group_id}`}><b>{gname}</b></Link>
-          <div className="mut"><Name p={post.profiles} /> · {timeAgo(post.created_at)}</div>
-        </div>
+        {post.group_id ? (<>
+          <Link to={`/g/${post.group_id}`}><Avatar name={gname} size={44} square /></Link>
+          <div className="grow" style={{ lineHeight: 1.5 }}>
+            <Link to={`/g/${post.group_id}`}><b>{gname}</b></Link>
+            <div className="mut"><Name p={post.profiles} /> · {timeAgo(post.created_at)}</div>
+          </div>
+        </>) : (<>
+          <Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} />
+          <div className="grow" style={{ lineHeight: 1.5 }}>
+            <Name p={post.profiles} />
+            <div className="mut">منشور شخصي · {timeAgo(post.created_at)}</div>
+          </div>
+        </>)}
         <div ref={mref} style={{ position: 'relative' }}>
           <button className="mi" aria-label="خيارات البوست" onClick={() => setMenu(!menu)}><Icon n="more" /></button>
           {menu && (

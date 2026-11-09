@@ -27,7 +27,7 @@ function Desktop() {
     { to: '/', end: true, label: 'الرئيسية', i: 'home' },
     { to: '/groups', label: 'مجموعاتي', i: 'groups' },
     { to: '/discover', label: 'اكتشف', i: 'compass' },
-    { to: '/soon/friends', label: 'الأصدقاء', i: 'friends' },
+    { to: '/friends', label: 'الأصدقاء', i: 'friends' },
   ]
   return (
     <>
@@ -75,6 +75,16 @@ function Desktop() {
           <Link className="btn p" to="/create" style={{ marginTop: 8 }}>+ إنشاء مجموعة</Link>
         </aside>
         <main className="dmain"><Outlet /></main>
+        {!prem && (
+          <aside className="dright">
+            <div className="card col" style={{ gap: 10 }}>
+              <div className="row" style={{ gap: 8 }}><span className="pill">ترقية</span><Check /></div>
+              <b style={{ fontSize: 17 }}>قم بترقية حسابك</b>
+              <div className="mut" style={{ lineHeight: 1.7 }}>أنشئ حتى 10 مجموعات واحصل على علامة الحساب المميز الخضراء بـ 100 ج / شهر.</div>
+              <Link className="btn p" to="/plans">اعرف المزيد</Link>
+            </div>
+          </aside>
+        )}
       </div>
     </>
   )
@@ -117,7 +127,7 @@ function Mobile() {
           {item('/discover', 'اكتشف مجموعات', 'compass')}
           {item('/create', 'إنشاء مجموعة', 'plus')}
           <div className="hr" />
-          {item('/soon/friends', 'الأصدقاء', 'friends')}
+          {item('/friends', 'الأصدقاء', 'friends')}
           {item('/soon/notifications', 'الإشعارات', 'bell')}
           <div className="hr" />
           {item('/plans', 'الباقات والترقية', 'card')}

@@ -70,8 +70,53 @@ do $$ begin for i in 1..17 loop insert into posts(group_id,author_id,body) value
 select pg_temp.t('A 20th post ok', $q$insert into posts(group_id,author_id,body) values('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-00000000000a','p19')$q$, true);
 select pg_temp.t('A 21st post rate-limited', $q$insert into posts(group_id,author_id,body) values('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-00000000000a','p20')$q$, false);
 select pg_temp.t('A 6000-char post', format($q$insert into posts(group_id,author_id,body) values('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-00000000000a',%L)$q$, repeat('x',6000)), false);
+
+-- ===== personal posts =====
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.t('AUTH personal post (group null)', $q$insert into posts(id,group_id,author_id,body) values('55555555-5555-5555-5555-555555555555',null,'00000000-0000-0000-0000-00000000000c','mine')$q$, true);
+select pg_temp.t('AUTH likes own personal post', $q$insert into likes(post_id,user_id) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000c')$q$, true);
+select pg_temp.t('AUTH comments on own personal post', $q$insert into comments(post_id,author_id,body) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000c','c')$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('OTHER sees A personal post (must be 0)', $q$do $d$ begin if (select count(*) from posts where id='55555555-5555-5555-5555-555555555555')>0 then raise exception 'LEAK'; end if; end $d$$q$, true);
+select pg_temp.t('OTHER comments on A personal post', $q$insert into comments(post_id,author_id,body) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000a','x')$q$, false);
+select pg_temp.t('OTHER likes A personal post', $q$insert into likes(post_id,user_id) values('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-00000000000a')$q$, false);
+select pg_temp.t('OTHER deletes A personal post', $q$do $d$ begin delete from posts where id='55555555-5555-5555-5555-555555555555'; if found then raise exception 'DEL'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('admin sees personal post', $q$do $d$ begin if (select count(*) from posts where id='55555555-5555-5555-5555-555555555555')=0 then raise exception 'NO'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.t('AUTH personal post as B (spoof)', $q$insert into posts(group_id,author_id,body) values(null,'00000000-0000-0000-0000-00000000000b','x')$q$, false);
 -- anon
 reset role; set role anon;
 select pg_temp.t('anon reads profiles', $q$do $d$ begin if (select count(*) from profiles)>0 then raise exception 'LEAK'; end if; end $d$$q$, true);
+reset role;
+-- === friends & invites tests ===
+reset role;
+\set A '\'00000000-0000-0000-0000-00000000000a\''
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('F: A requests B', $q$insert into friendships(requester_id,addressee_id) values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b')$q$, true);
+select pg_temp.t('F: A requests self', $q$insert into friendships(requester_id,addressee_id) values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000a')$q$, false);
+select pg_temp.t('F: spoof requester', $q$insert into friendships(requester_id,addressee_id) values('00000000-0000-0000-0000-00000000000c','00000000-0000-0000-0000-00000000000a')$q$, false);
+select pg_temp.t('F: pre-accepted insert', $q$insert into friendships(requester_id,addressee_id,status) values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000c','accepted')$q$, false);
+select pg_temp.t('F: A self-accepts own request', $q$do $d$ begin update friendships set status='accepted' where requester_id='00000000-0000-0000-0000-00000000000a'; if not found then raise exception 'zero'; end if; end $d$$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.t('F: C cannot see A-B', $q$do $d$ begin if exists (select 1 from friendships where requester_id='00000000-0000-0000-0000-00000000000a' and addressee_id='00000000-0000-0000-0000-00000000000b') then raise exception 'LEAK'; end if; end $d$$q$, true);
+select pg_temp.t('F: C accepts A-B', $q$do $d$ begin update friendships set status='accepted' where requester_id='00000000-0000-0000-0000-00000000000a' and addressee_id='00000000-0000-0000-0000-00000000000b'; if not found then raise exception 'zero'; end if; end $d$$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('F: reverse dup as B->A', $q$insert into friendships(requester_id,addressee_id) values('00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000a')$q$, false);
+select pg_temp.t('F: B accepts', $q$do $d$ begin update friendships set status='accepted' where requester_id='00000000-0000-0000-0000-00000000000a' and addressee_id='00000000-0000-0000-0000-00000000000b'; if not found then raise exception 'zero'; end if; end $d$$q$, true);
+-- invites: group 3333 is private owned by A. B is not a member.
+reset role; update profiles set banned=false; delete from group_members where group_id='33333333-3333-3333-3333-333333333333' and user_id='00000000-0000-0000-0000-00000000000b'; set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('I: A invites non-friend C', $q$insert into group_invites(group_id,inviter_id,invitee_id) values('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000c')$q$, false);
+select pg_temp.t('I: A invites friend B to private', $q$insert into group_invites(group_id,inviter_id,invitee_id) values('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b')$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('I: B (non member) invites A to private', $q$insert into group_invites(group_id,inviter_id,invitee_id) values('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000a')$q$, false);
+select pg_temp.t('I: B cannot self-insert member active in private', $q$insert into group_members(group_id,user_id,role,status) values('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-00000000000b','member','active')$q$, false);
+select pg_temp.t('I: invited B sees private group name', $q$do $d$ begin if (select count(*) from groups where id='33333333-3333-3333-3333-333333333333')<>1 then raise exception 'no'; end if; end $d$$q$, true);
+select pg_temp.t('I: B accepts invite', $q$select accept_group_invite('33333333-3333-3333-3333-333333333333')$q$, true);
+select pg_temp.t('I: B is now active member', $q$do $d$ begin if not is_member('33333333-3333-3333-3333-333333333333') then raise exception 'no'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.t('I: C accepts nonexistent invite', $q$select accept_group_invite('33333333-3333-3333-3333-333333333333')$q$, false);
 reset role;
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

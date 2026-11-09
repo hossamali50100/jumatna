@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, errMsg, isPremium, uploadImage } from '../lib/supabase'
+import { supabase, errMsg, isPremium, uploadImage, type Post } from '../lib/supabase'
+import PostCard from '../components/PostCard'
+import Composer from '../components/Composer'
+import { POST_SELECT, likedSet } from './Home'
 import { useAuth } from '../lib/auth'
 import { Avatar, Check, Err } from '../lib/ui'
 
@@ -10,6 +13,17 @@ export default function Profile() {
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
+  const [posts, setPosts] = useState<Post[] | null>(null)
+  const [liked, setLiked] = useState<Set<string>>(new Set())
+  const uid = session?.user.id
+  const loadPosts = useCallback(async () => {
+    if (!uid) return
+    const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('author_id', uid).is('group_id', null).order('created_at', { ascending: false }).limit(30)
+    if (error) return setErr(errMsg(error))
+    const list = (data ?? []) as unknown as Post[]
+    setPosts(list); setLiked(await likedSet(list.map((p) => p.id), uid))
+  }, [uid])
+  useEffect(() => { loadPosts() }, [loadPosts])
   if (!profile) return null
   const prem = isPremium(profile)
 
@@ -41,6 +55,10 @@ export default function Profile() {
         <Err>{err}</Err>{ok && <div className="okmsg">{ok}</div>}
         <button className="btn p" disabled={busy || name.trim().length < 1 || name.trim() === profile.name} onClick={() => save({ name: name.trim() })}>حفظ الاسم</button>
       </div>
+      <b style={{ padding: '0 4px' }}>منشوراتي الشخصية</b>
+      <Composer groups={[]} allowPersonal onPosted={loadPosts} />
+      {posts?.length === 0 && <div className="card mut" style={{ textAlign: 'center' }}>لسه ما نشرتش حاجة على صفحتك.</div>}
+      {posts?.map((p) => <PostCard key={p.id} post={p} liked={liked.has(p.id)} onDeleted={(id) => setPosts((l) => l!.filter((x) => x.id !== id))} />)}
       <button className="btn line danger" onClick={signOut}>تسجيل الخروج</button>
     </div>
   )

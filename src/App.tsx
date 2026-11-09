@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { configured } from './lib/supabase'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
@@ -10,10 +11,20 @@ import GroupPage from './pages/GroupPage'
 import Profile from './pages/Profile'
 import Plans from './pages/Plans'
 import MyGroups from './pages/MyGroups'
+import Friends from './pages/Friends'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
   const { session, profile, loading, signOut } = useAuth()
+  const loc = useLocation()
+  const nav = useNavigate()
+  // رابط دعوة لمجموعة: نفتكره لحد ما الشخص يسجّل دخول وبعدين نوديه عليه
+  useEffect(() => {
+    try {
+      if (!session) { if (loc.pathname.startsWith('/g/')) sessionStorage.setItem('next', loc.pathname) }
+      else { const n = sessionStorage.getItem('next'); if (n) { sessionStorage.removeItem('next'); nav(n, { replace: true }) } }
+    } catch { /* التخزين مش متاح */ }
+  }, [session, loc.pathname, nav])
   if (!configured) return <div className="wrap"><div className="card">لازم تضيف VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY (راجع README).</div></div>
   if (loading) return <div className="wrap mut">جاري التحميل…</div>
   if (!session) return <Login />
@@ -29,6 +40,7 @@ export default function App() {
         <Route path="profile" element={<Profile />} />
         <Route path="plans" element={<Plans />} />
         <Route path="groups" element={<MyGroups />} />
+        <Route path="friends" element={<Friends />} />
         <Route path="soon/:what" element={<ComingSoon />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

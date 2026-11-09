@@ -20,7 +20,7 @@ export type Group = {
   cover_url: string | null; privacy: 'public' | 'private'; created_at: string
 }
 export type Post = {
-  id: string; group_id: string; author_id: string; body: string; image_url: string | null; created_at: string
+  id: string; group_id: string | null; author_id: string; body: string; image_url: string | null; created_at: string
   profiles: Pick<Profile, 'name' | 'avatar_url' | 'plan' | 'plan_until'> | null
   groups: { name: string } | null
   likes: { count: number }[]; comments: { count: number }[]
@@ -36,7 +36,7 @@ export async function uploadImage(file: File, uid: string): Promise<string> {
   const ext = file.type.split('/')[1]
   const path = `${uid}/${crypto.randomUUID()}.${ext}`
   const { error } = await supabase.storage.from('media').upload(path, file, { contentType: file.type })
-  if (error) throw new Error('تعذّر رفع الصورة.')
+  if (error) throw new Error('تعذّر رفع الصورة: ' + error.message)
   return supabase.storage.from('media').getPublicUrl(path).data.publicUrl
 }
 
