@@ -4,18 +4,20 @@ import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import SupportThread from '../components/SupportThread'
 import { Avatar, Err, timeAgo } from '../lib/ui'
-import { topicOf } from '../lib/topics'
+import { topicOf, TOPICS } from '../lib/topics'
 
 type Row = { user_id: string; body: string; image_url: string | null; created_at: string; from_staff: boolean; topic?: string | null; profiles: { name: string; avatar_url: string | null; plan: string } | null }
 
 // صندوق الدعم للإدارة: كل المحادثات + الرد (مؤقتًا لحد لوحة الأدمن الكاملة)
-export default function StaffSupport() {
+export default function StaffSupport({ onlyTopic }: { onlyTopic?: string }) {
   const { profile } = useAuth()
   const [convs, setConvs] = useState<Row[]>([])
   const [sel, setSel] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [topics, setTopics] = useState<Record<string, string>>({})
+  const [anyT, setAnyT] = useState<Record<string, Set<string>>>({})   // كل المواضيع اللي اختارها كل عميل
+  const [flt, setFlt] = useState<string>(onlyTopic ?? 'all')
 
   const load = useCallback(async () => {
     const q = async (cols: string) => (await supabase.from('support_messages').select(cols).order('created_at', { ascending: false }).limit(300)) as unknown as { data: Row[] | null; error: { message: string } | null }
@@ -24,12 +26,14 @@ export default function StaffSupport() {
     if (error) return setErr(errMsg(error))
     const seen = new Set<string>(); const list: Row[] = []
     const tp: Record<string, string> = {}   // آخر موضوع اختاره كل عميل
-    for (const r of data ?? []) { if (r.topic && !tp[r.user_id]) tp[r.user_id] = r.topic; if (!seen.has(r.user_id)) { seen.add(r.user_id); list.push(r) } }
-    setTopics(tp); setConvs(list)
+    const all: Record<string, Set<string>> = {}
+    for (const r of data ?? []) { if (r.topic) (all[r.user_id] ??= new Set()).add(r.topic); if (r.topic && !tp[r.user_id]) tp[r.user_id] = r.topic; if (!seen.has(r.user_id)) { seen.add(r.user_id); list.push(r) } }
+    setTopics(tp); setAnyT(all); setConvs(list)
   }, [])
   useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t) }, [load])
 
   if (!profile || profile.role === 'user') return <Navigate to="/" replace />
+  const shown = flt === 'all' ? convs : convs.filter((c) => anyT[c.user_id]?.has(flt))
   const cur = convs.find((c) => c.user_id === sel)
 
   const setPlan = async (plan: 'premium' | 'free') => {
@@ -43,8 +47,15 @@ export default function StaffSupport() {
     <div className="pgrid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,2fr)' }}>
       <div className="crd col">
         <b>صندوق الدعم</b>
-        {convs.length === 0 && <span className="mut">مفيش محادثات.</span>}
-        {convs.map((c) => (
+        {!onlyTopic && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[{ k: 'all', icon: '', label: 'الكل' }, ...TOPICS].map((t) => (
+              <button key={t.k} className={'adm-chip' + (flt === t.k ? ' on' : '')} style={{ fontSize: 12, padding: '3px 10px' }} onClick={() => setFlt(t.k)}>{t.icon} {t.label}</button>
+            ))}
+          </div>
+        )}
+        {shown.length === 0 && <span className="mut">مفيش محادثات.</span>}
+        {shown.map((c) => (
           <button key={c.user_id} className="row" onClick={() => { setSel(c.user_id); setOk('') }} style={{ fontFamily: 'inherit', textAlign: 'start', background: sel === c.user_id ? '#EFEFF1' : 'none', border: 0, borderRadius: 12, padding: 8, cursor: 'pointer' }}>
             <Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={40} />
             <span className="grow" style={{ minWidth: 0 }}><b>{c.profiles?.name}</b>{topicOf(topics[c.user_id]) && <span className="pill" style={{ marginInlineStart: 8, fontSize: 12 }}>{topicOf(topics[c.user_id])!.icon} {topicOf(topics[c.user_id])!.label}</span>}<div className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.from_staff ? 'أنت: ' : ''}{c.body || '📷 صورة'}</div></span>

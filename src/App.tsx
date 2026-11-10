@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { configured } from './lib/supabase'
 import { useAuth } from './lib/auth'
+import { usePlatform } from './lib/platform'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -16,11 +17,13 @@ import Friends from './pages/Friends'
 import Messages from './pages/Messages'
 import Support from './pages/Support'
 import StaffSupport from './pages/StaffSupport'
+import AdminApp from './admin/AdminApp'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
   const { session, profile, loading, signOut } = useAuth()
   const loc = useLocation()
+  usePlatform()   // يطبّق لون وهوية المنصة على الموقع كله
   const nav = useNavigate()
   // رابط دعوة لمجموعة: نفتكره لحد ما الشخص يسجّل دخول وبعدين نوديه عليه
   useEffect(() => {
@@ -30,6 +33,7 @@ export default function App() {
     } catch { /* التخزين مش متاح */ }
   }, [session, loc.pathname, nav])
   if (!configured) return <div className="wrap"><div className="card">لازم تضيف VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY (راجع README).</div></div>
+  if (loc.pathname === '/admin' || loc.pathname.startsWith('/admin/')) return <AdminApp />
   if (loading) return <div className="wrap mut">جاري التحميل…</div>
   if (!session) return <Login />
   if (!profile) return <div className="wrap"><div className="card mut">جاري تجهيز حسابك… لو الصفحة فضلت كده أعد التحميل.</div></div>

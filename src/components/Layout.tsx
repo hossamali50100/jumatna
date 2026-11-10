@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { useMyGroups } from '../lib/groups'
 import { Badged, Avatar, Check, Icon, useIsMobile } from '../lib/ui'
 import { isPremium } from '../lib/supabase'
+import { usePlatform } from '../lib/platform'
 
 function PremName({ name, prem }: { name?: string; prem: boolean }) {
   return <span>{prem && <Check />}<b>{name}</b></span>
@@ -15,6 +16,7 @@ function PremName({ name, prem }: { name?: string; prem: boolean }) {
 
 function Desktop() {
   const { profile, signOut } = useAuth()
+  const pf = usePlatform()
   const loc = useLocation()
   const nav = useNavigate()
   const groups = useMyGroups(loc.pathname)
@@ -45,7 +47,7 @@ function Desktop() {
     <>
       <header className="dtop">
         <div className="row grow" style={{ gap: 10 }}>
-          <Link to="/" aria-label="الرئيسية" className="av" style={{ width: 42, height: 42, background: 'var(--brand)', fontSize: 22 }}>ج</Link>
+          <Link to="/" aria-label="الرئيسية" className="av" style={{ width: 42, height: 42, background: 'var(--brand)', fontSize: 22, overflow: 'hidden' }}>{pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0)}</Link>
           <form className="dsearch" onSubmit={(e) => { e.preventDefault(); nav(`/discover?q=${encodeURIComponent(q.trim())}`) }}>
             <Icon n="search" s={18} />
             <input placeholder="ابحث في جمعتنا" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث" />
@@ -74,6 +76,7 @@ function Desktop() {
                 </Link>
                 <div className="hr" />
                 <Link to="/plans"><Icon n="card" />الباقات والترقية</Link>
+                {profile && profile.role !== 'user' && <a href="/admin"><Icon n="card" />لوحة الإدارة</a>}
                 {profile && profile.role !== 'user' && <Link to="/staff/support"><Icon n="msg" />صندوق الدعم</Link>}
                 <button onClick={signOut}><Icon n="out" />تسجيل الخروج</button>
               </div>
@@ -83,29 +86,18 @@ function Desktop() {
       </header>
       <div className={loc.pathname.startsWith('/messages') ? 'dbody wide full' : wide ? 'dbody wide' : 'dbody'}>
         {!wide && <aside className="dside">
-          <b style={{ padding: '4px 12px', fontSize: 15 }}>مجموعاتك</b>
+          <Link className="nav fb" to="/profile"><Avatar name={profile?.name} url={profile?.avatar_url} size={36} /><b><PremName name={profile?.name} prem={prem} /></b></Link>
+          {!prem && <Link className="nav fb" to="/plans"><span className="sbi g"><Icon n="check" s={22} /></span><span>الترقية للحساب المميز<small>أنشئ حتى 10 مجموعات وعلامة خضراء</small></span></Link>}
+          <Link className="nav fb" to="/support"><span className="sbi"><Icon n="msg" s={22} on /></span><span>الدعم<small>مشكلة أو اقتراح أو سؤال</small></span></Link>
+          <div className="hr" style={{ margin: '8px 4px' }} />
+          <div className="sbh">مجموعاتك</div>
           {groups.filter((g) => g.myStatus === 'active').slice(0, 6).map((g) => (
-            <Link key={g.id} className="nav" to={`/g/${g.id}`}><Avatar name={g.name} url={g.cover_url} size={36} square />{g.name}</Link>
+            <Link key={g.id} className="nav fb" to={`/g/${g.id}`}><Avatar name={g.name} url={g.cover_url} size={36} square />{g.name}</Link>
           ))}
-          <Link className="nav" to="/groups" style={{ color: '#111111', fontWeight: 600 }}>عرض كل مجموعاتي</Link>
-          <Link className="btn p" to="/create" style={{ marginTop: 8 }}>+ إنشاء مجموعة</Link>
+          <Link className="nav fb" to="/groups"><span className="sbi gr"><Icon n="more" s={22} /></span>عرض كل مجموعاتي</Link>
+          <Link className="nav fb" to="/create"><span className="sbi gr"><Icon n="plus" s={22} /></span>إنشاء مجموعة</Link>
         </aside>}
         <main className="dmain"><Outlet /></main>
-        {!wide && (
-          <aside className="dright">
-            {!prem && <div className="card col" style={{ gap: 10 }}>
-              <div className="row" style={{ gap: 8 }}><span className="pill">ترقية</span><Check /></div>
-              <b style={{ fontSize: 17 }}>قم بترقية حسابك</b>
-              <div className="mut" style={{ lineHeight: 1.7 }}>أنشئ حتى 10 مجموعات واحصل على علامة الحساب المميز الخضراء.</div>
-              <Link className="btn p" to="/plans">اعرف المزيد</Link>
-            </div>}
-            <div className="card col" style={{ gap: 6 }}>
-              <b style={{ fontSize: 17 }}>الدعم</b>
-              <div className="mut" style={{ lineHeight: 1.7, marginBottom: 4 }}>عندك مشكلة أو اقتراح أو سؤال؟ تواصل معنا وإحنا هنساعدك.</div>
-              <Link className="btn p" to="/support">تواصل معنا</Link>
-            </div>
-          </aside>
-        )}
       </div>
     </>
   )
@@ -113,6 +105,7 @@ function Desktop() {
 
 function Mobile() {
   const { profile, signOut } = useAuth()
+  const pf = usePlatform()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
   const main = useRef<HTMLElement>(null)
@@ -127,8 +120,8 @@ function Mobile() {
   return (
     <div className="mroot">
       <header className="mbar">
-        <Link to="/" className="av" style={{ width: 36, height: 36, background: 'var(--brand)', fontSize: 18, borderRadius: 10 }}>ج</Link>
-        <b style={{ fontSize: 21, flex: 1 }}>جمعتنا</b>
+        <Link to="/" className="av" style={{ width: 36, height: 36, background: 'var(--brand)', fontSize: 18, borderRadius: 10, overflow: 'hidden' }}>{pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0)}</Link>
+        <b style={{ fontSize: 21, flex: 1 }}>{pf.name}</b>
         <Link to="/discover" className="mi" aria-label="بحث"><Icon n="search" /></Link>
         <button className="mi" aria-label="القائمة" onClick={() => setOpen(true)}><Badged n={bd.friends}><Icon n="menu" /></Badged></button>
       </header>
@@ -154,6 +147,7 @@ function Mobile() {
           {item('/soon/notifications', 'الإشعارات', 'bell')}
           <div className="hr" />
           {item('/plans', 'الباقات والترقية', 'card')}
+          {profile && profile.role !== 'user' && item('/admin', 'لوحة الإدارة', 'card')}
           {profile && profile.role !== 'user' && item('/staff/support', 'صندوق الدعم', 'msg')}
           <button onClick={signOut}><Icon n="out" /><span style={{ flex: 1 }}>تسجيل الخروج</span></button>
         </aside>
