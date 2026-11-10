@@ -225,4 +225,13 @@ select pg_temp.t('L: friend (D) sees locked friend rows', $q$do $d$ begin if not
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 select pg_temp.t('L: owner sees own memberships', $q$do $d$ begin if not exists (select 1 from group_members where user_id='00000000-0000-0000-0000-00000000000a') then raise exception 'no'; end if; end $d$$q$, true);
 reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('P: A heartbeats self (upsert)', $q$insert into presence(user_id,last_seen) values('00000000-0000-0000-0000-00000000000a',now()) on conflict (user_id) do update set last_seen = now()$q$, true);
+select pg_temp.t('P: A cannot write for B', $q$insert into presence(user_id) values('00000000-0000-0000-0000-00000000000b')$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('P: friend D sees A presence', $q$do $d$ begin if not exists (select 1 from presence where user_id='00000000-0000-0000-0000-00000000000a') then raise exception 'no'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.t('P: stranger cannot see presence', $q$do $d$ begin if exists (select 1 from presence) then raise exception 'LEAK'; end if; end $d$$q$, true);
+reset role;
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

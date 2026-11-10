@@ -61,7 +61,7 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error }: { 
         <button type="button" style={ib} aria-label="إيموجي" title="إيموجي" onClick={() => setEmoji((v) => !v)}>🙂</button>
         <input ref={inp} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => setBody(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
         {body.trim() || file
-          ? <button type="button" style={ib} aria-label="إرسال" title="إرسال" disabled={busy} onClick={() => send()}><Icon n="send" s={22} /></button>
+          ? <button type="button" style={ib} aria-label="إرسال" title="إرسال" disabled={busy} onClick={() => send()}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
           : <button type="button" style={ib} aria-label="لايك" title="لايك" disabled={busy} onClick={() => send('👍', null)}>👍</button>}
       </div>
     </div>

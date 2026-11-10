@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import DmThread from '../components/DmThread'
-import { Avatar, Err, Name, timeAgo, useIsMobile } from '../lib/ui'
+import { Avatar, AvatarOn, Err, Name, timeAgo, useIsMobile } from '../lib/ui'
+import { useOnline } from '../lib/presence'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
 type Row = { sender_id: string; recipient_id: string; body: string; image_url: string | null; created_at: string; read_at: string | null; s: P | null; r: P | null }
@@ -41,13 +42,14 @@ export default function Messages() {
     supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', other).maybeSingle().then(({ data }) => setCur((data as P) ?? null))
   }, [other])
 
+  const online = useOnline(convs.map((c) => c.other))
   const list = (
     <div className="crd col" style={{ gap: 6 }}>
       <b style={{ fontSize: 18 }}>الرسائل</b>
       {convs.length === 0 && <span className="mut">لسه مفيش رسائل. ادخل على صفحة أي شخص واضغط "إرسال رسالة".</span>}
       {convs.map((c) => (
         <Link key={c.other} to={`/messages/${c.other}`} className="row" style={{ borderRadius: 12, padding: 8, background: other === c.other ? '#EFEFF1' : 'none' }}>
-          <Avatar name={c.profile?.name} url={c.profile?.avatar_url} size={44} />
+          <AvatarOn online={online.has(c.other)}><Avatar name={c.profile?.name} url={c.profile?.avatar_url} size={44} /></AvatarOn>
           <span className="grow" style={{ minWidth: 0, fontWeight: c.unread ? 700 : 400 }}><Name p={c.profile} /><div className="mut" style={{ fontWeight: c.unread ? 700 : 400, color: c.unread ? '#111111' : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last.sender_id === uid ? 'أنت: ' : ''}{c.last.body || '📷 صورة'}</div></span>
           <span className="mut" style={{ fontSize: 12 }}>{timeAgo(c.last.created_at)}</span>
           {c.unread > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{c.unread}</span>}

@@ -641,6 +641,27 @@ create policy gm_select on public.group_members for select to authenticated
          or (public.group_is_public(group_id) and public.can_see_details(user_id)));
 notify pgrst, 'reload schema';
 
+-- ---------- (012) متصل الآن ----------
+-- آخر ظهور بيشوفه صاحبه وأصدقاؤه والإدارة بس (مش الغرباء).
+create table if not exists public.presence (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  last_seen timestamptz not null default now()
+);
+alter table public.presence enable row level security;
+drop policy if exists presence_select on public.presence;
+drop policy if exists presence_insert on public.presence;
+drop policy if exists presence_update on public.presence;
+create policy presence_select on public.presence for select to authenticated
+  using (user_id = auth.uid() or public.are_friends(user_id, auth.uid()) or public.is_staff());
+create policy presence_insert on public.presence for insert to authenticated
+  with check (user_id = auth.uid());
+create policy presence_update on public.presence for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+revoke all on public.presence from anon, authenticated;
+grant select, insert on public.presence to authenticated;
+grant update (last_seen) on public.presence to authenticated;
+notify pgrst, 'reload schema';
+
 -- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
 --   update public.profiles set role = 'admin'
 --   where id = (select id from auth.users where email = 'hossamali50100@gmail.com');

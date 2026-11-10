@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChatDockProvider } from './ChatDock'
 import { useBadges } from '../lib/badges'
+import { useHeartbeat } from '../lib/presence'
+import MessagesMenu from './MessagesMenu'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useMyGroups } from '../lib/groups'
@@ -18,10 +20,16 @@ function Desktop() {
   const groups = useMyGroups(loc.pathname)
   const [q, setQ] = useState('')
   const [menu, setMenu] = useState(false)
+  const [dms, setDms] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => setMenu(false), [loc.pathname])
+  const dref = useRef<HTMLDivElement>(null)
+  useHeartbeat()
+  useEffect(() => { setMenu(false); setDms(false) }, [loc.pathname])
   useEffect(() => {
-    const f = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false) }
+    const f = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false)
+      if (dref.current && !dref.current.contains(e.target as Node)) setDms(false)
+    }
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)
   }, [])
   const prem = isPremium(profile)
@@ -49,7 +57,10 @@ function Desktop() {
           ))}
         </nav>
         <div className="row grow" style={{ justifyContent: 'flex-end', gap: 12 }}>
-          <Link to="/messages" className="ibtn" aria-label="الرسائل" title="الرسائل"><Badged n={bd.msgs}><Icon n="msg" on={loc.pathname.startsWith('/messages')} /></Badged></Link>
+          <div ref={dref} style={{ position: 'relative' }}>
+            <button className="ibtn" aria-label="الرسائل" aria-expanded={dms} title="الرسائل" onClick={() => { setDms(!dms); setMenu(false) }}><Badged n={bd.msgs}><Icon n="msg" on={dms || loc.pathname.startsWith('/messages')} /></Badged></button>
+            {dms && <MessagesMenu onClose={() => setDms(false)} />}
+          </div>
           <Link to="/soon/notifications" className="ibtn" aria-label="الإشعارات" title="الإشعارات"><Icon n="bell" on={loc.pathname.startsWith('/soon/notifications')} /></Link>
           <div ref={ref} style={{ position: 'relative' }}>
             <button onClick={() => setMenu(!menu)} aria-label="حسابي" aria-expanded={menu} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%' }}>

@@ -40,6 +40,8 @@ const P: Record<string, string> = {
   image: 'M4 5h16v14H4zM8 10a1.500 1.500 0 100-3 1.500 1.500 0 000 3zM20 16l-5-5-8 8',
   check: 'M5 12l5 5 9-10',
   send: 'M4 12v7h16v-7M12 3v12M7 8l5-5 5 5',
+  expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  plane: 'M22 2L11 13M22 2l-7 20-4-9-9-4z',
   lock: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
   unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 017.500-2',
 }
@@ -82,12 +84,22 @@ export function timeAgo(iso: string) {
   return `منذ ${Math.floor(s / 86400)} يوم`
 }
 
-// نقطة إشعار حمرا بعدد فوق أيقونة
+// نقطة إشعار حمرا بعدد فوق أيقونة (صغيرة عشان ماتغطيش الأيقونة)
 export function Badged({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <span style={{ position: 'relative', display: 'inline-flex' }}>
       {children}
-      {n > 0 && <span aria-label={`${n} جديد`} style={{ position: 'absolute', top: -6, insetInlineEnd: -8, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: '#E5383B', color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1, border: '2px solid #fff', boxSizing: 'content-box' }}>{n > 9 ? '9+' : n}</span>}
+      {n > 0 && <span aria-label={`${n} جديد`} style={{ position: 'absolute', top: -7, insetInlineStart: -9, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8, background: '#E5383B', color: '#fff', fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1, boxShadow: '0 0 0 2px #fff', boxSizing: 'border-box' }}>{n > 9 ? '9+' : n}</span>}
+    </span>
+  )
+}
+
+// أفاتار مع نقطة خضراء لو الشخص متصل
+export function AvatarOn({ online, children }: { online?: boolean; children: React.ReactNode }) {
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}>
+      {children}
+      {online && <span aria-label="متصل الآن" title="متصل الآن" style={{ position: 'absolute', bottom: 0, insetInlineEnd: 0, width: 12, height: 12, borderRadius: '50%', background: '#31A24C', boxShadow: '0 0 0 2px #fff' }} />}
     </span>
   )
 }
