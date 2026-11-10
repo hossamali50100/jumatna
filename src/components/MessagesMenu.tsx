@@ -27,7 +27,7 @@ export default function MessagesMenu({ onClose }: { onClose: () => void }) {
       </div>
       <div className="row" style={{ padding: '0 14px 8px', gap: 8 }}>
         {([['الكل', false], ['غير المقروءة', true]] as const).map(([l, v]) => (
-          <button key={l} onClick={() => setUnreadOnly(v)} style={{ fontFamily: 'inherit', border: 0, cursor: 'pointer', borderRadius: 18, padding: '8px 14px', flex: 1, display: 'flex', justifyContent: 'center', textAlign: 'center', fontWeight: 700, fontSize: 14, background: unreadOnly === v ? '#111111' : '#EFEFF1', color: unreadOnly === v ? '#fff' : '#111111' }}>{l}</button>
+          <button key={l} onClick={() => setUnreadOnly(v)} style={{ fontFamily: 'inherit', border: 0, cursor: 'pointer', borderRadius: 18, padding: '8px 14px', flex: 1, display: 'flex', justifyContent: 'center', textAlign: 'center', fontWeight: 700, fontSize: 14, background: unreadOnly === v ? 'var(--brand)' : '#EFEFF1', color: unreadOnly === v ? '#fff' : '#111111' }}>{l}</button>
         ))}
       </div>
       <div className="col" style={{ gap: 2, overflowY: 'auto', padding: '0 8px 10px' }}>

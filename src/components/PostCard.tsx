@@ -40,11 +40,15 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
     if (error) { setLiked(was); setLikes((n) => n + (was ? 1 : -1)); setErr(errMsg(error)) }
   }
   const loadComments = async () => {
-    const { data, error } = await supabase.from('comments')
+    let { data, error } = (await supabase.from('comments')
       .select('id,body,created_at,author_id,parent_id,comment_likes(count),profiles!author_id(name,avatar_url,plan,plan_until)')
-      .eq('post_id', post.id).order('created_at').limit(300)
+      .eq('post_id', post.id).order('created_at').limit(300)) as { data: unknown[] | null; error: { message: string } | null }
+    // لو تحديث 013 لسه ما اتشغلش في Supabase، نعرض التعليقات العادية بدل ما تختفي
+    if (error) ({ data, error } = (await supabase.from('comments')
+      .select('id,body,created_at,author_id,profiles!author_id(name,avatar_url,plan,plan_until)')
+      .eq('post_id', post.id).order('created_at').limit(300)) as { data: unknown[] | null; error: { message: string } | null })
     if (error) return setErr(errMsg(error))
-    const list = (data as unknown as Cm[]) ?? []
+    const list = ((data as unknown as Cm[]) ?? []).map((c) => ({ ...c, parent_id: c.parent_id ?? null }))
     setCms(list)
     setCCount(Object.fromEntries(list.map((c) => [c.id, c.comment_likes?.[0]?.count ?? 0])))
     if (list.length) {
@@ -114,7 +118,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
         </div>
         <div className="mut row" style={{ padding: '2px 8px', gap: 12, fontSize: 13 }}>
           <span>{timeAgo(c.created_at)}</span>
-          <button onClick={() => toggleCLike(c.id)} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', fontWeight: cLiked.has(c.id) ? 700 : 500, color: cLiked.has(c.id) ? '#111111' : 'inherit' }}>{cLiked.has(c.id) ? 'أعجبك' : 'إعجاب'}</button>
+          <button onClick={() => toggleCLike(c.id)} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', fontWeight: cLiked.has(c.id) ? 700 : 500, color: cLiked.has(c.id) ? 'var(--brand)' : 'inherit' }}>{cLiked.has(c.id) ? 'أعجبك' : 'إعجاب'}</button>
           <button onClick={() => { setReplyTo({ id: c.parent_id ?? c.id, name: c.profiles?.name ?? '' }); setRtext(isReply ? `@${c.profiles?.name ?? ''} ` : '') }} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}>رد</button>
           {(cCount[c.id] ?? 0) > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#111111' }}><Icon n="heart" s={14} on />{cCount[c.id]}</span>}
           {(c.author_id === me || canModerate || staff) && <button style={{ background: 'none', border: 0, color: '#C0392B', cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => delComment(c.id)}>حذف</button>}
@@ -126,12 +130,23 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
   return (
     <article className="crd">
       <div className="row">
-        <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>
-        <div className="grow" style={{ lineHeight: 1.5 }}>
-          {post.group_id && !hideGroup && <Link to={`/g/${post.group_id}`} className="mut" style={{ display: 'block', fontSize: 13 }}>{gname}</Link>}
-          <Link to={`/u/${post.author_id}`}><Name p={post.profiles} /></Link>
-          <div className="mut">{!post.group_id && 'منشور شخصي · '}{timeAgo(post.created_at)}</div>
-        </div>
+        {post.group_id && !hideGroup ? (<>
+          {/* بوست جروب خارج صفحة الجروب (زي فيسبوك): صورة الجروب كبيرة وصورة الكاتب صغيرة على ركنها */}
+          <span style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}>
+            <Link to={`/g/${post.group_id}`} aria-label="صفحة المجموعة"><Avatar name={gname} url={post.groups?.cover_url} size={46} square /></Link>
+            <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية" style={{ position: 'absolute', insetInlineEnd: -8, bottom: -8, borderRadius: '50%', boxShadow: '0 0 0 2px #fff', display: 'inline-flex' }}><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={26} /></Link>
+          </span>
+          <div className="grow" style={{ lineHeight: 1.5, marginInlineStart: 6 }}>
+            <Link to={`/g/${post.group_id}`}><b>{gname}</b></Link>
+            <div className="mut" style={{ fontSize: 13 }}><Link to={`/u/${post.author_id}`}>{post.profiles?.name}</Link> · {timeAgo(post.created_at)}</div>
+          </div>
+        </>) : (<>
+          <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>
+          <div className="grow" style={{ lineHeight: 1.5 }}>
+            <Link to={`/u/${post.author_id}`}><Name p={post.profiles} /></Link>
+            <div className="mut">{!post.group_id && 'منشور شخصي · '}{timeAgo(post.created_at)}</div>
+          </div>
+        </>)}
         <div ref={mref} style={{ position: 'relative' }}>
           <button className="mi" aria-label="خيارات البوست" onClick={() => setMenu(!menu)}><Icon n="more" /></button>
           {menu && (

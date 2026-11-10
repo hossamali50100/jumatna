@@ -23,7 +23,7 @@ export type Group = {
 export type Post = {
   id: string; group_id: string | null; author_id: string; body: string; image_url: string | null; created_at: string
   profiles: Pick<Profile, 'name' | 'avatar_url' | 'plan' | 'plan_until'> | null
-  groups: { name: string } | null
+  groups: { name: string; cover_url?: string | null } | null
   likes: { count: number }[]; comments: { count: number }[]
 }
 

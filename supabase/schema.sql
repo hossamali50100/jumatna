@@ -715,6 +715,13 @@ revoke all on public.comment_likes from anon, authenticated;
 grant select, insert, delete on public.comment_likes to authenticated;
 notify pgrst, 'reload schema';
 
+-- ---------- (014) مواضيع الدعم ----------
+alter table public.support_messages add column if not exists topic text;
+alter table public.support_messages drop constraint if exists support_messages_topic_check;
+alter table public.support_messages add constraint support_messages_topic_check
+  check (topic is null or topic in ('bug','suggestion','question','account','report','premium','other'));
+notify pgrst, 'reload schema';
+
 -- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
 --   update public.profiles set role = 'admin'
 --   where id = (select id from auth.users where email = 'hossamali50100@gmail.com');

@@ -8,7 +8,7 @@ import Composer from '../components/Composer'
 import { Err } from '../lib/ui'
 
 // profiles!author_id و groups!group_id: تحديد العلاقة صراحةً (من غيره PostgREST بيتلخبط لأن فيه أكتر من طريق)
-export const POST_SELECT = 'id,group_id,author_id,body,image_url,created_at,profiles!author_id(name,avatar_url,plan,plan_until),groups!group_id(name),likes(count),comments(count)'
+export const POST_SELECT = 'id,group_id,author_id,body,image_url,created_at,profiles!author_id(name,avatar_url,plan,plan_until),groups!group_id(name,cover_url),likes(count),comments(count)'
 
 export async function likedSet(ids: string[], uid: string) {
   if (!ids.length) return new Set<string>()

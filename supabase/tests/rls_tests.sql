@@ -255,4 +255,9 @@ select pg_temp.t('C: stranger cannot see likes', $q$do $d$ begin if exists (sele
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 select pg_temp.t('C: unlike own', $q$do $d$ begin delete from comment_likes where user_id='00000000-0000-0000-0000-00000000000a'; if not found then raise exception 'zero'; end if; end $d$$q$, true);
 reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('T: support message with valid topic', $q$insert into support_messages(user_id,sender_id,from_staff,body,topic) values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000a',false,'في مشكلة','bug')$q$, true);
+select pg_temp.t('T: invalid topic rejected', $q$insert into support_messages(user_id,sender_id,from_staff,body,topic) values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000a',false,'x','hack')$q$, false);
+reset role;
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

@@ -45,11 +45,11 @@ export default function Login() {
   const inp = { minHeight: mobile ? 48 : 44 }
 
   const form = (
-    <form className={mobile ? 'crd' : undefined} style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 14 : 14, padding: mobile ? 14 : '14px 24px 20px' }} onSubmit={submit}>
+    <form className={mobile ? 'crd' : undefined} style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 14 : 14, padding: mobile ? 14 : '18px 32px 0' }} onSubmit={submit}>
       <b style={{ fontSize: mobile ? 20 : 22, textAlign: mobile ? undefined : 'center' }}>{title}</b>
       {mobile && mode !== 'reset' && (<>
         <button type="button" className={'btn line' + (mobile ? ' prim' : '')} style={{ gap: 10 }} onClick={google}>
-          <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: '#111111', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'Arial,sans-serif' }}>G</span>
+          <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--brand)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'Arial,sans-serif' }}>G</span>
           تسجيل الدخول بحساب Google
         </button>
         <div className="row mut" style={{ gap: 12 }}><span style={{ flex: 1, height: 1, background: '#E4E4E7' }} />أو بالبريد الإلكتروني<span style={{ flex: 1, height: 1, background: '#E4E4E7' }} /></div>
@@ -76,7 +76,7 @@ export default function Login() {
     return (
       <div className="mroot"><main className="mmain"><div className="col" style={{ gap: 16, padding: '16px 4px' }}>
         <div className="col" style={{ alignItems: 'center', gap: 10, padding: '8px 0' }}>
-          <div className="av" style={{ width: 72, height: 72, background: '#111111', borderRadius: 20, fontSize: 28 }}>ج</div>
+          <div className="av" style={{ width: 72, height: 72, background: 'var(--brand)', borderRadius: 20, fontSize: 28 }}>ج</div>
           <b style={{ fontSize: 28 }}>جمعتنا</b>
           <span className="mut" style={{ fontSize: 14 }}>مجموعاتك وأصدقاؤك في تطبيق واحد</span>
         </div>
@@ -86,10 +86,10 @@ export default function Login() {
   }
   return (
     <div dir="ltr" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#F1F1F1' }}>
-      <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', maxWidth: 1180, height: 'min(620px, calc(100vh - 48px))' }}>
-        <div dir="rtl" className="col" style={{ width: 400, flex: 'none', gap: 0, justifyContent: 'center', background: '#fff', border: '1px solid #E4E4E7', borderRadius: 18, boxShadow: '0 10px 40px rgba(0,0,0,.06)' }}>
-          <div className="col" style={{ alignItems: 'center', gap: 8, padding: '8px 24px 0' }}>
-            <div className="av" style={{ width: 56, height: 56, background: '#111111', fontSize: 28 }}>ج</div>
+      <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', maxWidth: 1180, minHeight: 'min(620px, calc(100vh - 48px))' }}>
+        <div dir="rtl" className="col" style={{ width: 420, flex: 'none', gap: 0, justifyContent: 'center', padding: '44px 0 36px', background: '#fff', border: '1px solid #E4E4E7', borderRadius: 18, boxShadow: '0 10px 40px rgba(0,0,0,.06)' }}>
+          <div className="col" style={{ alignItems: 'center', gap: 10, padding: '0 28px' }}>
+            <div className="av" style={{ width: 56, height: 56, background: 'var(--brand)', fontSize: 28 }}>ج</div>
             <b style={{ fontSize: 24 }}>جمعتنا</b>
           </div>
           {form}

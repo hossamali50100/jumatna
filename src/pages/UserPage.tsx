@@ -112,7 +112,7 @@ export default function UserPage() {
               {mine ? (<>
                 <Link className="btn p" to="/profile/edit">تعديل الملف الشخصي</Link>
                 {!prem && <Link className="btn" to="/plans">ترقية الحساب</Link>}
-                <button className="btn" onClick={() => setLockDlg(true)} aria-pressed={!!p.is_locked} aria-label={p.is_locked ? 'فتح الحساب' : 'قفل الحساب'} title={p.is_locked ? 'الحساب مقفول (اضغط لفتحه)' : 'قفل الحساب'} style={{ width: 44, height: 44, padding: 0, borderRadius: 12, display: 'grid', placeItems: 'center', ...(p.is_locked ? { background: '#111111', color: '#fff' } : {}) }}><Icon n={p.is_locked ? 'lock' : 'unlock'} s={20} on={!!p.is_locked} /></button>
+                <button className="btn" onClick={() => setLockDlg(true)} aria-pressed={!!p.is_locked} aria-label={p.is_locked ? 'فتح الحساب' : 'قفل الحساب'} title={p.is_locked ? 'الحساب مقفول (اضغط لفتحه)' : 'قفل الحساب'} style={{ width: 44, height: 44, padding: 0, borderRadius: 12, display: 'grid', placeItems: 'center', ...(p.is_locked ? { background: 'var(--brand)', color: '#fff' } : {}) }}><Icon n={p.is_locked ? 'lock' : 'unlock'} s={20} on={!!p.is_locked} /></button>
               </>) : (<>
                 {mobile
                   ? <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
@@ -128,7 +128,7 @@ export default function UserPage() {
         </div>
         {!locked && <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4, overflowX: 'auto' }}>
           {([['posts', 'المنشورات'], ['about', 'نبذة'], ['friends', 'الأصدقاء'], ['groups', 'المجموعات']] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? '#111111' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? '#111111' : '#55555C', fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? 'var(--brand)' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? 'var(--brand)' : '#55555C', fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>{l}</button>
           ))}
         </div>}
       </div>

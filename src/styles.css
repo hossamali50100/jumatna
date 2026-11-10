@@ -1,5 +1,6 @@
 /* نفس مقاييس وألوان التصميم (أسود/رمادي) */
 *{box-sizing:border-box}
+:root{--brand:#0866FF;--brand-dark:#0756D6}
 html,body,#root{margin:0;min-height:100%}
 body{font-family:'Cairo',system-ui,sans-serif;background:#F2F2F3;color:#111111;direction:rtl;-webkit-text-size-adjust:100%}
 a{color:inherit;text-decoration:none}
@@ -9,7 +10,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .av{border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:none;overflow:hidden}
 .av img{width:100%;height:100%;object-fit:cover}
 .btn{font-family:inherit;font-size:14px;font-weight:600;border:0;border-radius:10px;padding:10px 16px;min-height:44px;cursor:pointer;background:#EFEFF1;color:#111111;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;line-height:1.2;gap:8px}
-.btn.p{background:#111111;color:#fff}.btn.p:hover{background:#2B2B2E}.btn:hover{background:#E4E4E7}.btn.p:hover{color:#fff}
+.btn.p{background:var(--brand);color:#fff}.btn.p:hover{background:var(--brand-dark)}.btn:hover{background:#E4E4E7}.btn.p:hover{color:#fff}
 .btn.sm{min-height:36px;padding:6px 14px}.btn:disabled{opacity:.5;cursor:not-allowed}
 .btn.line{background:#fff;border:1px solid #D4D4D8}.btn.danger{color:#C0392B}
 .btn.ghost{background:none}
@@ -21,7 +22,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .nav{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:#111111;font-size:15px}
 .nav:hover{background:#EFEFF1}
 .in{width:100%;box-sizing:border-box;font-family:inherit;font-size:15px;border:1px solid #E4E4E7;background:#F7F7F8;border-radius:10px;padding:12px 14px;min-height:44px;outline:none}
-.in:focus{border-color:#111111;background:#fff}
+.in:focus{border-color:var(--brand);background:#fff}
 textarea.in{resize:vertical;min-height:90px}
 .err{background:#FDECEC;color:#C0392B;border-radius:10px;padding:10px 12px;font-size:14px}
 .okmsg{background:#E8F6EE;color:#17703A;border-radius:10px;padding:10px 12px;font-size:14px}
@@ -40,8 +41,8 @@ textarea.in{resize:vertical;min-height:90px}
 .dsearch{display:flex;align-items:center;gap:8px;max-width:300px;flex:1;background:#EFEFF1;border-radius:22px;padding:0 16px;min-height:42px;color:#55555C}
 .dsearch input{border:0;background:none;outline:none;flex:1;font-size:14px;min-width:0}
 .tnav{display:flex;gap:32px;align-self:stretch;flex:none}
-.tnav a{flex:0 0 104px;height:61px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#55555C;border-bottom:3px solid transparent;font-size:11px;font-weight:600}
-.tnav a.on{color:#111111;border-bottom-color:#111111}
+.tnav a{flex:0 0 104px;height:100%;margin-bottom:-1px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#55555C;border-bottom:4px solid transparent;font-size:11px;font-weight:600}.tnav a:not(.on):hover{background:#F2F2F3;border-radius:10px 10px 0 0}
+.tnav a.on{color:var(--brand);border-bottom-color:var(--brand)}
 .dbody{display:flex;gap:20px;max-width:1280px;margin:0 auto;padding:20px 24px;align-items:flex-start}
 .dside{flex:0 0 250px;display:flex;flex-direction:column;gap:4px;position:sticky;top:84px}
 .dmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;max-width:760px}
@@ -60,7 +61,7 @@ textarea.in{resize:vertical;min-height:90px}
 .mmain{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
 .mtabs{flex:none;display:flex;background:#fff;border-top:1px solid #E4E4E7;padding-bottom:env(safe-area-inset-bottom,0px)}
 .mtabs a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px;font-size:11px;color:#55555C;position:relative}
-.mtabs a.on{color:#111111;font-weight:700}
+.mtabs a.on{color:var(--brand);font-weight:700}
 .sbg{position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:40}
 .mi{width:44px;height:44px;border-radius:50%;padding:0;background:none;display:inline-flex;align-items:center;justify-content:center;border:0;color:#111111;cursor:pointer;flex:none;position:relative}
 .drawer{position:absolute;top:0;bottom:0;right:0;width:82%;max-width:320px;z-index:42;background:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 12px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;box-shadow:-8px 0 28px rgba(0,0,0,.18);animation:dr .22s ease-out}
@@ -72,9 +73,9 @@ textarea.in{resize:vertical;min-height:90px}
 /* واجهة تسجيل الدخول الجانبية */
 .jhero{flex:1;min-width:0;height:100%;border-radius:28px;overflow:hidden;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;background:transparent}
 .jhero::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(0,0,0,.10) 1px,transparent 1px);background-size:24px 24px;mask-image:radial-gradient(circle at 50% 40%,#000 0,transparent 75%);-webkit-mask-image:radial-gradient(circle at 50% 40%,#000 0,transparent 75%)}
-.jstage{position:relative;flex:1 1 0;min-height:0;aspect-ratio:1/1;align-self:center;margin:0 auto}
-.jcore{position:absolute;left:50%;top:50%;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;background:#111111;color:#fff;display:grid;place-items:center;font-size:44px;font-weight:700;animation:jpulse 3.2s ease-in-out infinite}
-@keyframes jpulse{0%,100%{box-shadow:0 0 0 0 rgba(17,17,17,.22),0 10px 30px rgba(0,0,0,.18)}50%{box-shadow:0 0 0 22px rgba(17,17,17,0),0 10px 30px rgba(0,0,0,.18)}}
+.jstage{position:relative;width:min(72%,470px);aspect-ratio:1/1;align-self:center;margin:auto;flex:none}
+.jcore{position:absolute;left:50%;top:50%;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:44px;font-weight:700;animation:jpulse 3.2s ease-in-out infinite}
+@keyframes jpulse{0%,100%{box-shadow:0 0 0 0 rgba(8,102,255,.30),0 10px 30px rgba(0,0,0,.18)}50%{box-shadow:0 0 0 22px rgba(8,102,255,0),0 10px 30px rgba(0,0,0,.18)}}
 @keyframes jfloatk{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .jfloat{animation:jfloatk 6s ease-in-out infinite}
 @keyframes jdash{to{stroke-dashoffset:-48}}

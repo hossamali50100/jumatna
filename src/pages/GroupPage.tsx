@@ -175,7 +175,7 @@ export default function GroupPage() {
                   {friendsList.length === 0 && <div className="mut">لسه مفيش أصدقاء. <Link to="/friends"><u>أضف أصدقاء</u></Link> وبعدين ادعيهم. ولو عايز تبعت لحد برة المنصة استخدم زرار "مشاركة".</div>}
                   {can.length > 0 && (
                     <label className="row" style={{ cursor: 'pointer', padding: '6px 0', borderBottom: '1px solid #E4E4E7' }}>
-                      <input type="checkbox" checked={all} onChange={() => setSel(all ? new Set() : new Set(can.map((f) => f.other)))} style={{ width: 20, height: 20, accentColor: '#111111' }} />
+                      <input type="checkbox" checked={all} onChange={() => setSel(all ? new Set() : new Set(can.map((f) => f.other)))} style={{ width: 20, height: 20, accentColor: 'var(--brand)' }} />
                       <b>تحديد الكل ({can.length})</b>
                     </label>
                   )}
@@ -184,7 +184,7 @@ export default function GroupPage() {
                       const off = memberIds.has(f.other) || invited.has(f.other)
                       return (
                         <label key={f.other} className="row" style={{ cursor: off ? 'default' : 'pointer', padding: '6px 0', opacity: off ? .6 : 1 }}>
-                          <input type="checkbox" disabled={off} checked={sel.has(f.other)} onChange={() => setSel((x) => { const n = new Set(x); if (n.has(f.other)) n.delete(f.other); else n.add(f.other); return n })} style={{ width: 20, height: 20, accentColor: '#111111' }} />
+                          <input type="checkbox" disabled={off} checked={sel.has(f.other)} onChange={() => setSel((x) => { const n = new Set(x); if (n.has(f.other)) n.delete(f.other); else n.add(f.other); return n })} style={{ width: 20, height: 20, accentColor: 'var(--brand)' }} />
                           <Avatar name={f.profile?.name} url={f.profile?.avatar_url} size={40} /><span className="grow"><Name p={f.profile} /></span>
                           {memberIds.has(f.other) ? <span className="pill">عضو</span> : invited.has(f.other) ? <span className="pill">تمت الدعوة</span> : null}
                         </label>
@@ -199,7 +199,7 @@ export default function GroupPage() {
         </div>
         <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4 }}>
           {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && g.privacy === 'private' ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : [])] as [typeof tab, string][]).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? '#111111' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? '#111111' : '#55555C', fontSize: 15, cursor: 'pointer' }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? 'var(--brand)' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? 'var(--brand)' : '#55555C', fontSize: 15, cursor: 'pointer' }}>{l}</button>
           ))}
         </div>
       </div>

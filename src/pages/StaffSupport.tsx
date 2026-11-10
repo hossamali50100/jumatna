@@ -4,8 +4,9 @@ import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import SupportThread from '../components/SupportThread'
 import { Avatar, Err, timeAgo } from '../lib/ui'
+import { topicOf } from '../lib/topics'
 
-type Row = { user_id: string; body: string; image_url: string | null; created_at: string; from_staff: boolean; profiles: { name: string; avatar_url: string | null; plan: string } | null }
+type Row = { user_id: string; body: string; image_url: string | null; created_at: string; from_staff: boolean; topic?: string | null; profiles: { name: string; avatar_url: string | null; plan: string } | null }
 
 // صندوق الدعم للإدارة: كل المحادثات + الرد (مؤقتًا لحد لوحة الأدمن الكاملة)
 export default function StaffSupport() {
@@ -14,13 +15,17 @@ export default function StaffSupport() {
   const [sel, setSel] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
+  const [topics, setTopics] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('support_messages').select('user_id,body,image_url,created_at,from_staff,profiles!user_id(name,avatar_url,plan)').order('created_at', { ascending: false }).limit(300)
+    const q = async (cols: string) => (await supabase.from('support_messages').select(cols).order('created_at', { ascending: false }).limit(300)) as unknown as { data: Row[] | null; error: { message: string } | null }
+    let { data, error } = await q('user_id,body,image_url,created_at,from_staff,topic,profiles!user_id(name,avatar_url,plan)')
+    if (error) ({ data, error } = await q('user_id,body,image_url,created_at,from_staff,profiles!user_id(name,avatar_url,plan)'))
     if (error) return setErr(errMsg(error))
     const seen = new Set<string>(); const list: Row[] = []
-    for (const r of (data as unknown as Row[]) ?? []) if (!seen.has(r.user_id)) { seen.add(r.user_id); list.push(r) }
-    setConvs(list)
+    const tp: Record<string, string> = {}   // آخر موضوع اختاره كل عميل
+    for (const r of data ?? []) { if (r.topic && !tp[r.user_id]) tp[r.user_id] = r.topic; if (!seen.has(r.user_id)) { seen.add(r.user_id); list.push(r) } }
+    setTopics(tp); setConvs(list)
   }, [])
   useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t) }, [load])
 
@@ -42,7 +47,7 @@ export default function StaffSupport() {
         {convs.map((c) => (
           <button key={c.user_id} className="row" onClick={() => { setSel(c.user_id); setOk('') }} style={{ fontFamily: 'inherit', textAlign: 'start', background: sel === c.user_id ? '#EFEFF1' : 'none', border: 0, borderRadius: 12, padding: 8, cursor: 'pointer' }}>
             <Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={40} />
-            <span className="grow" style={{ minWidth: 0 }}><b>{c.profiles?.name}</b><div className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.from_staff ? 'أنت: ' : ''}{c.body || '📷 صورة'}</div></span>
+            <span className="grow" style={{ minWidth: 0 }}><b>{c.profiles?.name}</b>{topicOf(topics[c.user_id]) && <span className="pill" style={{ marginInlineStart: 8, fontSize: 12 }}>{topicOf(topics[c.user_id])!.icon} {topicOf(topics[c.user_id])!.label}</span>}<div className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.from_staff ? 'أنت: ' : ''}{c.body || '📷 صورة'}</div></span>
             <span className="mut" style={{ fontSize: 12 }}>{timeAgo(c.created_at)}</span>
           </button>
         ))}
@@ -50,7 +55,7 @@ export default function StaffSupport() {
       <div className="crd col">
         <Err>{err}</Err>{ok && <div className="okmsg">{ok}</div>}
         {!sel ? <span className="mut">اختار محادثة من القايمة.</span> : (<>
-          <div className="row"><b className="grow">{cur?.profiles?.name}</b>
+          <div className="row"><b className="grow">{cur?.profiles?.name}{topicOf(topics[sel]) && <span className="pill" style={{ marginInlineStart: 8 }}>{topicOf(topics[sel])!.icon} {topicOf(topics[sel])!.label}</span>}</b>
             {profile.role === 'admin' && (cur?.profiles?.plan === 'premium'
               ? <button className="btn sm danger" onClick={() => setPlan('free')}>إلغاء المميز</button>
               : <button className="btn p sm" onClick={() => setPlan('premium')}>تفعيل مميز 30 يوم</button>)}

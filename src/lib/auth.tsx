@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => { await supabase.auth.signOut() },
     }}>
       {notice && (
-        <div role="status" onClick={() => setNotice('')} style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: '#111111', color: '#fff', padding: '12px 20px', borderRadius: 14, cursor: 'pointer', maxWidth: '90vw' }}>{notice}</div>
+        <div role="status" onClick={() => setNotice('')} style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'var(--brand)', color: '#fff', padding: '12px 20px', borderRadius: 14, cursor: 'pointer', maxWidth: '90vw' }}>{notice}</div>
       )}
       {children}
     </AuthCtx.Provider>

@@ -45,7 +45,7 @@ function Desktop() {
     <>
       <header className="dtop">
         <div className="row grow" style={{ gap: 10 }}>
-          <Link to="/" aria-label="الرئيسية" className="av" style={{ width: 42, height: 42, background: '#111111', fontSize: 22 }}>ج</Link>
+          <Link to="/" aria-label="الرئيسية" className="av" style={{ width: 42, height: 42, background: 'var(--brand)', fontSize: 22 }}>ج</Link>
           <form className="dsearch" onSubmit={(e) => { e.preventDefault(); nav(`/discover?q=${encodeURIComponent(q.trim())}`) }}>
             <Icon n="search" s={18} />
             <input placeholder="ابحث في جمعتنا" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث" />
@@ -91,13 +91,18 @@ function Desktop() {
           <Link className="btn p" to="/create" style={{ marginTop: 8 }}>+ إنشاء مجموعة</Link>
         </aside>}
         <main className="dmain"><Outlet /></main>
-        {!prem && !wide && (
+        {!wide && (
           <aside className="dright">
-            <div className="card col" style={{ gap: 10 }}>
+            {!prem && <div className="card col" style={{ gap: 10 }}>
               <div className="row" style={{ gap: 8 }}><span className="pill">ترقية</span><Check /></div>
               <b style={{ fontSize: 17 }}>قم بترقية حسابك</b>
               <div className="mut" style={{ lineHeight: 1.7 }}>أنشئ حتى 10 مجموعات واحصل على علامة الحساب المميز الخضراء.</div>
               <Link className="btn p" to="/plans">اعرف المزيد</Link>
+            </div>}
+            <div className="card col" style={{ gap: 6 }}>
+              <b style={{ fontSize: 17 }}>الدعم</b>
+              <div className="mut" style={{ lineHeight: 1.7, marginBottom: 4 }}>عندك مشكلة أو اقتراح أو سؤال؟ تواصل معنا وإحنا هنساعدك.</div>
+              <Link className="btn p" to="/support">تواصل معنا</Link>
             </div>
           </aside>
         )}
@@ -122,7 +127,7 @@ function Mobile() {
   return (
     <div className="mroot">
       <header className="mbar">
-        <Link to="/" className="av" style={{ width: 36, height: 36, background: '#111111', fontSize: 18, borderRadius: 10 }}>ج</Link>
+        <Link to="/" className="av" style={{ width: 36, height: 36, background: 'var(--brand)', fontSize: 18, borderRadius: 10 }}>ج</Link>
         <b style={{ fontSize: 21, flex: 1 }}>جمعتنا</b>
         <Link to="/discover" className="mi" aria-label="بحث"><Icon n="search" /></Link>
         <button className="mi" aria-label="القائمة" onClick={() => setOpen(true)}><Badged n={bd.friends}><Icon n="menu" /></Badged></button>
@@ -145,6 +150,7 @@ function Mobile() {
           {item('/create', 'إنشاء مجموعة', 'plus')}
           <div className="hr" />
           {item('/friends', 'الأصدقاء', 'friends', bd.friends)}
+          {item('/support', 'الدعم والمساعدة', 'msg')}
           {item('/soon/notifications', 'الإشعارات', 'bell')}
           <div className="hr" />
           {item('/plans', 'الباقات والترقية', 'card')}
