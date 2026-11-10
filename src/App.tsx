@@ -9,9 +9,13 @@ import Discover from './pages/Discover'
 import CreateGroup from './pages/CreateGroup'
 import GroupPage from './pages/GroupPage'
 import UserPage from './pages/UserPage'
+import EditProfile from './pages/EditProfile'
 import Plans from './pages/Plans'
 import MyGroups from './pages/MyGroups'
 import Friends from './pages/Friends'
+import Messages from './pages/Messages'
+import Support from './pages/Support'
+import StaffSupport from './pages/StaffSupport'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -38,10 +42,15 @@ export default function App() {
         <Route path="create" element={<CreateGroup />} />
         <Route path="g/:id" element={<GroupPage />} />
         <Route path="profile" element={<UserPage />} />
+        <Route path="profile/edit" element={<EditProfile />} />
         <Route path="u/:id" element={<UserPage />} />
         <Route path="plans" element={<Plans />} />
         <Route path="groups" element={<MyGroups />} />
         <Route path="friends" element={<Friends />} />
+        <Route path="messages" element={<Messages />} />
+        <Route path="messages/:uid" element={<Messages />} />
+        <Route path="support" element={<Support />} />
+        <Route path="staff/support" element={<StaffSupport />} />
         <Route path="soon/:what" element={<ComingSoon />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

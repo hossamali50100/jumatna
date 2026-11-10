@@ -46,7 +46,7 @@ function Desktop() {
           ))}
         </nav>
         <div className="row grow" style={{ justifyContent: 'flex-end', gap: 12 }}>
-          <Link to="/soon/chat" className="ibtn" aria-label="الرسائل" title="الرسائل"><Icon n="msg" /></Link>
+          <Link to="/messages" className="ibtn" aria-label="الرسائل" title="الرسائل"><Icon n="msg" /></Link>
           <Link to="/soon/notifications" className="ibtn" aria-label="الإشعارات" title="الإشعارات"><Icon n="bell" /></Link>
           <div ref={ref} style={{ position: 'relative' }}>
             <button onClick={() => setMenu(!menu)} aria-label="حسابي" aria-expanded={menu} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
@@ -60,6 +60,7 @@ function Desktop() {
                 </Link>
                 <div className="hr" />
                 <Link to="/plans"><Icon n="card" />الباقات والترقية</Link>
+                {profile && profile.role !== 'user' && <Link to="/staff/support"><Icon n="msg" />صندوق الدعم</Link>}
                 <button onClick={signOut}><Icon n="out" />تسجيل الخروج</button>
               </div>
             )}
@@ -81,7 +82,7 @@ function Desktop() {
             <div className="card col" style={{ gap: 10 }}>
               <div className="row" style={{ gap: 8 }}><span className="pill">ترقية</span><Check /></div>
               <b style={{ fontSize: 17 }}>قم بترقية حسابك</b>
-              <div className="mut" style={{ lineHeight: 1.7 }}>أنشئ حتى 10 مجموعات واحصل على علامة الحساب المميز الخضراء بـ 100 ج / شهر.</div>
+              <div className="mut" style={{ lineHeight: 1.7 }}>أنشئ حتى 10 مجموعات واحصل على علامة الحساب المميز الخضراء.</div>
               <Link className="btn p" to="/plans">اعرف المزيد</Link>
             </div>
           </aside>
@@ -114,7 +115,7 @@ function Mobile() {
       <main className="mmain" ref={main}><Outlet /></main>
       <nav className="mtabs" aria-label="التنقل">
         {tab('/', 'الرئيسية', 'home', p === '/')}
-        {tab('/soon/chat', 'الرسائل', 'msg', p.startsWith('/soon/chat'))}
+        {tab('/messages', 'الرسائل', 'msg', p.startsWith('/messages'))}
         {tab('/profile', 'حسابي', 'user', p === '/profile')}
       </nav>
       {open && (<>
@@ -132,6 +133,7 @@ function Mobile() {
           {item('/soon/notifications', 'الإشعارات', 'bell')}
           <div className="hr" />
           {item('/plans', 'الباقات والترقية', 'card')}
+          {profile && profile.role !== 'user' && item('/staff/support', 'صندوق الدعم', 'msg')}
           <button onClick={signOut}><Icon n="out" /><span style={{ flex: 1 }}>تسجيل الخروج</span></button>
         </aside>
       </>)}

@@ -1,22 +1,23 @@
+import { Link } from 'react-router-dom'
 import { Check } from '../lib/ui'
 import { useAuth } from '../lib/auth'
 import { isPremium } from '../lib/supabase'
 
-const free = ['الانضمام لعدد غير محدود من المجموعات', 'نشر بوستات وتعليقات وصور', 'إنشاء مجموعة واحدة']
-const prem = ['إنشاء حتى 10 مجموعات', 'علامة التوثيق الخضراء بجانب اسمك', 'كل مميزات الحساب المجاني']
+const prem = ['إنشاء حتى 10 مجموعات', 'علامة التوثيق الخضراء بجانب اسمك', 'كل مميزات الحساب العادي']
 
 export default function Plans() {
   const { profile } = useAuth()
   return (
-    <div className="col">
-      <b style={{ fontSize: 20 }}>الباقات</b>
-      <div className="card col"><b>مجاني</b><div className="mut">0 جنيه</div>
-        {free.map((t) => <div key={t} className="row"><span>✓</span>{t}</div>)}</div>
-      <div className="card col" style={{ borderColor: '#111', borderWidth: 2 }}>
-        <div className="row"><Check /><b>مميز</b></div><div><b style={{ fontSize: 22 }}>100 جنيه</b> <span className="mut">/ شهريًا</span></div>
+    <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card col" style={{ borderColor: '#111', borderWidth: 2, gap: 12 }}>
+        <div className="row"><Check /><b style={{ fontSize: 22 }}>الباقة المميزة</b></div>
         {prem.map((t) => <div key={t} className="row"><span>✓</span>{t}</div>)}
-        {isPremium(profile) ? <div className="okmsg">حسابك مميز حاليًا.</div>
-          : <div className="mut">الترقية بتتم عن طريق محادثة مع فريق جمعتنا (بتتفعّل في المرحلة الجاية). لحد ما تتفعّل، التفعيل بيتم يدويًا من الإدارة.</div>}
+        {isPremium(profile)
+          ? <div className="okmsg">حسابك مميز حاليًا.</div>
+          : <>
+              <div className="mut" style={{ lineHeight: 1.8 }}>للترقية تواصل مع فريق جمعتنا وهنقولك التفاصيل وطريقة التفعيل.</div>
+              <Link className="btn p" to="/support">تواصل مع فريق جمعتنا</Link>
+            </>}
       </div>
     </div>
   )

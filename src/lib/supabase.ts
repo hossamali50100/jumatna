@@ -14,7 +14,7 @@ export type Profile = {
   id: string; name: string; avatar_url: string | null
   role: 'user' | 'admin' | 'mod' | 'support'; plan: 'free' | 'premium'
   plan_until: string | null; banned: boolean
-  bio?: string; cover_url?: string | null; created_at?: string
+  bio?: string; cover_url?: string | null; created_at?: string; deletion_requested_at?: string | null
 }
 export type Group = {
   id: string; owner_id: string; name: string; description: string

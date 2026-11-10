@@ -459,6 +459,141 @@ create policy comments_insert on public.comments for insert to authenticated
                           and ( (p.group_id is null and (p.author_id = auth.uid() or public.are_friends(p.author_id, auth.uid())))
                              or (p.group_id is not null and public.is_member(p.group_id)) )));
 
+-- ---------- (005) حذف الحساب ----------
+alter table public.profiles add column if not exists deletion_requested_at timestamptz;
+-- المستخدم ما يقدر يعدّل العمود ده مباشرة (الـ grant على أعمدة محددة بس) — بيتعدّل من الدوال تحت
+
+-- طلب الحذف: بيطبّق على صاحب الجلسة بس (ما بياخدش id من برة)
+create or replace function public.request_account_deletion() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'لازم تسجل دخول'; end if;
+  if exists (select 1 from profiles where id = auth.uid() and role <> 'user') then
+    raise exception 'حسابات الإدارة ما تتحذفش من هنا';
+  end if;
+  update profiles set deletion_requested_at = now() where id = auth.uid();
+end $$;
+
+-- إلغاء الحذف: بيتنادى أوتوماتيك لما الشخص يسجل دخول تاني
+create or replace function public.cancel_account_deletion() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'لازم تسجل دخول'; end if;
+  update profiles set deletion_requested_at = null where id = auth.uid();
+end $$;
+
+-- الحذف الفعلي: بيتشغّل من جدولة السيرفر بس (مش من الموقع)
+create or replace function public.purge_deleted_accounts() returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  with gone as (
+    delete from auth.users
+    where id in (select id from public.profiles
+                 where deletion_requested_at is not null
+                   and deletion_requested_at <= now() - interval '24 hours'
+                   and role = 'user')
+    returning 1)
+  select count(*) into n from gone;
+  return n;
+end $$;
+
+revoke all on function public.request_account_deletion() from public, anon;
+revoke all on function public.cancel_account_deletion()  from public, anon;
+revoke all on function public.purge_deleted_accounts()   from public, anon, authenticated;
+grant execute on function public.request_account_deletion() to authenticated;
+grant execute on function public.cancel_account_deletion()  to authenticated;
+
+-- جدولة: كل نص ساعة (محتاجة إضافة pg_cron؛ لو مش متاحة هتظهر ملاحظة ومش هيفشل الملف)
+do $$
+begin
+  create extension if not exists pg_cron;
+  perform cron.schedule('purge-deleted-accounts', '*/30 * * * *', 'select public.purge_deleted_accounts()');
+exception when others then
+  raise notice 'pg_cron مش متاحة: فعّلها من Database ← Extensions ثم شغّل الملف تاني. السبب: %', sqlerrm;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ---------- (006) محادثة الدعم ----------
+create table if not exists public.support_messages (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,   -- صاحب المحادثة (العميل)
+  sender_id  uuid not null references public.profiles(id) on delete cascade,   -- مين كتب الرسالة
+  from_staff boolean not null default false,
+  body       text not null default '' check (char_length(body) <= 2000),
+  image_url  text check (image_url is null or image_url ~ '^https://[^/]+/storage/v1/object/public/media/'),
+  created_at timestamptz not null default now(),
+  check (char_length(body) > 0 or image_url is not null)
+);
+create index if not exists support_user_idx on public.support_messages (user_id, created_at);
+alter table public.support_messages enable row level security;
+
+drop policy if exists sm_select on public.support_messages;
+drop policy if exists sm_insert on public.support_messages;
+-- العميل يشوف محادثته بس، والإدارة تشوف الكل
+create policy sm_select on public.support_messages for select to authenticated
+  using (user_id = auth.uid() or public.is_staff());
+create policy sm_insert on public.support_messages for insert to authenticated
+  with check (
+    (user_id = auth.uid() and sender_id = auth.uid() and from_staff = false and not public.is_banned())
+    or (public.is_staff() and sender_id = auth.uid() and from_staff = true)
+  );
+
+-- حد الرسائل للعملاء: 30 في الساعة (ضد الإزعاج)
+create or replace function public.rate_limit_support() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if not new.from_staff and
+     (select count(*) from support_messages where sender_id = new.sender_id and not from_staff and created_at > now() - interval '1 hour') >= 30 then
+    raise exception 'رسائل كتير في وقت قصير، جرّب بعد شوية.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists rate_limit_support_trg on public.support_messages;
+create trigger rate_limit_support_trg before insert on public.support_messages
+  for each row execute function public.rate_limit_support();
+
+notify pgrst, 'reload schema';
+
+-- ---------- (007) الرسائل المباشرة ----------
+create table if not exists public.dm_messages (
+  id           uuid primary key default gen_random_uuid(),
+  sender_id    uuid not null references public.profiles(id) on delete cascade,
+  recipient_id uuid not null references public.profiles(id) on delete cascade,
+  body         text not null default '' check (char_length(body) <= 2000),
+  image_url    text check (image_url is null or image_url ~ '^https://[^/]+/storage/v1/object/public/media/'),
+  created_at   timestamptz not null default now(),
+  check (sender_id <> recipient_id),
+  check (char_length(body) > 0 or image_url is not null)
+);
+create index if not exists dm_sender_idx    on public.dm_messages (sender_id, created_at);
+create index if not exists dm_recipient_idx on public.dm_messages (recipient_id, created_at);
+alter table public.dm_messages enable row level security;
+
+drop policy if exists dm_select on public.dm_messages;
+drop policy if exists dm_insert on public.dm_messages;
+-- الرسالة يشوفها المرسل والمستلم بس (حتى الإدارة ما تقرأش الرسائل الخاصة)
+create policy dm_select on public.dm_messages for select to authenticated
+  using (sender_id = auth.uid() or recipient_id = auth.uid());
+create policy dm_insert on public.dm_messages for insert to authenticated
+  with check (sender_id = auth.uid() and not public.is_banned());
+
+-- حد الرسائل: 60 في الساعة (ضد الإزعاج والسبام)
+create or replace function public.rate_limit_dm() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from dm_messages where sender_id = new.sender_id and created_at > now() - interval '1 hour') >= 60 then
+    raise exception 'رسائل كتير في وقت قصير، جرّب بعد شوية.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists rate_limit_dm_trg on public.dm_messages;
+create trigger rate_limit_dm_trg before insert on public.dm_messages
+  for each row execute function public.rate_limit_dm();
+
+notify pgrst, 'reload schema';
+
 -- ============================================================
 -- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
 --   update public.profiles set role = 'admin'

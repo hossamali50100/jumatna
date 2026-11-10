@@ -115,3 +115,6 @@ $$;
 drop policy if exists groups_select on public.groups;
 create policy groups_select on public.groups for select to authenticated
   using (privacy = 'public' or public.is_member(id) or public.is_invited(id) or public.is_staff());
+
+-- يخلي واجهة البيانات تلاحظ الأعمدة/الجداول الجديدة فورًا
+notify pgrst, 'reload schema';

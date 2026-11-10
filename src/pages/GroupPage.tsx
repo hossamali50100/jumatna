@@ -25,7 +25,7 @@ export default function GroupPage() {
   const [err, setErr] = useState('')
   const [missing, setMissing] = useState(false)
   const mobile = useIsMobile()
-  const [tab, setTab] = useState<'talk' | 'media' | 'members'>('talk')
+  const [tab, setTab] = useState<'talk' | 'media' | 'members' | 'requests'>('talk')
   const [members, setMembers] = useState<Member[]>([])
   const [media, setMedia] = useState<{ id: string; image_url: string }[]>([])
   const [invite, setInvite] = useState(false)
@@ -139,26 +139,25 @@ export default function GroupPage() {
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ height: mobile ? 170 : 330, position: 'relative', background: g.cover_url ? `center/cover url("${g.cover_url}")` : gcolor(g.name) }}>
           {isAdmin && (
-            <label className="btn sm" style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الصورة
+            <label className="btn sm" style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الغلاف
               <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => changeCover(e.target.files?.[0])} />
             </label>
           )}
         </div>
         <div style={{ padding: mobile ? '0 14px 12px' : '0 32px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="row" style={{ alignItems: 'flex-end', gap: mobile ? 12 : 20, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', marginTop: mobile ? -50 : -84, border: '5px solid #fff', borderRadius: mobile ? 28 : 40, background: '#fff' }}><Avatar name={g.name} url={g.cover_url} size={mobile ? 100 : 168} square /></div>
-            <div className="grow" style={{ lineHeight: 1.5, paddingBottom: 8 }}>
+          <div className="row" style={{ alignItems: 'center', gap: mobile ? 12 : 20, flexWrap: 'wrap', paddingTop: mobile ? 14 : 20 }}>
+            <div className="grow" style={{ lineHeight: 1.5 }}>
               <b style={{ fontSize: mobile ? 24 : 34 }}>{g.name}</b>
               <div className="mut">{g.privacy === 'public' ? 'مجموعة عامة' : 'مجموعة خاصة'} · {count} عضو</div>
             </div>
-          </div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <div className="row" style={{ flexWrap: 'wrap' }}>
             {!mem && <button className="btn p" onClick={join}>{g.privacy === 'public' ? 'انضم' : 'طلب انضمام'}</button>}
             {mem?.status === 'pending' && <span className="pill">طلبك بانتظار موافقة المشرف</span>}
             {active && <button className="btn p" onClick={openInvite}><Icon n="friends" s={18} />دعوة</button>}
             {(active || g.privacy === 'public') && <button className="btn" onClick={share}><Icon n="send" s={18} />{copied ? 'تم نسخ الرابط ✓' : 'مشاركة'}</button>}
             {active && mem!.role !== 'owner' && <button className="btn" onClick={leave}>مغادرة المجموعة</button>}
             {(mem?.role === 'owner' || profile?.role === 'admin') && <button className="btn danger" onClick={del}>حذف المجموعة</button>}
+            </div>
           </div>
           {invite && (
             <div className="crd col" style={{ background: '#F7F7F8' }}>
@@ -175,7 +174,7 @@ export default function GroupPage() {
           )}
         </div>
         <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4 }}>
-          {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء']] as const).map(([k, l]) => (
+          {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && g.privacy === 'private' ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : [])] as [typeof tab, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? '#111111' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? '#111111' : '#55555C', fontSize: 15, cursor: 'pointer' }}>{l}</button>
           ))}
         </div>
@@ -192,26 +191,27 @@ export default function GroupPage() {
         </div>
       </aside>
       <div className="col" style={{ gap: 16, minWidth: 0 }}>
-      {isAdmin && pend.length > 0 && (
-        <div className="crd col"><b>طلبات الانضمام ({pend.length})</b>
-          {pend.map((r) => (
-            <div key={r.user_id} className="row"><Avatar name={r.profiles?.name} url={r.profiles?.avatar_url} size={40} /><span className="grow">{r.profiles?.name}</span>
-              <button className="btn p sm" onClick={() => decide(r.user_id, true)}>قبول</button>
-              <button className="btn sm" onClick={() => decide(r.user_id, false)}>رفض</button></div>
-          ))}
-        </div>
-      )}
       {active && <Composer groups={[{ id: g.id, name: g.name }]} defaultGroup={g.id} onPosted={load} />}
       {posts.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش بوستات لسه.</div>}
       {posts.map((p) => <PostCard key={p.id} post={p} hideGroup liked={liked.has(p.id)} canModerate={isAdmin || staff} onDeleted={(x) => setPosts((l) => l.filter((y) => y.id !== x))} />)}
       </div>
       </div>}
-      {tab !== 'talk' && <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {tab !== 'talk' && <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {tab === 'media' && (media.length === 0
         ? <div className="crd mut" style={{ textAlign: 'center' }}>مفيش صور أو وسائط لسه.</div>
         : <div className="crd" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 8 }}>
             {media.map((m) => <a key={m.id} href={m.image_url} target="_blank" rel="noreferrer noopener"><img src={m.image_url} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, display: 'block' }} /></a>)}
           </div>)}
+      {tab === 'requests' && (
+        <div className="crd col">
+          {pend.length === 0 && <span className="mut">مفيش طلبات انضمام دلوقتي.</span>}
+          {pend.map((r) => (
+            <div key={r.user_id} className="row"><Link to={`/u/${r.user_id}`}><Avatar name={r.profiles?.name} url={r.profiles?.avatar_url} size={44} /></Link><span className="grow">{r.profiles?.name}</span>
+              <button className="btn p sm" onClick={() => decide(r.user_id, true)}>قبول</button>
+              <button className="btn sm" onClick={() => decide(r.user_id, false)}>رفض</button></div>
+          ))}
+        </div>
+      )}
       {tab === 'members' && (
         <div className="crd col">
           <b>الأعضاء ({count})</b>

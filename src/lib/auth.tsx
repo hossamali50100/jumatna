@@ -11,10 +11,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [notice, setNotice] = useState('')
+
   const loadProfile = async (uid?: string) => {
     if (!uid) return setProfile(null)
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
-    setProfile((data as Profile) ?? null)
+    let p = (data as Profile) ?? null
+    // الشخص طلب حذف حسابه ورجع سجّل دخول قبل ما يعدي 24 ساعة: نلغي الحذف
+    if (p?.deletion_requested_at) {
+      const { error } = await supabase.rpc('cancel_account_deletion')
+      if (!error) { p = { ...p, deletion_requested_at: null }; setNotice('تم إلغاء حذف حسابك. أهلًا بعودتك!') }
+    }
+    setProfile(p)
   }
 
   useEffect(() => {
@@ -35,6 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session, profile, loading,
       refresh: () => loadProfile(session?.user.id),
       signOut: async () => { await supabase.auth.signOut() },
-    }}>{children}</AuthCtx.Provider>
+    }}>
+      {notice && (
+        <div role="status" onClick={() => setNotice('')} style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: '#111111', color: '#fff', padding: '12px 20px', borderRadius: 14, cursor: 'pointer', maxWidth: '90vw' }}>{notice}</div>
+      )}
+      {children}
+    </AuthCtx.Provider>
   )
 }

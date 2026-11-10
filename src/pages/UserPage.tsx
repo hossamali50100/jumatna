@@ -14,11 +14,11 @@ type Tab = 'posts' | 'about' | 'friends' | 'groups'
 
 export default function UserPage() {
   const { id } = useParams()
-  const { session, profile: me, refresh, signOut } = useAuth()
+  const { session, profile: me, refresh } = useAuth()
   const uid = session!.user.id
   const pid = id ?? uid
   const mine = pid === uid
-  const { rels, request, accept, remove } = useFriends()
+  const { rels, error: friendErr, request, accept, remove } = useFriends()
   const [p, setP] = useState<Profile | null>(null)
   const [missing, setMissing] = useState(false)
   const [tab, setTab] = useState<Tab>('posts')
@@ -27,18 +27,14 @@ export default function UserPage() {
   const [friends, setFriends] = useState<{ id: string; profile: PubProfile | null }[]>([])
   const [groups, setGroups] = useState<GM['groups'][]>([])
   const [err, setErr] = useState('')
-  const [edit, setEdit] = useState(false)
-  const [name, setName] = useState('')
-  const [bio, setBio] = useState('')
-  const [busy, setBusy] = useState(false)
   const mobile = useIsMobile()
 
-  useEffect(() => { setTab('posts'); setEdit(false); setP(null); setMissing(false); setPosts(null) }, [pid])
+  useEffect(() => { setTab('posts'); setP(null); setMissing(false); setPosts(null) }, [pid])
 
   const loadProfile = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').eq('id', pid).maybeSingle()
     if (!data) return setMissing(true)
-    setP(data as Profile); setName((data as Profile).name); setBio((data as Profile).bio ?? '')
+    setP(data as Profile)
   }, [pid])
   useEffect(() => { loadProfile() }, [loadProfile])
 
@@ -61,14 +57,12 @@ export default function UserPage() {
 
   if (missing) return <div className="crd">الصفحة دي غير موجودة.</div>
   if (!p) return <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>
-  const photos = (posts ?? []).filter((x) => x.image_url)
   const prem = isPremium(p)
   const rel = rels.find((r) => r.other === pid)
 
   const save = async (patch: Partial<Pick<Profile, 'name' | 'bio' | 'avatar_url' | 'cover_url'>>) => {
-    setErr(''); setBusy(true)
+    setErr('')
     const { error } = await supabase.from('profiles').update(patch).eq('id', uid)
-    setBusy(false)
     if (error) return setErr(errMsg(error))
     await loadProfile(); refresh()
   }
@@ -103,9 +97,10 @@ export default function UserPage() {
             </div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
               {mine ? (<>
-                <button className="btn p" onClick={() => { setEdit((v) => !v); setTab('posts') }}>{edit ? 'إغلاق التعديل' : 'تعديل الملف الشخصي'}</button>
+                <Link className="btn p" to="/profile/edit">تعديل الملف الشخصي</Link>
                 {!prem && <Link className="btn" to="/plans">ترقية الحساب</Link>}
               </>) : (<>
+                <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
                 {!rel && <button className="btn p" onClick={() => request(pid)}><Icon n="friends" s={18} />إضافة صديق</button>}
                 {rel?.status === 'accepted' && <button className="btn" onClick={() => confirm('حذف الصداقة؟') && remove(pid)}>✓ أصدقاء</button>}
                 {rel?.status === 'pending' && !rel.incoming && <button className="btn" onClick={() => remove(pid)}>إلغاء طلب الصداقة</button>}
@@ -122,56 +117,22 @@ export default function UserPage() {
         </div>
       </div>
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Err>{err}</Err>
-
-      {mine && edit && (
-        <div className="crd col">
-          <b>تعديل الملف الشخصي</b>
-          <input className="in" value={name} maxLength={60} placeholder="الاسم" onChange={(e) => setName(e.target.value)} />
-          <textarea className="in" value={bio} maxLength={300} placeholder="نبذة عنك (اختياري)" onChange={(e) => setBio(e.target.value)} />
-          <button className="btn p" disabled={busy || name.trim().length < 1 || (name.trim() === p.name && bio.trim() === (p.bio ?? ''))} onClick={() => save({ name: name.trim(), bio: bio.trim() })}>{busy ? '…' : 'حفظ'}</button>
-          <span className="mut" dir="ltr" style={{ textAlign: 'start' }}>{session?.user.email}</span>
-          <button className="btn line danger" onClick={signOut}>تسجيل الخروج</button>
-        </div>
-      )}
+      <Err>{err || friendErr}</Err>
 
       {tab === 'posts' && (
         <div className="pgrid">
           <aside className="col pside" style={{ gap: 16 }}>
             <div className="crd col" style={{ gap: 10 }}>
-              <b style={{ fontSize: 18 }}>التفاصيل الشخصية</b>
-              {p.bio ? <div className="body">{p.bio}</div> : mine && <span className="mut">أضف نبذة عنك من "تعديل الملف الشخصي".</span>}
-              {p.created_at && <div className="mut">انضم في {new Date(p.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long' })}</div>}
-              <div className="mut">{prem ? '✓ حساب مميز' : 'حساب مجاني'}</div>
+              <b style={{ fontSize: 18 }}>نبذة شخصية</b>
+              {p.bio ? <div className="body">{p.bio}</div> : <span className="mut">{mine ? 'أضف نبذة عنك من "تعديل الملف الشخصي".' : 'لم يضف نبذة بعد.'}</span>}
             </div>
-            {photos.length > 0 && (
-              <div className="crd col" style={{ gap: 10 }}>
-                <b style={{ fontSize: 18 }}>الصور</b>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 4 }}>
-                  {photos.slice(0, 9).map((x) => <a key={x.id} href={x.image_url!} target="_blank" rel="noreferrer noopener"><img src={x.image_url!} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, display: 'block' }} /></a>)}
-                </div>
-              </div>
-            )}
-            <div className="crd col" style={{ gap: 10 }}>
-              <div className="row"><b className="grow" style={{ fontSize: 18 }}>الأصدقاء</b><button className="btn ghost sm" onClick={() => setTab('friends')}>عرض الكل</button></div>
-              <div className="mut">{friends.length} صديق</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-                {friends.slice(0, 6).map((f) => (
-                  <Link key={f.id} to={`/u/${f.id}`} className="col" style={{ gap: 4, alignItems: 'center', textAlign: 'center', fontSize: 13 }}><Avatar name={f.profile?.name} url={f.profile?.avatar_url} size={64} square />{f.profile?.name}</Link>
-                ))}
-              </div>
-            </div>
-            {groups.length > 0 && (
-              <div className="crd col" style={{ gap: 10 }}>
-                <div className="row"><b className="grow" style={{ fontSize: 18 }}>المجموعات</b><button className="btn ghost sm" onClick={() => setTab('groups')}>عرض الكل</button></div>
-                {groups.slice(0, 4).map((g) => g && <Link key={g.id} to={`/g/${g.id}`} className="row"><Avatar name={g.name} url={g.cover_url} size={36} square /><b style={{ fontSize: 14 }}>{g.name}</b></Link>)}
-              </div>
-            )}
           </aside>
           <div className="col" style={{ gap: 16, minWidth: 0 }}>
+            <>
             {mine && <Composer groups={[]} allowPersonal onPosted={loadPosts} />}
             {posts?.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>{mine ? 'لسه ما نشرتش حاجة.' : 'مفيش منشورات تقدر تشوفها.'}</div>}
             {posts?.map((x) => <PostCard key={x.id} post={x} liked={liked.has(x.id)} canModerate={me?.role === 'admin'} onDeleted={(i) => setPosts((l) => l!.filter((y) => y.id !== i))} />)}
+            </>
           </div>
         </div>
       )}

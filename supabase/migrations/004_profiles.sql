@@ -36,3 +36,6 @@ create policy comments_insert on public.comments for insert to authenticated
               and exists (select 1 from posts p where p.id = post_id
                           and ( (p.group_id is null and (p.author_id = auth.uid() or public.are_friends(p.author_id, auth.uid())))
                              or (p.group_id is not null and public.is_member(p.group_id)) )));
+
+-- يخلي واجهة البيانات تلاحظ الأعمدة/الجداول الجديدة فورًا
+notify pgrst, 'reload schema';
