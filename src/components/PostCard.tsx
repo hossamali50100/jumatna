@@ -4,7 +4,7 @@ import { supabase, errMsg, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Avatar, Err, Icon, Name, timeAgo } from '../lib/ui'
 
-type Cm = { id: string; body: string; created_at: string; author_id: string; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
+type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; comment_likes?: { count: number }[]; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
 export default function PostCard({ post, liked, canModerate, hideGroup, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
@@ -14,6 +14,10 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
   const [ccount, setCcount] = useState(post.comments?.[0]?.count ?? 0)
   const [open, setOpen] = useState(false)
   const [cms, setCms] = useState<Cm[]>([])
+  const [cLiked, setCLiked] = useState<Set<string>>(new Set())
+  const [cCount, setCCount] = useState<Record<string, number>>({})
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null)
+  const [rtext, setRtext] = useState('')
   const [text, setText] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -37,9 +41,38 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
   }
   const loadComments = async () => {
     const { data, error } = await supabase.from('comments')
-      .select('id,body,created_at,author_id,profiles!author_id(name,avatar_url,plan,plan_until)')
-      .eq('post_id', post.id).order('created_at').limit(100)
-    if (error) setErr(errMsg(error)); else setCms((data as unknown as Cm[]) ?? [])
+      .select('id,body,created_at,author_id,parent_id,comment_likes(count),profiles!author_id(name,avatar_url,plan,plan_until)')
+      .eq('post_id', post.id).order('created_at').limit(300)
+    if (error) return setErr(errMsg(error))
+    const list = (data as unknown as Cm[]) ?? []
+    setCms(list)
+    setCCount(Object.fromEntries(list.map((c) => [c.id, c.comment_likes?.[0]?.count ?? 0])))
+    if (list.length) {
+      const { data: mine } = await supabase.from('comment_likes').select('comment_id').eq('user_id', me).in('comment_id', list.map((c) => c.id))
+      setCLiked(new Set(((mine ?? []) as { comment_id: string }[]).map((x) => x.comment_id)))
+    }
+  }
+  const toggleCLike = async (id: string) => {
+    const was = cLiked.has(id)
+    setCLiked((x) => { const n = new Set(x); if (was) n.delete(id); else n.add(id); return n })
+    setCCount((m) => ({ ...m, [id]: Math.max(0, (m[id] ?? 0) + (was ? -1 : 1)) }))
+    const { error } = was
+      ? await supabase.from('comment_likes').delete().eq('comment_id', id).eq('user_id', me)
+      : await supabase.from('comment_likes').insert({ comment_id: id, user_id: me })
+    if (error) {
+      setCLiked((x) => { const n = new Set(x); if (was) n.add(id); else n.delete(id); return n })
+      setCCount((m) => ({ ...m, [id]: Math.max(0, (m[id] ?? 0) + (was ? 1 : -1)) }))
+      setErr(errMsg(error))
+    }
+  }
+  const sendReply = async () => {
+    const body = rtext.trim()
+    if (!body || !replyTo || busy) return
+    setBusy(true); setErr('')
+    const { error } = await supabase.from('comments').insert({ post_id: post.id, author_id: me, body, parent_id: replyTo.id })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setRtext(''); setReplyTo(null); setCcount((n) => n + 1); loadComments()
   }
   const toggleComments = () => { const n = !open; setOpen(n); if (n) loadComments() }
   const send = async () => {
@@ -54,7 +87,8 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
   const delComment = async (id: string) => {
     const { error } = await supabase.from('comments').delete().eq('id', id)
     if (error) return setErr(errMsg(error))
-    setCms((l) => l.filter((c) => c.id !== id)); setCcount((n) => Math.max(0, n - 1))
+    const gone = cms.filter((c) => c.id === id || c.parent_id === id).length
+    setCms((l) => l.filter((c) => c.id !== id && c.parent_id !== id)); setCcount((n) => Math.max(0, n - gone))
   }
   const delPost = async () => {
     setMenu(false)
@@ -71,6 +105,23 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
     if (error) setErr(errMsg(error)); else setReported(true)
   }
   const gname = post.groups?.name
+  const item = (c: Cm, isReply: boolean) => (
+    <div className="row" style={{ alignItems: 'flex-start' }}>
+      <Link to={`/u/${c.author_id}`}><Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={isReply ? 30 : 36} /></Link>
+      <div className="grow">
+        <div style={{ background: '#EFEFF1', borderRadius: 16, padding: '8px 14px', fontSize: 15, display: 'inline-block', maxWidth: '100%' }}>
+          <Link to={`/u/${c.author_id}`}><Name p={c.profiles} /></Link><div className="body">{c.body}</div>
+        </div>
+        <div className="mut row" style={{ padding: '2px 8px', gap: 12, fontSize: 13 }}>
+          <span>{timeAgo(c.created_at)}</span>
+          <button onClick={() => toggleCLike(c.id)} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', fontWeight: cLiked.has(c.id) ? 700 : 500, color: cLiked.has(c.id) ? '#111111' : 'inherit' }}>{cLiked.has(c.id) ? 'أعجبك' : 'إعجاب'}</button>
+          <button onClick={() => { setReplyTo({ id: c.parent_id ?? c.id, name: c.profiles?.name ?? '' }); setRtext(isReply ? `@${c.profiles?.name ?? ''} ` : '') }} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}>رد</button>
+          {(cCount[c.id] ?? 0) > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#111111' }}><Icon n="heart" s={14} on />{cCount[c.id]}</span>}
+          {(c.author_id === me || canModerate || staff) && <button style={{ background: 'none', border: 0, color: '#C0392B', cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => delComment(c.id)}>حذف</button>}
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <article className="crd">
@@ -106,17 +157,17 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
       {open && (
         <div className="col" style={{ gap: 10, marginTop: 8 }}>
           {cms.length === 0 && <div className="mut" style={{ textAlign: 'center' }}>كن أول من يعلّق.</div>}
-          {cms.map((c) => (
-            <div key={c.id} className="row" style={{ alignItems: 'flex-start' }}>
-              <Link to={`/u/${c.author_id}`}><Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={36} /></Link>
-              <div className="grow">
-                <div style={{ background: '#EFEFF1', borderRadius: 16, padding: '8px 14px', fontSize: 15 }}>
-                  <Link to={`/u/${c.author_id}`}><Name p={c.profiles} /></Link><div className="body">{c.body}</div>
+          {cms.filter((c) => !c.parent_id).map((c) => (
+            <div key={c.id} className="col" style={{ gap: 8 }}>
+              {item(c, false)}
+              {cms.filter((x) => x.parent_id === c.id).map((x) => <div key={x.id} style={{ marginInlineStart: 44 }}>{item(x, true)}</div>)}
+              {replyTo && (replyTo.id === c.id) && (
+                <div className="row" style={{ marginInlineStart: 44 }}>
+                  <input autoFocus style={{ flex: 1, border: 0, background: '#EFEFF1', borderRadius: 24, padding: '10px 16px', minHeight: 42, outline: 'none' }} placeholder={`رد على ${replyTo.name}...`} aria-label="اكتب ردًا" value={rtext} maxLength={2000} onChange={(e) => setRtext(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') sendReply() }} />
+                  <button className="btn p sm" disabled={busy || !rtext.trim()} onClick={sendReply}>إرسال</button>
+                  <button className="btn sm" onClick={() => { setReplyTo(null); setRtext('') }}>إلغاء</button>
                 </div>
-                <div className="mut" style={{ padding: '2px 8px' }}>{timeAgo(c.created_at)}
-                  {(c.author_id === me || canModerate || staff) && <> · <button style={{ background: 'none', border: 0, color: '#C0392B', cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => delComment(c.id)}>حذف</button></>}
-                </div>
-              </div>
+              )}
             </div>
           ))}
           <div className="row">

@@ -6,7 +6,7 @@ import ChatBox, { type ChatMsg } from './ChatBox'
 
 type Msg = { id: string; sender_id: string; body: string; image_url: string | null; created_at: string; read_at: string | null }
 
-export default function DmThread({ otherId, height }: { otherId: string; height?: number }) {
+export default function DmThread({ otherId, height, fill }: { otherId: string; height?: number; fill?: boolean }) {
   const { session } = useAuth()
   const uid = session!.user.id
   const [msgs, setMsgs] = useState<Msg[]>([])
@@ -39,5 +39,5 @@ export default function DmThread({ otherId, height }: { otherId: string; height?
     await load()
   }
   const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, body: m.body, image_url: m.image_url, created_at: m.created_at }))
-  return <ChatBox msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr} />
+  return <ChatBox msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr} fill={fill} />
 }

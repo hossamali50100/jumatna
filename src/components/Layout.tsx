@@ -81,7 +81,7 @@ function Desktop() {
           </div>
         </div>
       </header>
-      <div className={wide ? 'dbody wide' : 'dbody'}>
+      <div className={loc.pathname.startsWith('/messages') ? 'dbody wide full' : wide ? 'dbody wide' : 'dbody'}>
         {!wide && <aside className="dside">
           <b style={{ padding: '4px 12px', fontSize: 15 }}>مجموعاتك</b>
           {groups.filter((g) => g.myStatus === 'active').slice(0, 6).map((g) => (

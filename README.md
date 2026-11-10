@@ -91,6 +91,8 @@ Supabase ← SQL Editor ← New snippet ← الصق محتوى الملف ← R
 شغّل `supabase/migrations/007_direct_messages.sql`. أي عضو يقدر يبعت رسالة لأي عضو (من غير صداقة) من زرار "إرسال رسالة" في صفحته. الرسائل خاصة بين الاتنين بس (حتى الإدارة ما تقراهاش).
 
 
+**الرد على التعليقات والإعجاب بها (013):** شغّل `supabase/migrations/013_comment_replies_likes.sql` مرة واحدة.
+
 **متصل الآن (012):** شغّل `supabase/migrations/012_presence.sql` مرة واحدة. بيظهر نقطة خضراء على صورة الصديق المتصل (للأصدقاء فقط) في قايمة الدردشات وصفحة الرسائل والشات المصغر.
 
 **إصلاح المنشور الشخصي (011):** لو ظهر "violates row-level security policy for table posts" وإنت بتنشر على صفحتك، شغّل `supabase/migrations/011_personal_post_insert_fix.sql` مرة واحدة (ماتشغّلش 002 تاني).

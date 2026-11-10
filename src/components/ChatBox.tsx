@@ -7,7 +7,7 @@ export type ChatMsg = { id: string; mine: boolean; label?: string; body: string;
 const EMOJIS = ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','😉','😁','😅','🙂','🤔','😢','😭','😡','😴','🙏','👍','👎','👏','🙌','💪','👌','✌️','🤝','❤️','💔','🔥','🎉','✨','💯','🌹','☕','🎁','😇','🤗','😱','🥳']
 
 // واجهة شات مشتركة (دعم + رسائل مباشرة) على شكل شات فيسبوك: فقاعات + إيموجي + لايك + صورة
-export default function ChatBox({ msgs, onSend, empty, height = 420, error }: { msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string }) {
+export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill }: { msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
@@ -28,8 +28,8 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error }: { 
   const ib: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', border: 0, background: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#111111', flexShrink: 0, fontSize: 22, fontFamily: 'inherit', padding: 0 }
 
   return (
-    <div className="col" style={{ gap: 8 }}>
-      <div ref={box} className="col" style={{ gap: 3, height, overflowY: 'auto', padding: '10px 10px', background: '#fff', borderRadius: 14 }}>
+    <div className="col" style={{ gap: 8, ...(fill ? { height: '100%', minHeight: 0 } : {}) }}>
+      <div ref={box} className="col" style={{ gap: 3, ...(fill ? { flex: 1, minHeight: 0 } : { height }), overflowY: 'auto', padding: '10px 10px', background: '#fff', borderRadius: 14 }}>
         {msgs.length === 0 && <div className="mut" style={{ textAlign: 'center', margin: 'auto' }}>{empty}</div>}
         {msgs.map((m, i) => {
           const gap = i > 0 && new Date(m.created_at).getTime() - new Date(msgs[i - 1].created_at).getTime() > 30 * 60e3
