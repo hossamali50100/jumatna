@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Avatar, Icon, Name } from '../lib/ui'
+import { Avatar, Name } from '../lib/ui'
 import DmThread from './DmThread'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
@@ -18,7 +18,6 @@ function ChatWindow({ id, index, min, onMin, onClose }: { id: string; index: num
     <div role="dialog" aria-label="محادثة" style={{ position: 'fixed', bottom: 0, left: 20 + index * 352, width: 340, zIndex: 60, background: '#fff', borderRadius: '14px 14px 0 0', boxShadow: '0 0 12px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column' }}>
       <div className="row" style={{ padding: '8px 12px', borderBottom: min ? 0 : '1px solid #E4E4E7', gap: 8 }}>
         <Link to={`/u/${id}`} className="row grow" style={{ minWidth: 0 }}><Avatar name={p?.name} url={p?.avatar_url} size={32} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Name p={p} /></span></Link>
-        <Link to={`/messages/${id}`} onClick={onClose} aria-label="فتح في صفحة كاملة" title="فتح في صفحة كاملة" style={{ display: 'grid', placeItems: 'center' }}><Icon n="menu" s={18} /></Link>
         <button onClick={onMin} aria-label={min ? 'تكبير' : 'تصغير'} style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>{min ? '▢' : '–'}</button>
         <button onClick={onClose} aria-label="إغلاق" style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>✕</button>
       </div>

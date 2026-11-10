@@ -28,6 +28,8 @@ export default function UserPage() {
   const [friends, setFriends] = useState<{ id: string; profile: PubProfile | null }[]>([])
   const [groups, setGroups] = useState<GM['groups'][]>([])
   const [err, setErr] = useState('')
+  const [lockMsg, setLockMsg] = useState('')
+  const [lockDlg, setLockDlg] = useState(false)
   const mobile = useIsMobile()
   const { openChat } = useChatDock()
 
@@ -61,12 +63,20 @@ export default function UserPage() {
   if (!p) return <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>
   const prem = isPremium(p)
   const rel = rels.find((r) => r.other === pid)
+  // حساب مقفول: الغريب يشوف الأساسيات بس (الإدارة وأصحابه يشوفوا كل حاجة)
+  const locked = !!p.is_locked && !mine && rel?.status !== 'accepted' && me?.role === 'user'
 
-  const save = async (patch: Partial<Pick<Profile, 'name' | 'bio' | 'avatar_url' | 'cover_url'>>) => {
+  const save = async (patch: Partial<Pick<Profile, 'name' | 'bio' | 'avatar_url' | 'cover_url' | 'is_locked'>>) => {
     setErr('')
     const { error } = await supabase.from('profiles').update(patch).eq('id', uid)
     if (error) return setErr(errMsg(error))
     await loadProfile(); refresh()
+  }
+  const toggleLock = async () => {
+    setLockDlg(false)
+    const next = !p.is_locked
+    await save({ is_locked: next })
+    setLockMsg(next ? 'تم قفل حسابك: الغرباء مش هيشوفوا أصدقاءك ولا مجموعاتك ولا منشوراتك.' : 'تم فتح حسابك.')
   }
   const pickImg = async (f: File | null | undefined, key: 'avatar_url' | 'cover_url') => {
     if (!f) return
@@ -95,12 +105,14 @@ export default function UserPage() {
             </div>
             <div className="grow" style={{ lineHeight: 1.5, paddingBottom: 8 }}>
               <div className="row" style={{ gap: 6 }}>{prem && <Check />}<b style={{ fontSize: mobile ? 24 : 34 }}>{p.name}</b></div>
-              <div className="mut">{friends.length} صديق · {groups.length} مجموعة</div>
+              {!locked && <div className="mut">{friends.length} صديق · {groups.length} مجموعة</div>}
+              {locked && <div className="mut"><Icon n="lock" s={14} /> الحساب مقفول</div>}
             </div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
               {mine ? (<>
                 <Link className="btn p" to="/profile/edit">تعديل الملف الشخصي</Link>
                 {!prem && <Link className="btn" to="/plans">ترقية الحساب</Link>}
+                <button className="btn" onClick={() => setLockDlg(true)} aria-pressed={!!p.is_locked} aria-label={p.is_locked ? 'فتح الحساب' : 'قفل الحساب'} title={p.is_locked ? 'الحساب مقفول (اضغط لفتحه)' : 'قفل الحساب'} style={{ width: 44, height: 44, padding: 0, borderRadius: 12, display: 'grid', placeItems: 'center', ...(p.is_locked ? { background: '#111111', color: '#fff' } : {}) }}><Icon n={p.is_locked ? 'lock' : 'unlock'} s={20} on={!!p.is_locked} /></button>
               </>) : (<>
                 {mobile
                   ? <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
@@ -114,16 +126,39 @@ export default function UserPage() {
           </div>
           {p.bio && <div className="body" style={{ fontSize: 15 }}>{p.bio}</div>}
         </div>
-        <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4, overflowX: 'auto' }}>
+        {!locked && <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4, overflowX: 'auto' }}>
           {([['posts', 'المنشورات'], ['about', 'نبذة'], ['friends', 'الأصدقاء'], ['groups', 'المجموعات']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? '#111111' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? '#111111' : '#55555C', fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>{l}</button>
           ))}
-        </div>
+        </div>}
       </div>
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Err>{err || friendErr}</Err>
+      {lockMsg && <div className="okmsg">{lockMsg}</div>}
+      {lockDlg && (
+        <div role="dialog" aria-label={p.is_locked ? 'فتح الحساب' : 'قفل الحساب'} onClick={() => setLockDlg(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 80, display: 'grid', placeItems: 'center', padding: 16 }}>
+          <div className="crd col" onClick={(e) => e.stopPropagation()} style={{ width: 'min(440px,100%)', gap: 12, background: '#fff', alignItems: 'center', textAlign: 'center' }}>
+            <Icon n={p.is_locked ? 'unlock' : 'lock'} s={34} />
+            <b style={{ fontSize: 19 }}>{p.is_locked ? 'فتح الحساب للعامة؟' : 'قفل حسابك؟'}</b>
+            {p.is_locked
+              ? <span className="body">لو فتحت الحساب، أي شخص هيقدر يشوف منشوراتك وأصدقاءك ومجموعاتك.</span>
+              : <span className="body">لو قفلت حسابك، منشوراتك وأصدقاءك ومجموعاتك مش هيظهروا لأي حد غريب، وهيظهروا لأصدقائك بس. الغريب هيشوف الاسم والصورة والغلاف والنبذة فقط.</span>}
+            <div className="row" style={{ width: '100%', justifyContent: 'center' }}>
+              <button className="btn p" onClick={toggleLock}>{p.is_locked ? 'موافق، افتح الحساب' : 'موافق'}</button>
+              <button className="btn" onClick={() => setLockDlg(false)}>إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {locked && (
+        <div className="crd col" style={{ alignItems: 'center', textAlign: 'center', gap: 8, padding: 32 }}>
+          <Icon n="lock" s={36} />
+          <b style={{ fontSize: 18 }}>هذا الحساب مقفول</b>
+          <span className="mut">أضِف صاحب الحساب كصديق عشان تشوف أصدقاءه ومجموعاته ومنشوراته.</span>
+        </div>
+      )}
 
-      {tab === 'posts' && (
+      {!locked && tab === 'posts' && (
         <div className="pgrid">
           <aside className="col pside" style={{ gap: 16 }}>
             <div className="crd col" style={{ gap: 10 }}>
@@ -140,7 +175,7 @@ export default function UserPage() {
           </div>
         </div>
       )}
-      {tab !== 'posts' && <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {!locked && tab !== 'posts' && <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {tab === 'about' && (
         <div className="crd col">
           <b>نبذة</b>

@@ -40,11 +40,16 @@ const P: Record<string, string> = {
   image: 'M4 5h16v14H4zM8 10a1.500 1.500 0 100-3 1.500 1.500 0 000 3zM20 16l-5-5-8 8',
   check: 'M5 12l5 5 9-10',
   send: 'M4 12v7h16v-7M12 3v12M7 8l5-5 5 5',
+  lock: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
+  unlock: 'M5 11h14v10H5zM8 11V7a4 4 0 017.500-2',
 }
-export function Icon({ n, s = 22 }: { n: string; s?: number }) {
+// كل الأيقونات outline؛ لما تكون نشطة (on) بتتملي من جوه
+const NEEDLE = 'M15.500 8.500l-2 5-5 2 2-5z'
+export function Icon({ n, s = 22, on = false }: { n: string; s?: number; on?: boolean }) {
+  const filled = on && n !== 'plus' && n !== 'menu' && n !== 'search' && n !== 'more' && n !== 'check' && n !== 'out' && n !== 'send'
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
-      <path d={P[n]} />
+    <svg width={s} height={s} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
+      {n === 'compass' && filled ? (<><path d="M12 21a9 9 0 100-18 9 9 0 000 18z" /><path d={NEEDLE} fill="#fff" stroke="#fff" /></>) : <path d={P[n]} />}
     </svg>
   )
 }

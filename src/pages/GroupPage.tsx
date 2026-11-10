@@ -32,6 +32,8 @@ export default function GroupPage() {
   const [copied, setCopied] = useState(false)
   const { rels } = useFriends()
   const [invited, setInvited] = useState<Set<string>>(new Set())
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [sending, setSending] = useState(false)
   const [memberIds, setMemberIds] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
@@ -89,8 +91,7 @@ export default function GroupPage() {
   }
   const friendsList = rels.filter((r) => r.status === 'accepted')
   const openInvite = async () => {
-    const next = !invite; setInvite(next)
-    if (!next) return
+    setInvite(true); setSel(new Set())
     const [m, i] = await Promise.all([
       supabase.from('group_members').select('user_id').eq('group_id', g.id),
       supabase.from('group_invites').select('invitee_id').eq('group_id', g.id).eq('inviter_id', uid),
@@ -98,9 +99,14 @@ export default function GroupPage() {
     setMemberIds(new Set(((m.data ?? []) as { user_id: string }[]).map((x) => x.user_id)))
     setInvited(new Set(((i.data ?? []) as { invitee_id: string }[]).map((x) => x.invitee_id)))
   }
-  const inviteFriend = async (u: string) => {
-    const { error } = await supabase.from('group_invites').insert({ group_id: g.id, inviter_id: uid, invitee_id: u })
-    if (error) setErr(errMsg(error)); else setInvited((x) => new Set(x).add(u))
+  const inviteSelected = async () => {
+    if (!sel.size || sending) return
+    setSending(true); setErr('')
+    const ids = [...sel]
+    const { error } = await supabase.from('group_invites').insert(ids.map((u) => ({ group_id: g.id, inviter_id: uid, invitee_id: u })))
+    setSending(false)
+    if (error) return setErr(errMsg(error))
+    setInvited((x) => new Set([...x, ...ids])); setSel(new Set()); setInvite(false)
   }
   const link = `${window.location.origin}/g/${g.id}`
   const copy = async () => {
@@ -159,19 +165,37 @@ export default function GroupPage() {
             {(mem?.role === 'owner' || profile?.role === 'admin') && <button className="btn danger" onClick={del}>حذف المجموعة</button>}
             </div>
           </div>
-          {invite && (
-            <div className="crd col" style={{ background: '#F7F7F8' }}>
-              <b>ادعُ أصدقاءك للمجموعة</b>
-              {friendsList.length === 0 && <div className="mut">لسه مفيش أصدقاء. <Link to="/friends"><u>أضف أصدقاء</u></Link> وبعدين ادعيهم. ولو عايز تبعت لحد برة المنصة استخدم زرار "مشاركة".</div>}
-              {friendsList.map((f) => (
-                <div key={f.other} className="row"><Avatar name={f.profile?.name} url={f.profile?.avatar_url} size={40} /><span className="grow"><Name p={f.profile} /></span>
-                  {memberIds.has(f.other) ? <span className="pill">عضو</span>
-                    : invited.has(f.other) ? <span className="pill">تمت الدعوة</span>
-                    : <button className="btn p sm" onClick={() => inviteFriend(f.other)}>دعوة</button>}
+          {invite && (() => {
+            const can = friendsList.filter((f) => !memberIds.has(f.other) && !invited.has(f.other))
+            const all = can.length > 0 && can.every((f) => sel.has(f.other))
+            return (
+              <div role="dialog" aria-label="دعوة أصدقاء" onClick={() => setInvite(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 80, display: 'grid', placeItems: 'center', padding: 16 }}>
+                <div className="crd col" onClick={(e) => e.stopPropagation()} style={{ width: 'min(480px,100%)', maxHeight: '80vh', gap: 10, background: '#fff' }}>
+                  <div className="row"><b className="grow" style={{ fontSize: 18 }}>دعوة أصدقاء للمجموعة</b><button onClick={() => setInvite(false)} aria-label="إغلاق" style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, fontFamily: 'inherit' }}>✕</button></div>
+                  {friendsList.length === 0 && <div className="mut">لسه مفيش أصدقاء. <Link to="/friends"><u>أضف أصدقاء</u></Link> وبعدين ادعيهم. ولو عايز تبعت لحد برة المنصة استخدم زرار "مشاركة".</div>}
+                  {can.length > 0 && (
+                    <label className="row" style={{ cursor: 'pointer', padding: '6px 0', borderBottom: '1px solid #E4E4E7' }}>
+                      <input type="checkbox" checked={all} onChange={() => setSel(all ? new Set() : new Set(can.map((f) => f.other)))} style={{ width: 20, height: 20, accentColor: '#111111' }} />
+                      <b>تحديد الكل ({can.length})</b>
+                    </label>
+                  )}
+                  <div className="col" style={{ gap: 4, overflowY: 'auto' }}>
+                    {friendsList.map((f) => {
+                      const off = memberIds.has(f.other) || invited.has(f.other)
+                      return (
+                        <label key={f.other} className="row" style={{ cursor: off ? 'default' : 'pointer', padding: '6px 0', opacity: off ? .6 : 1 }}>
+                          <input type="checkbox" disabled={off} checked={sel.has(f.other)} onChange={() => setSel((x) => { const n = new Set(x); if (n.has(f.other)) n.delete(f.other); else n.add(f.other); return n })} style={{ width: 20, height: 20, accentColor: '#111111' }} />
+                          <Avatar name={f.profile?.name} url={f.profile?.avatar_url} size={40} /><span className="grow"><Name p={f.profile} /></span>
+                          {memberIds.has(f.other) ? <span className="pill">عضو</span> : invited.has(f.other) ? <span className="pill">تمت الدعوة</span> : null}
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <button className="btn p" disabled={!sel.size || sending} onClick={inviteSelected}>{sending ? '…' : `إرسال الدعوة${sel.size ? ` (${sel.size})` : ''}`}</button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )
+          })()}
         </div>
         <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4 }}>
           {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && g.privacy === 'private' ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : [])] as [typeof tab, string][]).map(([k, l]) => (

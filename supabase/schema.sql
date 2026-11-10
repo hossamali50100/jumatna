@@ -608,6 +608,39 @@ grant update (read_at) on public.dm_messages to authenticated;
 notify pgrst, 'reload schema';
 
 -- ============================================================
+-- ---------- (009) المالك يشوف مجموعته (إصلاح إنشاء المجموعة الخاصة) ----------
+drop policy if exists groups_select on public.groups;
+create policy groups_select on public.groups for select to authenticated
+  using (privacy = 'public' or owner_id = auth.uid() or public.is_member(id) or public.is_invited(id) or public.is_staff());
+
+-- ---------- (010) قفل الحساب الشخصي ----------
+-- ومايشوفش الأصدقاء ولا المجموعات. أصحابك والإدارة يشوفوا كل حاجة.
+alter table public.profiles add column if not exists is_locked boolean not null default false;
+grant update (is_locked) on public.profiles to authenticated;
+
+-- هل المستخدم الحالي يقدر يشوف تفاصيل الشخص ده (أصدقاءه ومجموعاته)؟
+create or replace function public.can_see_details(uid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select uid = auth.uid()
+      or public.is_staff()
+      or not coalesce((select is_locked from profiles where id = uid), false)
+      or public.are_friends(uid, auth.uid());
+$$;
+grant execute on function public.can_see_details(uuid) to authenticated;
+
+-- الصداقات المقبولة: تبان بس لو الطرفين مش مقفولين (أو أنا طرف فيها أو صديق للمقفول)
+drop policy if exists fr_select on public.friendships;
+create policy fr_select on public.friendships for select to authenticated
+  using (requester_id = auth.uid() or addressee_id = auth.uid() or public.is_staff()
+         or (status = 'accepted' and public.can_see_details(requester_id) and public.can_see_details(addressee_id)));
+
+-- عضوية المجموعات: عضو المقفول يختفي عن الغرباء (أعضاء نفس المجموعة يشوفوا بعض)
+drop policy if exists gm_select on public.group_members;
+create policy gm_select on public.group_members for select to authenticated
+  using (user_id = auth.uid() or public.is_staff() or public.is_member(group_id)
+         or (public.group_is_public(group_id) and public.can_see_details(user_id)));
+notify pgrst, 'reload schema';
+
 -- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
 --   update public.profiles set role = 'admin'
 --   where id = (select id from auth.users where email = 'hossamali50100@gmail.com');

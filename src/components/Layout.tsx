@@ -45,12 +45,12 @@ function Desktop() {
         </div>
         <nav className="tnav" aria-label="التنقل">
           {tabs.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} title={t.label} className={({ isActive }) => (isActive ? 'on' : '')}>{t.to === '/friends' ? <Badged n={bd.friends}><Icon n={t.i} /></Badged> : <Icon n={t.i} />}{t.label}</NavLink>
+            <NavLink key={t.to} to={t.to} end={t.end} title={t.label} className={({ isActive }) => (isActive ? 'on' : '')}>{({ isActive }) => <>{t.to === '/friends' ? <Badged n={bd.friends}><Icon n={t.i} on={isActive} /></Badged> : <Icon n={t.i} on={isActive} />}{t.label}</>}</NavLink>
           ))}
         </nav>
         <div className="row grow" style={{ justifyContent: 'flex-end', gap: 12 }}>
-          <Link to="/messages" className="ibtn" aria-label="الرسائل" title="الرسائل"><Badged n={bd.msgs}><Icon n="msg" /></Badged></Link>
-          <Link to="/soon/notifications" className="ibtn" aria-label="الإشعارات" title="الإشعارات"><Icon n="bell" /></Link>
+          <Link to="/messages" className="ibtn" aria-label="الرسائل" title="الرسائل"><Badged n={bd.msgs}><Icon n="msg" on={loc.pathname.startsWith('/messages')} /></Badged></Link>
+          <Link to="/soon/notifications" className="ibtn" aria-label="الإشعارات" title="الإشعارات"><Icon n="bell" on={loc.pathname.startsWith('/soon/notifications')} /></Link>
           <div ref={ref} style={{ position: 'relative' }}>
             <button onClick={() => setMenu(!menu)} aria-label="حسابي" aria-expanded={menu} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
               <Avatar name={profile?.name} url={profile?.avatar_url} size={42} />
@@ -105,7 +105,7 @@ function Mobile() {
   const p = loc.pathname
   const bd = useBadges(p)
   const tab = (to: string, label: string, i: string, on: boolean, n = 0) => (
-    <Link to={to} className={on ? 'on' : ''}><Badged n={n}><Icon n={i} /></Badged>{label}</Link>
+    <Link to={to} className={on ? 'on' : ''}><Badged n={n}><Icon n={i} on={on} /></Badged>{label}</Link>
   )
   const item = (to: string, label: string, i: string, n = 0) => <Link to={to}><Icon n={i} /><span style={{ flex: 1 }}>{label}</span>{n > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{n}</span>}</Link>
   return (

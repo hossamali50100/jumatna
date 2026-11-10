@@ -90,4 +90,10 @@ Supabase ← SQL Editor ← New snippet ← الصق محتوى الملف ← R
 
 شغّل `supabase/migrations/007_direct_messages.sql`. أي عضو يقدر يبعت رسالة لأي عضو (من غير صداقة) من زرار "إرسال رسالة" في صفحته. الرسائل خاصة بين الاتنين بس (حتى الإدارة ما تقراهاش).
 
+
+**إصلاح المنشور الشخصي (011):** لو ظهر "violates row-level security policy for table posts" وإنت بتنشر على صفحتك، شغّل `supabase/migrations/011_personal_post_insert_fix.sql` مرة واحدة (ماتشغّلش 002 تاني).
+
+**قفل الحساب (010):** شغّل `supabase/migrations/010_locked_profile.sql` مرة واحدة. زرار القفل في صفحتك الشخصية بيخلّي الغريب يشوف الاسم والصورة والغلاف والنبذة بس، من غير أصدقاء ولا مجموعات ولا منشورات.
+
+**إصلاح إنشاء مجموعة خاصة (009):** شغّل `supabase/migrations/009_private_group_create_fix.sql` مرة واحدة (كان إنشاء مجموعة "خاصة" بيطلّع خطأ "violates row-level security policy for table groups").
 **تحديث الإشعارات (008):** شغّل `supabase/migrations/008_unread_messages.sql` مرة واحدة. بيظهر عدّاد أحمر على أيقونة الرسائل (رسائل جديدة) وعلى أيقونة الأصدقاء (طلبات صداقة ودعوات مجموعات)، ويتحدّث كل ~12 ثانية.
