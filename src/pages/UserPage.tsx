@@ -7,6 +7,7 @@ import PostCard from '../components/PostCard'
 import Composer from '../components/Composer'
 import { Avatar, Check, Err, Icon, Name, gcolor, useIsMobile } from '../lib/ui'
 import { POST_SELECT, likedSet } from './Home'
+import { useChatDock } from '../components/ChatDock'
 
 type FriendRow = { requester_id: string; addressee_id: string; req: PubProfile | null; adr: PubProfile | null }
 type GM = { groups: Pick<Group, 'id' | 'name' | 'cover_url' | 'privacy'> | null }
@@ -28,6 +29,7 @@ export default function UserPage() {
   const [groups, setGroups] = useState<GM['groups'][]>([])
   const [err, setErr] = useState('')
   const mobile = useIsMobile()
+  const { openChat } = useChatDock()
 
   useEffect(() => { setTab('posts'); setP(null); setMissing(false); setPosts(null) }, [pid])
 
@@ -100,7 +102,9 @@ export default function UserPage() {
                 <Link className="btn p" to="/profile/edit">تعديل الملف الشخصي</Link>
                 {!prem && <Link className="btn" to="/plans">ترقية الحساب</Link>}
               </>) : (<>
-                <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
+                {mobile
+                  ? <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
+                  : <button className="btn" onClick={() => openChat(pid)}><Icon n="msg" s={18} />إرسال رسالة</button>}
                 {!rel && <button className="btn p" onClick={() => request(pid)}><Icon n="friends" s={18} />إضافة صديق</button>}
                 {rel?.status === 'accepted' && <button className="btn" onClick={() => confirm('حذف الصداقة؟') && remove(pid)}>✓ أصدقاء</button>}
                 {rel?.status === 'pending' && !rel.incoming && <button className="btn" onClick={() => remove(pid)}>إلغاء طلب الصداقة</button>}

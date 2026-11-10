@@ -594,6 +594,19 @@ create trigger rate_limit_dm_trg before insert on public.dm_messages
 
 notify pgrst, 'reload schema';
 
+-- ---------- (008) رسائل غير مقروءة ----------
+alter table public.dm_messages add column if not exists read_at timestamptz;
+create index if not exists dm_unread_idx on public.dm_messages (recipient_id) where read_at is null;
+
+-- المستلم بس يقدر يعلّم رسالة إنها اتقرت، وده العمود الوحيد اللي يقدر يعدّله
+drop policy if exists dm_update on public.dm_messages;
+create policy dm_update on public.dm_messages for update to authenticated
+  using (recipient_id = auth.uid()) with check (recipient_id = auth.uid());
+revoke update on public.dm_messages from authenticated, anon;
+grant update (read_at) on public.dm_messages to authenticated;
+
+notify pgrst, 'reload schema';
+
 -- ============================================================
 -- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
 --   update public.profiles set role = 'admin'

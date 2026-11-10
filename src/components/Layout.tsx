@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChatDockProvider } from './ChatDock'
+import { useBadges } from '../lib/badges'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useMyGroups } from '../lib/groups'
-import { Avatar, Check, Icon, useIsMobile } from '../lib/ui'
+import { Badged, Avatar, Check, Icon, useIsMobile } from '../lib/ui'
 import { isPremium } from '../lib/supabase'
 
 function PremName({ name, prem }: { name?: string; prem: boolean }) {
@@ -23,7 +25,8 @@ function Desktop() {
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)
   }, [])
   const prem = isPremium(profile)
-  const wide = /^\/(profile|u\/|g\/)/.test(loc.pathname) // صفحات البروفايل بعرض كامل زي فيسبوك
+  const bd = useBadges(loc.pathname)
+  const wide = /^\/(profile|u\/|g\/|messages)/.test(loc.pathname) // صفحات البروفايل بعرض كامل زي فيسبوك
   const tabs = [
     { to: '/', end: true, label: 'الرئيسية', i: 'home' },
     { to: '/groups', label: 'مجموعاتي', i: 'groups' },
@@ -42,11 +45,11 @@ function Desktop() {
         </div>
         <nav className="tnav" aria-label="التنقل">
           {tabs.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} title={t.label} className={({ isActive }) => (isActive ? 'on' : '')}><Icon n={t.i} />{t.label}</NavLink>
+            <NavLink key={t.to} to={t.to} end={t.end} title={t.label} className={({ isActive }) => (isActive ? 'on' : '')}>{t.to === '/friends' ? <Badged n={bd.friends}><Icon n={t.i} /></Badged> : <Icon n={t.i} />}{t.label}</NavLink>
           ))}
         </nav>
         <div className="row grow" style={{ justifyContent: 'flex-end', gap: 12 }}>
-          <Link to="/messages" className="ibtn" aria-label="الرسائل" title="الرسائل"><Icon n="msg" /></Link>
+          <Link to="/messages" className="ibtn" aria-label="الرسائل" title="الرسائل"><Badged n={bd.msgs}><Icon n="msg" /></Badged></Link>
           <Link to="/soon/notifications" className="ibtn" aria-label="الإشعارات" title="الإشعارات"><Icon n="bell" /></Link>
           <div ref={ref} style={{ position: 'relative' }}>
             <button onClick={() => setMenu(!menu)} aria-label="حسابي" aria-expanded={menu} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
@@ -99,23 +102,24 @@ function Mobile() {
   const main = useRef<HTMLElement>(null)
   useEffect(() => { setOpen(false); main.current?.scrollTo(0, 0) }, [loc.pathname])
   const prem = isPremium(profile)
-  const tab = (to: string, label: string, i: string, on: boolean) => (
-    <Link to={to} className={on ? 'on' : ''}><Icon n={i} />{label}</Link>
-  )
   const p = loc.pathname
-  const item = (to: string, label: string, i: string) => <Link to={to}><Icon n={i} /><span style={{ flex: 1 }}>{label}</span></Link>
+  const bd = useBadges(p)
+  const tab = (to: string, label: string, i: string, on: boolean, n = 0) => (
+    <Link to={to} className={on ? 'on' : ''}><Badged n={n}><Icon n={i} /></Badged>{label}</Link>
+  )
+  const item = (to: string, label: string, i: string, n = 0) => <Link to={to}><Icon n={i} /><span style={{ flex: 1 }}>{label}</span>{n > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{n}</span>}</Link>
   return (
     <div className="mroot">
       <header className="mbar">
         <Link to="/" className="av" style={{ width: 36, height: 36, background: '#111111', fontSize: 18, borderRadius: 10 }}>ج</Link>
         <b style={{ fontSize: 21, flex: 1 }}>جمعتنا</b>
         <Link to="/discover" className="mi" aria-label="بحث"><Icon n="search" /></Link>
-        <button className="mi" aria-label="القائمة" onClick={() => setOpen(true)}><Icon n="menu" /></button>
+        <button className="mi" aria-label="القائمة" onClick={() => setOpen(true)}><Badged n={bd.friends}><Icon n="menu" /></Badged></button>
       </header>
       <main className="mmain" ref={main}><Outlet /></main>
       <nav className="mtabs" aria-label="التنقل">
         {tab('/', 'الرئيسية', 'home', p === '/')}
-        {tab('/messages', 'الرسائل', 'msg', p.startsWith('/messages'))}
+        {tab('/messages', 'الرسائل', 'msg', p.startsWith('/messages'), bd.msgs)}
         {tab('/profile', 'حسابي', 'user', p === '/profile')}
       </nav>
       {open && (<>
@@ -129,7 +133,7 @@ function Mobile() {
           {item('/discover', 'اكتشف مجموعات', 'compass')}
           {item('/create', 'إنشاء مجموعة', 'plus')}
           <div className="hr" />
-          {item('/friends', 'الأصدقاء', 'friends')}
+          {item('/friends', 'الأصدقاء', 'friends', bd.friends)}
           {item('/soon/notifications', 'الإشعارات', 'bell')}
           <div className="hr" />
           {item('/plans', 'الباقات والترقية', 'card')}
@@ -142,5 +146,6 @@ function Mobile() {
 }
 
 export default function Layout() {
-  return useIsMobile() ? <Mobile /> : <Desktop />
+  const mobile = useIsMobile()
+  return <ChatDockProvider enabled={!mobile}>{mobile ? <Mobile /> : <Desktop />}</ChatDockProvider>
 }

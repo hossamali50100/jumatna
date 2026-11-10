@@ -6,8 +6,8 @@ import DmThread from '../components/DmThread'
 import { Avatar, Err, Name, timeAgo, useIsMobile } from '../lib/ui'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
-type Row = { sender_id: string; recipient_id: string; body: string; image_url: string | null; created_at: string; s: P | null; r: P | null }
-type Conv = { other: string; profile: P | null; last: Row }
+type Row = { sender_id: string; recipient_id: string; body: string; image_url: string | null; created_at: string; read_at: string | null; s: P | null; r: P | null }
+type Conv = { other: string; profile: P | null; last: Row; unread: number }
 
 export default function Messages() {
   const { uid: other } = useParams()
@@ -20,14 +20,15 @@ export default function Messages() {
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('dm_messages')
-      .select('sender_id,recipient_id,body,image_url,created_at,s:profiles!sender_id(name,avatar_url,plan,plan_until),r:profiles!recipient_id(name,avatar_url,plan,plan_until)')
+      .select('sender_id,recipient_id,body,image_url,created_at,read_at,s:profiles!sender_id(name,avatar_url,plan,plan_until),r:profiles!recipient_id(name,avatar_url,plan,plan_until)')
       .order('created_at', { ascending: false }).limit(300)
     if (error) return setErr(errMsg(error))
-    const seen = new Set<string>(); const out: Conv[] = []
+    const seen = new Map<string, Conv>(); const out: Conv[] = []
     for (const r of (data as unknown as Row[]) ?? []) {
       const o = r.sender_id === uid ? r.recipient_id : r.sender_id
-      if (seen.has(o)) continue
-      seen.add(o); out.push({ other: o, profile: r.sender_id === uid ? r.r : r.s, last: r })
+      let c = seen.get(o)
+      if (!c) { c = { other: o, profile: r.sender_id === uid ? r.r : r.s, last: r, unread: 0 }; seen.set(o, c); out.push(c) }
+      if (r.recipient_id === uid && !r.read_at) c.unread++
     }
     setConvs(out)
   }, [uid])
@@ -47,8 +48,9 @@ export default function Messages() {
       {convs.map((c) => (
         <Link key={c.other} to={`/messages/${c.other}`} className="row" style={{ borderRadius: 12, padding: 8, background: other === c.other ? '#EFEFF1' : 'none' }}>
           <Avatar name={c.profile?.name} url={c.profile?.avatar_url} size={44} />
-          <span className="grow" style={{ minWidth: 0 }}><Name p={c.profile} /><div className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last.sender_id === uid ? 'أنت: ' : ''}{c.last.body || '📷 صورة'}</div></span>
+          <span className="grow" style={{ minWidth: 0, fontWeight: c.unread ? 700 : 400 }}><Name p={c.profile} /><div className="mut" style={{ fontWeight: c.unread ? 700 : 400, color: c.unread ? '#111111' : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last.sender_id === uid ? 'أنت: ' : ''}{c.last.body || '📷 صورة'}</div></span>
           <span className="mut" style={{ fontSize: 12 }}>{timeAgo(c.last.created_at)}</span>
+          {c.unread > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{c.unread}</span>}
         </Link>
       ))}
     </div>

@@ -10,8 +10,8 @@ export default function ChatBox({ msgs, onSend, empty, height = 420 }: { msgs: C
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const end = useRef<HTMLDivElement>(null)
-  useEffect(() => { end.current?.scrollIntoView({ block: 'end' }) }, [msgs.length])
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => { const b = box.current; if (b) b.scrollTop = b.scrollHeight }, [msgs.length])
 
   const send = async () => {
     const text = body.trim()
@@ -23,7 +23,7 @@ export default function ChatBox({ msgs, onSend, empty, height = 420 }: { msgs: C
 
   return (
     <div className="col" style={{ gap: 10 }}>
-      <div className="col" style={{ gap: 8, height, overflowY: 'auto', padding: 12, background: '#F7F7F8', borderRadius: 14 }}>
+      <div ref={box} className="col" style={{ gap: 8, height, overflowY: 'auto', padding: 12, background: '#F7F7F8', borderRadius: 14 }}>
         {msgs.length === 0 && <div className="mut" style={{ textAlign: 'center', margin: 'auto' }}>{empty}</div>}
         {msgs.map((m) => (
           <div key={m.id} style={{ alignSelf: m.mine ? 'flex-start' : 'flex-end', maxWidth: '80%' }}>
@@ -35,7 +35,6 @@ export default function ChatBox({ msgs, onSend, empty, height = 420 }: { msgs: C
             <div className="mut" style={{ fontSize: 12, padding: '2px 6px' }}>{timeAgo(m.created_at)}</div>
           </div>
         ))}
-        <div ref={end} />
       </div>
       <Err>{err}</Err>
       {file && <div className="mut">الصورة: {file.name} <button className="btn sm" onClick={() => setFile(null)}>إزالة</button></div>}

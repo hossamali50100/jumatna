@@ -76,3 +76,13 @@ export function timeAgo(iso: string) {
   if (s < 86400) return `منذ ${Math.floor(s / 3600)} ساعة`
   return `منذ ${Math.floor(s / 86400)} يوم`
 }
+
+// نقطة إشعار حمرا بعدد فوق أيقونة
+export function Badged({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      {children}
+      {n > 0 && <span aria-label={`${n} جديد`} style={{ position: 'absolute', top: -6, insetInlineEnd: -8, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: '#E5383B', color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1, border: '2px solid #fff', boxSizing: 'content-box' }}>{n > 9 ? '9+' : n}</span>}
+    </span>
+  )
+}

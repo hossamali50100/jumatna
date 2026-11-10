@@ -65,7 +65,7 @@ export default function Friends() {
       {incoming.length > 0 && (
         <div className="crd col"><b>طلبات صداقة ({incoming.length})</b>
           {incoming.map((r) => (
-            <div key={r.other} className="row"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={44} /><span className="grow"><Name p={r.profile} /></span>
+            <div key={r.other} className="row"><Link to={`/u/${r.other}`} className="row grow"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={44} /><Name p={r.profile} /></Link>
               <button className="btn p sm" onClick={() => accept(r.other)}>قبول</button>
               <button className="btn sm" onClick={() => remove(r.other)}>رفض</button></div>
           ))}
@@ -77,7 +77,7 @@ export default function Friends() {
         {found.map((f) => {
           const r = relOf(f.id)
           return (
-            <div key={f.id} className="row"><Avatar name={f.name} url={f.avatar_url} size={44} /><span className="grow"><Name p={f} /></span>
+            <div key={f.id} className="row"><Link to={`/u/${f.id}`} className="row grow"><Avatar name={f.name} url={f.avatar_url} size={44} /><Name p={f} /></Link>
               {!r && <button className="btn p sm" onClick={() => request(f.id)}>إضافة صديق</button>}
               {r?.status === 'accepted' && <span className="pill">صديق</span>}
               {r?.status === 'pending' && !r.incoming && <button className="btn sm" onClick={() => remove(f.id)}>إلغاء الطلب</button>}
@@ -91,14 +91,14 @@ export default function Friends() {
         <b>أصدقائي ({friends.length})</b>
         {friends.length === 0 && <span className="mut">لسه مفيش أصدقاء. ابحث بالاسم فوق وابعت طلب صداقة.</span>}
         {friends.map((r) => (
-          <div key={r.other} className="row"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={44} /><span className="grow"><Name p={r.profile} /></span>
+          <div key={r.other} className="row"><Link to={`/u/${r.other}`} className="row grow"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={44} /><Name p={r.profile} /></Link>
             <button className="btn sm danger" onClick={() => confirm('حذف الصديق؟') && remove(r.other)}>حذف</button></div>
         ))}
       </div>
       {sent.length > 0 && (
         <div className="crd col"><b>طلبات أرسلتها</b>
           {sent.map((r) => (
-            <div key={r.other} className="row"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={40} /><span className="grow"><Name p={r.profile} /></span>
+            <div key={r.other} className="row"><Link to={`/u/${r.other}`} className="row grow"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={40} /><Name p={r.profile} /></Link>
               <button className="btn sm" onClick={() => remove(r.other)}>إلغاء</button></div>
           ))}
         </div>

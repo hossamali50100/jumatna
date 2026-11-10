@@ -23,5 +23,5 @@ export default function SupportThread({ userId, staff }: { userId: string; staff
     await load()
   }
   const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: staff ? m.from_staff : !m.from_staff, label: staff ? (m.from_staff ? undefined : 'العميل') : (m.from_staff ? 'فريق جمعتنا' : undefined), body: m.body, image_url: m.image_url, created_at: m.created_at }))
-  return <ChatBox msgs={list} onSend={onSend} empty={staff ? 'مفيش رسائل.' : 'اكتب رسالتك لفريق جمعتنا وهنرد عليك في أقرب وقت. ممكن ترفق صورة (زي إثبات الدفع).'} />
+  return <ChatBox msgs={list} onSend={onSend} empty={staff ? 'مفيش رسائل.' : 'اكتب رسالتك لفريق جمعتنا وهنرد عليك في أقرب وقت.'} />
 }

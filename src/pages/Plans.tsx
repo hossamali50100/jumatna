@@ -3,7 +3,7 @@ import { Check } from '../lib/ui'
 import { useAuth } from '../lib/auth'
 import { isPremium } from '../lib/supabase'
 
-const prem = ['إنشاء حتى 10 مجموعات', 'علامة التوثيق الخضراء بجانب اسمك', 'كل مميزات الحساب العادي']
+const prem = ['إنشاء حتى 10 مجموعات', 'علامة التوثيق الخضراء بجانب اسمك', 'دعم مباشر وسريع من فريق جمعتنا']
 
 export default function Plans() {
   const { profile } = useAuth()
