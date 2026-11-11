@@ -36,7 +36,7 @@ function Desktop() {
   useEffect(() => {
     const f = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false)
-      if (dref.current && !dref.current.contains(e.target as Node)) setDms(false)
+      if (dref.current && !dref.current.contains(e.target as Node) && !(e.target as Element).closest?.('.fw-ov')) setDms(false)
       if (nref.current && !nref.current.contains(e.target as Node)) setNots(false)
     }
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)

@@ -489,4 +489,98 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
 select pg_temp.t('RX: cannot change user_id', $q$update likes set user_id='00000000-0000-0000-0000-00000000000a' where user_id='00000000-0000-0000-0000-00000000000b'$q$, false);
 reset role;
 
+
+-- 029 dm reactions
+reset role;
+insert into dm_messages(id,sender_id,recipient_id,body) values('bbbbbbbb-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b','rx msg');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('DR: recipient reacts', $q$insert into dm_reactions(message_id,user_id,emoji) values('bbbbbbbb-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000b','😂')$q$, true);
+select pg_temp.t('DR: B changes emoji', $q$do $d$ begin update dm_reactions set emoji='❤️' where user_id='00000000-0000-0000-0000-00000000000b'; if not found then raise exception 'zero'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('DR: sender sees reaction', $q$select 1/(case when exists (select 1 from dm_reactions where message_id='bbbbbbbb-0000-0000-0000-000000000001') then 1 else 0 end)$q$, true);
+select pg_temp.t('DR: A spoofs B reaction', $q$insert into dm_reactions(message_id,user_id,emoji) values('bbbbbbbb-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000b','😡')$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.t('DR: outsider cannot see', $q$select 1/(case when not exists (select 1 from dm_reactions) then 1 else 0 end)$q$, true);
+select pg_temp.t('DR: outsider cannot react', $q$insert into dm_reactions(message_id,user_id,emoji) values('bbbbbbbb-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000c','👍')$q$, false);
+reset role;
+
+
+-- 030 block + clear
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('BL: B blocks A', $q$select block_user('00000000-0000-0000-0000-00000000000a')$q$, true);
+select pg_temp.t('BL: B cannot message A after block', $q$insert into dm_messages(sender_id,recipient_id,body) values('00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000a','hi')$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('BL: blocked A cannot message B', $q$insert into dm_messages(sender_id,recipient_id,body) values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b','hi')$q$, false);
+select pg_temp.t('BL: A cannot see blocks list of B', $q$select 1/(case when not exists (select 1 from user_blocks) then 1 else 0 end)$q$, true);
+select pg_temp.t('BL: A cannot insert block row directly', $q$insert into user_blocks values('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000c')$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('BL: B unblocks', $q$select unblock_user('00000000-0000-0000-0000-00000000000a')$q$, true);
+select pg_temp.t('BL: B can message A after unblock', $q$insert into dm_messages(sender_id,recipient_id,body) values('00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000a','hi again')$q$, true);
+select pg_temp.t('CL: B clears chat', $q$select clear_chat('00000000-0000-0000-0000-00000000000a')$q$, true);
+select pg_temp.t('CL: clear saved', $q$select 1/(case when exists (select 1 from dm_clears where other_id='00000000-0000-0000-0000-00000000000a') then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('CL: A cannot see B clears', $q$select 1/(case when not exists (select 1 from dm_clears) then 1 else 0 end)$q$, true);
+reset role;
+set role anon;
+select pg_temp.t('BL: anon cannot block', $q$select block_user('00000000-0000-0000-0000-00000000000a')$q$, false);
+reset role;
+
+
+-- 031 group chats
+reset role;
+insert into friendships(requester_id,addressee_id,status) values
+ ('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b','accepted'),
+ ('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000d','accepted') on conflict do nothing;
+delete from user_blocks;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('GC: only 1 member rejected', $q$select create_chat_room('X', null, array['00000000-0000-0000-0000-00000000000b']::uuid[])$q$, false);
+select pg_temp.t('GC: non-friend rejected', $q$select create_chat_room('X', null, array['00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-0000000000a1']::uuid[])$q$, false);
+select pg_temp.t('GC: empty name rejected', $q$select create_chat_room('  ', null, array['00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000d']::uuid[])$q$, false);
+select pg_temp.t('GC: A creates room with B and C', $q$select create_chat_room('شلة', null, array['00000000-0000-0000-0000-00000000000b','00000000-0000-0000-0000-00000000000d']::uuid[])$q$, true);
+select pg_temp.t('GC: A sends message', $q$insert into chat_room_messages(room_id,sender_id,body) select id,'00000000-0000-0000-0000-00000000000a','hello room' from chat_rooms where name='شلة'$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('GC: B (member) reads', $q$select 1/(case when exists (select 1 from chat_room_messages where body='hello room') then 1 else 0 end)$q$, true);
+select pg_temp.t('GC: B sees room members', $q$select 1/(case when (select count(*) from chat_room_members)=3 then 1 else 0 end)$q$, true);
+select pg_temp.t('GC: B replies', $q$insert into chat_room_messages(room_id,sender_id,body) select id,'00000000-0000-0000-0000-00000000000b','hi' from chat_rooms where name='شلة'$q$, true);
+select pg_temp.t('GC: B spoofs sender', $q$insert into chat_room_messages(room_id,sender_id,body) select id,'00000000-0000-0000-0000-00000000000a','fake' from chat_rooms where name='شلة'$q$, false);
+select pg_temp.t('GC: B renames', $q$select update_chat_room((select id from chat_rooms limit 1),'شلة 2',null)$q$, true);
+select pg_temp.t('GC: B cannot add non-friend D', $q$select add_room_members((select id from chat_rooms limit 1), array['00000000-0000-0000-0000-0000000000a1']::uuid[])$q$, false);
+select pg_temp.t('GC: B marks read', $q$do $d$ begin update chat_room_members set last_read_at=now() where user_id='00000000-0000-0000-0000-00000000000b'; if not found then raise exception 'zero'; end if; end $d$$q$, true);
+select pg_temp.t('GC: B cannot edit others read state', $q$do $d$ begin update chat_room_members set last_read_at=now() where user_id='00000000-0000-0000-0000-00000000000a'; if not found then raise exception 'zero'; end if; end $d$$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.t('GC: outsider sees nothing', $q$select 1/(case when not exists (select 1 from chat_rooms) and not exists (select 1 from chat_room_messages) and not exists (select 1 from chat_room_members) then 1 else 0 end)$q$, true);
+select pg_temp.t('GC: outsider cannot post', $q$insert into chat_room_messages(room_id,sender_id,body) select id,'00000000-0000-0000-0000-0000000000a1','x' from (select id from chat_rooms) q$q$, true);
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('GC: unread total callable', $q$select room_unread_total()$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('GC: C leaves', $q$select leave_chat_room((select id from chat_rooms limit 1))$q$, true);
+select pg_temp.t('GC: C no longer sees', $q$select 1/(case when not exists (select 1 from chat_room_messages) then 1 else 0 end)$q$, true);
+reset role;
+set role anon;
+select pg_temp.t('GC: anon cannot create', $q$select create_chat_room('x',null,array[]::uuid[])$q$, false);
+reset role;
+
+
+-- 032 mute + kick
+reset role;
+insert into chat_rooms(id,name,created_by) values('cccccccc-0000-0000-0000-000000000001','kick room','00000000-0000-0000-0000-00000000000a');
+insert into chat_room_members(room_id,user_id) values('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000a'),('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000b'),('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000d');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('KK: non-creator cannot kick', $q$select remove_room_member('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000d')$q$, false);
+select pg_temp.t('MU: B mutes a chat', $q$insert into chat_mutes(user_id,chat_key) values('00000000-0000-0000-0000-00000000000b','room:cccccccc-0000-0000-0000-000000000001')$q$, true);
+select pg_temp.t('MU: B cannot mute for others', $q$insert into chat_mutes(user_id,chat_key) values('00000000-0000-0000-0000-00000000000a','x')$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('MU: A cannot see B mutes', $q$select 1/(case when not exists (select 1 from chat_mutes) then 1 else 0 end)$q$, true);
+select pg_temp.t('KK: creator kicks D', $q$select remove_room_member('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000d')$q$, true);
+select pg_temp.t('KK: D really removed', $q$select 1/(case when not exists (select 1 from chat_room_members where room_id='cccccccc-0000-0000-0000-000000000001' and user_id='00000000-0000-0000-0000-00000000000d') then 1 else 0 end)$q$, true);
+select pg_temp.t('KK: creator cannot kick self', $q$select remove_room_member('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000a')$q$, false);
+reset role;
+
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

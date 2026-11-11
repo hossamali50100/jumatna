@@ -2,9 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Avatar, AvatarOn, Icon, Name } from '../lib/ui'
-import { useOnline } from '../lib/presence'
+import { useOnline, usePresenceError } from '../lib/presence'
 import { useFriends } from '../lib/friends'
-import DmThread from './DmThread'
+import ChatMenu from './ChatMenu'
+import RoomMenu from './RoomMenu'
+import Thread from './Thread'
+import { isRoom, roomKey, useRoom } from '../lib/rooms'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
 type Win = { id: string; min: boolean }
@@ -17,25 +20,39 @@ const MAX = 12 // أقصى عدد محادثات (اللي فوق عدد الن�
 function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; index: number; base: number; min: boolean; onMin: () => void; onClose: () => void }) {
   const [p, setP] = useState<P | null>(null)
   const online = useOnline([id]).has(id)
-  useEffect(() => { supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', id).maybeSingle().then(({ data }) => setP((data as P) ?? null)) }, [id])
+  const isR = isRoom(id)
+  const { room } = useRoom(isR ? roomKey(id) : null)
+  useEffect(() => { if (isR) return; supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', id).maybeSingle().then(({ data }) => setP((data as P) ?? null)) }, [id, isR])
   return (
     <div role="dialog" aria-label="محادثة" style={{ position: 'fixed', bottom: 0, left: base + index * 352, width: 340, zIndex: 60, background: '#fff', borderRadius: '14px 14px 0 0', boxShadow: '0 0 12px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column' }}>
       <div className="row" onClick={onMin} style={{ padding: '8px 12px', borderBottom: min ? 0 : '1px solid #E4E4E7', gap: 8, cursor: 'pointer' }}>
-        <Link to={`/u/${id}`} onClick={(e) => e.stopPropagation()} className="row" style={{ minWidth: 0, gap: 8 }}>
-          <AvatarOn online={online}><Avatar name={p?.name} url={p?.avatar_url} size={32} /></AvatarOn>
-          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
-            <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Name p={p} /></b>
-            <span style={{ fontSize: 12, color: online ? '#16A34A' : '#65676B', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <i style={{ width: 8, height: 8, borderRadius: '50%', background: online ? '#22C55E' : '#BCC0C4', display: 'inline-block' }} />{online ? 'متصل الآن' : 'غير متصل'}
+        {isR ? (<>
+          <span className="row" style={{ minWidth: 0, gap: 8 }}>
+            <Avatar name={room?.name} url={room?.avatar_url} size={32} />
+            <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
+              <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room?.name ?? '…'}</b>
+              <span className="mut" style={{ fontSize: 12 }}>{room ? `${room.members.length} أعضاء` : ''}</span>
             </span>
           </span>
-        </Link>
+          {room && <RoomMenu room={room} onLeft={onClose} />}
+        </>) : (<>
+          <Link to={`/u/${id}`} onClick={(e) => e.stopPropagation()} className="row" style={{ minWidth: 0, gap: 8 }}>
+            <AvatarOn online={online}><Avatar name={p?.name} url={p?.avatar_url} size={32} /></AvatarOn>
+            <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
+              <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Name p={p} /></b>
+              <span style={{ fontSize: 12, color: online ? '#16A34A' : '#65676B', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <i style={{ width: 8, height: 8, borderRadius: '50%', background: online ? '#22C55E' : '#BCC0C4', display: 'inline-block' }} />{online ? 'متصل الآن' : 'غير متصل'}
+              </span>
+            </span>
+          </Link>
+          <ChatMenu otherId={id} name={p?.name} />
+        </>)}
         <span className="grow" />
         <Link to={`/messages/${id}`} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="فتح في صفحة الرسائل" title="فتح في صفحة الرسائل" style={{ display: 'grid', placeItems: 'center', width: 28, height: 28 }}><Icon n="msg" s={20} /></Link>
         <button onClick={(e) => { e.stopPropagation(); onMin() }} aria-label={min ? 'تكبير' : 'تصغير'} style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>{min ? '▢' : '–'}</button>
         <button onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="إغلاق" style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>✕</button>
       </div>
-      {!min && <div style={{ padding: 8 }}><DmThread otherId={id} height={300} /></div>}
+      {!min && <div style={{ padding: 8 }}><Thread id={id} height={300} /></div>}
     </div>
   )
 }
@@ -47,6 +64,13 @@ export function ChatDockProvider({ children, enabled }: { children: ReactNode; e
     setWins((w) => [{ id, min: false }, ...w.filter((x) => x.id !== id)].slice(0, MAX))
   }, [])
   const loc = useLocation()
+  // رسالة جديدة وصلتني: نفتح نافذتها المصغرة تلقائيًا (لو مش مفتوحة)
+  const onPage = !loc.pathname.startsWith('/messages') && !loc.pathname.startsWith('/admin')
+  useEffect(() => {
+    if (!enabled || !onPage) return
+    const f = (e: Event) => { const id = (e as CustomEvent<string>).detail; setWins((w) => w.some((x) => x.id === id) ? w : [{ id, min: false }, ...w].slice(0, MAX)) }
+    window.addEventListener('jm:incoming', f); return () => window.removeEventListener('jm:incoming', f)
+  }, [enabled, onPage])
   const [vw, setVw] = useState(window.innerWidth)
   useEffect(() => { const f = () => setVw(window.innerWidth); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
   const [open, setOpen] = useState(() => { try { const v = localStorage.getItem('contacts-open'); return v === null ? false : v === '1' } catch { return true } })
@@ -76,10 +100,11 @@ export function ChatDockProvider({ children, enabled }: { children: ReactNode; e
 // فقاعة صغيرة لمحادثة مفتوحة مش لاقية مكان كنافذة (زي ماسنجر)
 function Bubble({ id, onOpen, onClose }: { id: string; onOpen: () => void; onClose: () => void }) {
   const [p, setP] = useState<P | null>(null)
-  useEffect(() => { supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', id).maybeSingle().then(({ data }) => setP((data as P) ?? null)) }, [id])
+  const { room } = useRoom(isRoom(id) ? roomKey(id) : null)
+  useEffect(() => { if (isRoom(id)) return; supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', id).maybeSingle().then(({ data }) => setP((data as P) ?? null)) }, [id])
   return (
     <div className="bub">
-      <button type="button" onClick={onOpen} aria-label={`فتح محادثة ${p?.name ?? ''}`} title={p?.name}><Avatar name={p?.name} url={p?.avatar_url} size={48} /></button>
+      <button type="button" onClick={onOpen} aria-label={`فتح محادثة ${p?.name ?? ''}`} title={room?.name ?? p?.name}><Avatar name={room?.name ?? p?.name} url={room ? room.avatar_url : p?.avatar_url} size={48} /></button>
       <button type="button" className="bub-x" onClick={onClose} aria-label="إغلاق">✕</button>
     </div>
   )
@@ -91,6 +116,7 @@ function ContactsPanel({ open, onToggle, onPick }: { open: boolean; onToggle: (v
   const friends = rels.filter((r) => r.status === 'accepted')
   const online = useOnline(friends.map((f) => f.other))
   const list = friends.filter((f) => online.has(f.other))
+  const perr = usePresenceError()
   return (
     <aside aria-label="الأصدقاء المتصلين" className="contacts">
       <button type="button" className="ct-head" aria-expanded={open} onClick={() => onToggle(!open)}>
@@ -100,7 +126,7 @@ function ContactsPanel({ open, onToggle, onPick }: { open: boolean; onToggle: (v
       </button>
       {open && (
         <div className="ct-list">
-          {list.length === 0 && <div className="mut" style={{ padding: '16px 12px', fontSize: 15 }}>مفيش أصدقاء متصلين دلوقتي.</div>}
+          {list.length === 0 && <div className="mut" style={{ padding: '16px 12px', fontSize: 15, lineHeight: 1.7 }}>{perr || 'مفيش أصدقاء متصلين دلوقتي. الصديق بيظهر هنا لما يكون فاتح الموقع.'}</div>}
           {list.map((f) => (
             <button key={f.other} className="ct-row" onClick={() => onPick(f.other)}>
               <AvatarOn online><Avatar name={f.profile?.name} url={f.profile?.avatar_url} size={40} /></AvatarOn>

@@ -11,12 +11,13 @@ export function useBadges(dep?: string) {
     if (!uid) return
     let live = true
     const load = async () => {
-      const [m, f, i] = await Promise.all([
+      const [m, f, i, ru] = await Promise.all([
         supabase.from('dm_messages').select('id', { count: 'exact', head: true }).eq('recipient_id', uid).is('read_at', null),
         supabase.from('friendships').select('requester_id', { count: 'exact', head: true }).eq('addressee_id', uid).eq('status', 'pending'),
         supabase.from('group_invites').select('group_id', { count: 'exact', head: true }).eq('invitee_id', uid),
+        supabase.rpc('room_unread_total'),
       ])
-      if (live) setB({ msgs: m.count ?? 0, friends: (f.count ?? 0) + (i.count ?? 0) })
+      if (live) setB({ msgs: (m.count ?? 0) + (ru.error ? 0 : Number(ru.data ?? 0)), friends: (f.count ?? 0) + (i.count ?? 0) })
     }
     load()
     const t = setInterval(load, 12000)

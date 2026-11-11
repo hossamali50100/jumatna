@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { errMsg } from '../lib/supabase'
-import { Err, Icon, timeAgo } from '../lib/ui'
+import { Avatar, Err, Icon, timeAgo } from '../lib/ui'
 
-export type ChatMsg = { id: string; mine: boolean; label?: string; body: string; image_url: string | null; created_at: string }
+export type ChatMsg = { id: string; mine: boolean; label?: string; body: string; image_url: string | null; created_at: string; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
+const QUICK = ['👍', '❤️', '😂', '😮', '😢', '😡']
 
 const EMOJIS = ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','😉','😁','😅','🙂','🤔','😢','😭','😡','😴','🙏','👍','👎','👏','🙌','💪','👌','✌️','🤝','❤️','💔','🔥','🎉','✨','💯','🌹','☕','🎁','😇','🤗','😱','🥳']
 
 // واجهة شات مشتركة (دعم + رسائل مباشرة) على شكل شات فيسبوك: فقاعات + إيموجي + لايك + صورة
-export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete }: { onDelete?: (id: string) => Promise<void>; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
+export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward }: { onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [emoji, setEmoji] = useState(false)
+  const [pop, setPop] = useState<{ m: ChatMsg; kind: 'rx' | 'menu'; x: number; y: number } | null>(null)
+  const openPop = (e: React.MouseEvent, m: ChatMsg, kind: 'rx' | 'menu') => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setPop({ m, kind, x: Math.min(Math.max(8, r.left - 70), window.innerWidth - 200), y: Math.min(r.bottom + 6, window.innerHeight - 190) })
+  }
   const box = useRef<HTMLDivElement>(null)
   const inp = useRef<HTMLInputElement>(null)
   useEffect(() => { const b = box.current; if (b) b.scrollTop = b.scrollHeight }, [msgs.length])
@@ -30,6 +36,14 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
   const addEmoji = (e: string) => { setBody((b) => b + e); inp.current?.focus() }
   const ib: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', border: 0, background: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#111111', flexShrink: 0, fontSize: 22, fontFamily: 'inherit', padding: 0 }
 
+  const tools = (m: ChatMsg) => (
+    <span className="cm-tools">
+      {onReact && <button type="button" className="cm-tb" title="تفاعل" aria-label="تفاعل" onClick={(e) => openPop(e, m, 'rx')}>☺</button>}
+      <button type="button" className="cm-tb" title="المزيد" aria-label="المزيد" onClick={(e) => openPop(e, m, 'menu')}>⋮</button>
+    </span>
+  )
+  const doDelete = async (m: ChatMsg) => { setPop(null); if (!onDelete || !confirm('تلغي إرسال الرسالة دي؟ هتتمسح عند الطرفين.')) return; try { await onDelete(m.id) } catch (e) { setErr(errMsg(e)) } }
+
   return (
     <div className="col" style={{ gap: 8, ...(fill ? { height: '100%', minHeight: 0 } : {}) }}>
       <div ref={box} className="col" style={{ gap: 3, ...(fill ? { flex: 1, minHeight: 0 } : { height }), overflowY: 'auto', padding: '10px 10px', background: '#fff', borderRadius: 14 }}>
@@ -39,23 +53,38 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
           return (
             <div key={m.id} className="col" style={{ gap: 3 }}>
               {(gap || i === 0) && <div className="mut" style={{ fontSize: 12, textAlign: 'center', margin: '8px 0 4px' }}>{timeAgo(m.created_at)}</div>}
-              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '78%', display: 'flex', alignItems: 'center', gap: 4, flexDirection: 'row' }}>
-              {m.mine && onDelete && !m.id.startsWith('tmp-') && (
-                <button type="button" className="cm-del" title="حذف الرسالة" aria-label="حذف الرسالة"
-                  onClick={async () => { if (!confirm('تحذف الرسالة دي؟ هتتمسح عند الطرفين.')) return; try { await onDelete(m.id) } catch (e) { setErr(errMsg(e)) } }}>🗑</button>
-              )}
-              <div style={{ minWidth: 0 }}>
+              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '78%', display: 'flex', alignItems: m.label ? 'flex-end' : 'center', gap: 6, flexDirection: 'row' }}>
+              {!m.mine && m.label && <Avatar name={m.label} url={m.avatar} size={30} />}
+              {m.mine && !m.id.startsWith('tmp-') && (onReact || onDelete || onForward) && tools(m)}
+              <div style={{ minWidth: 0, position: 'relative', marginBottom: m.rx && Object.keys(m.rx).length ? 10 : 0 }}>
                 {m.label && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.label}</div>}
                 {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener" style={{ display: 'block' }}><img src={m.image_url} alt="" style={{ width: 'min(240px,100%)', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></a>}
                 {m.body && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
                   : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '8px 14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
+                {m.rx && Object.keys(m.rx).length > 0 && (
+                  <button type="button" className="cm-rxc" onClick={() => onReact && m.myRx && onReact(m.id, null)} title={m.myRx ? 'دوس لإزالة تفاعلك' : undefined}>
+                    {Object.entries(m.rx).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => <span key={e}>{e}</span>)}
+                    {Object.values(m.rx).reduce((a, b) => a + b, 0) > 1 && <b>{Object.values(m.rx).reduce((a, b) => a + b, 0)}</b>}
+                  </button>
+                )}
               </div>
+              {!m.mine && !m.id.startsWith('tmp-') && (onReact || onForward) && tools(m)}
               </div>
             </div>
           )
         })}
       </div>
+      {pop && (<>
+        <div className="cm-ov" onClick={() => setPop(null)} />
+        {pop.kind === 'rx'
+          ? <div className="cm-pop rx" style={{ left: pop.x, top: pop.y }}>{QUICK.map((e) => <button key={e} type="button" onClick={() => { onReact?.(pop.m.id, pop.m.myRx === e ? null : e); setPop(null) }}>{e}</button>)}</div>
+          : <div className="cm-pop" style={{ left: pop.x, top: pop.y }}>
+              {pop.m.mine && onDelete && <button type="button" onClick={() => doDelete(pop.m)}>إلغاء الإرسال</button>}
+              {onForward && <button type="button" onClick={() => { onForward(pop.m); setPop(null) }}>إعادة توجيه</button>}
+              {pop.m.body && <button type="button" onClick={() => { try { navigator.clipboard.writeText(pop.m.body) } catch { /* ignore */ } setPop(null) }}>نسخ النص</button>}
+            </div>}
+      </>)}
       <Err>{error || err}</Err>
       {!readOnly && (<>
       {file && <div className="mut row" style={{ fontSize: 13 }}>الصورة: {file.name} <button className="btn sm" onClick={() => setFile(null)}>إزالة</button></div>}
