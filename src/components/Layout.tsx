@@ -94,7 +94,7 @@ function Desktop() {
           </div>
         </div>
       </header>
-      <div className={loc.pathname.startsWith('/messages') ? 'dbody wide full' : wide ? 'dbody wide' : 'dbody'}>
+      <div className={loc.pathname.startsWith('/messages') ? 'dbody wide full' : wide ? 'dbody wide' : loc.pathname.startsWith('/upgrade') ? 'dbody span2' : 'dbody'}>
         {!wide && <aside className="dside">
           <Link className="nav fb" to="/profile"><Avatar name={profile?.name} url={profile?.avatar_url} size={36} /><b><PremName name={profile?.name} prem={prem} /></b></Link>
           {!prem && <Link className="nav fb" to="/plans"><span className="sbi g"><Icon n="check" s={22} /></span><span>الترقية للحساب المميز<small>أنشئ حتى 10 مجموعات وعلامة خضراء</small></span></Link>}

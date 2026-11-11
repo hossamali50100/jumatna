@@ -17,6 +17,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   const [cms, setCms] = useState<Cm[]>([])
   const [cLiked, setCLiked] = useState<Set<string>>(new Set())
   const [cCount, setCCount] = useState<Record<string, number>>({})
+  const [shown, setShown] = useState<Set<string>>(new Set())
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null)
   const [rtext, setRtext] = useState('')
   const [text, setText] = useState('')
@@ -84,6 +85,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     }
     setBusy(false)
     if (error) return setErr(errMsg(error))
+    setShown((v) => new Set(v).add(replyTo.id))
     setRtext(''); setReplyTo(null); setCcount((n) => n + 1); loadComments()
   }
   const toggleComments = () => { const n = !open; setOpen(n); if (n) loadComments() }
@@ -129,7 +131,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
               <Link to={`/u/${c.author_id}`} className="cm-n"><Name p={c.profiles} /></Link>
               <div className="body">{c.body}</div>
             </div>
-            {n > 0 && <span className="cm-chip"><Icon n="heart" s={13} on />{n > 1 && <span>{n}</span>}</span>}
+            {n > 0 && <span className="cm-chip"><i><Icon n="heart" s={11} on /></i>{n > 1 && <span>{n}</span>}</span>}
           </div>
           <div className="cm-act">
             <button onClick={() => toggleCLike(c.id)} className={lk ? 'on' : ''}>{lk ? 'أعجبك' : 'إعجاب'}</button>
@@ -200,7 +202,12 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
             return (
               <div key={c.id} className="cm-t">
                 {item(c, false)}
-                {(reps.length > 0 || replyTo?.id === c.id) && (
+                {reps.length > 0 && !shown.has(c.id) && replyTo?.id !== c.id && (
+                  <div className="cm-reps"><div className="cm-rep cm-more">
+                    <button type="button" onClick={() => setShown((v) => new Set(v).add(c.id))}>{reps.length === 1 ? 'عرض رد واحد' : `عرض ${reps.length} ردود`}</button>
+                  </div></div>
+                )}
+                {((reps.length > 0 && shown.has(c.id)) || replyTo?.id === c.id) && (
                   <div className="cm-reps">
                     {reps.map((x) => <div key={x.id} className="cm-rep">{item(x, true)}</div>)}
                     {replyTo?.id === c.id && (
