@@ -18,6 +18,7 @@ import Messages from './pages/Messages'
 import Support from './pages/Support'
 import StaffSupport from './pages/StaffSupport'
 import AdminApp from './admin/AdminApp'
+import Search from './pages/Search'
 import Onboarding from './pages/Onboarding'
 import Upgrade from './pages/Upgrade'
 import Notifications from './pages/Notifications'
@@ -49,6 +50,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="discover" element={<Discover />} />
+        <Route path="search" element={<Search />} />
         <Route path="create" element={<CreateGroup />} />
         <Route path="g/:id" element={<GroupPage />} />
         <Route path="profile" element={<UserPage />} />

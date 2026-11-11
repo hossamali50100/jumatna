@@ -4,6 +4,7 @@ import { useBadges } from '../lib/badges'
 import { useNotifs } from '../lib/notifs'
 import NotificationsMenu from './NotificationsMenu'
 import { useHeartbeat } from '../lib/presence'
+import { useMessageSound } from '../lib/sound'
 import MessagesMenu from './MessagesMenu'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
@@ -42,7 +43,7 @@ function Desktop() {
   }, [])
   const prem = isPremium(profile)
   const bd = useBadges(loc.pathname)
-  const wide = /^\/(profile|u\/|g\/|messages)/.test(loc.pathname) // صفحات البروفايل بعرض كامل زي فيسبوك
+  const wide = /^\/(profile|u\/|g\/|messages|search)/.test(loc.pathname) // صفحات البروفايل بعرض كامل زي فيسبوك
   const tabs = [
     { to: '/', end: true, label: 'الرئيسية', i: 'home' },
     { to: '/groups', label: 'مجموعاتي', i: 'groups' },
@@ -54,7 +55,7 @@ function Desktop() {
       <header className="dtop">
         <div className="row grow" style={{ gap: 10 }}>
           <Link to="/" aria-label="الرئيسية" className="av" style={{ width: 42, height: 42, background: 'var(--brand)', fontSize: 22, overflow: 'hidden' }}>{pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0)}</Link>
-          <form className="dsearch" onSubmit={(e) => { e.preventDefault(); nav(`/discover?q=${encodeURIComponent(q.trim())}`) }}>
+          <form className="dsearch" onSubmit={(e) => { e.preventDefault(); nav(`/search?q=${encodeURIComponent(q.trim())}`) }}>
             <Icon n="search" s={18} />
             <input placeholder="ابحث في جمعتنا" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث" />
           </form>
@@ -132,7 +133,7 @@ function Mobile() {
       <header className="mbar">
         <Link to="/" className="av" style={{ width: 36, height: 36, background: 'var(--brand)', fontSize: 18, borderRadius: 10, overflow: 'hidden' }}>{pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0)}</Link>
         <b style={{ fontSize: 21, flex: 1 }}>{pf.name}</b>
-        <Link to="/discover" className="mi" aria-label="بحث"><Icon n="search" /></Link>
+        <Link to="/search" className="mi" aria-label="بحث"><Icon n="search" /></Link>
         <button className="mi" aria-label="القائمة" onClick={() => setOpen(true)}><Badged n={bd.friends}><Icon n="menu" /></Badged></button>
       </header>
       <main className="mmain" ref={main}><Outlet /></main>
@@ -169,5 +170,6 @@ function Mobile() {
 
 export default function Layout() {
   const mobile = useIsMobile()
+  useMessageSound()
   return <ChatDockProvider enabled={!mobile}>{mobile ? <Mobile /> : <Desktop />}</ChatDockProvider>
 }

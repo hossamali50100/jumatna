@@ -170,3 +170,28 @@ textarea.in{resize:vertical;min-height:90px}
 .bub:hover .bub-x{display:block}
 
 .ad-tag{display:inline-block;background:#E7F0FF;color:#0866FF;border-radius:6px;padding:2px 10px;font-size:13px;font-weight:700;margin-inline-end:4px}
+
+.cm-del{border:0;background:none;cursor:pointer;font-size:14px;opacity:0;padding:2px 4px;border-radius:8px;flex-shrink:0}
+.cm-wrap:hover .cm-del,.cm-del:focus{opacity:.7}.cm-del:hover{opacity:1;background:#F0F0F2}
+@media(hover:none){.cm-del{opacity:.45}}
+
+.srch{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start;max-width:980px;margin:0 auto;width:100%}
+.srch-f{display:flex;flex-direction:column;gap:8px;position:sticky;top:80px}
+.srch-o{display:flex;align-items:center;gap:10px;border:0;background:none;padding:8px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;text-align:start}
+.srch-o:hover{background:#F0F2F5}.srch-o.on{background:#E7F3FF;color:var(--brand)}
+.srch-i{width:36px;height:36px;border-radius:50%;background:#E4E6EB;display:grid;place-items:center;flex:none}.srch-o.on .srch-i{background:var(--brand);color:#fff}
+.srch-r{gap:12px;padding:8px 0;align-items:center}
+@media(max-width:900px){.srch{grid-template-columns:minmax(0,1fr)}.srch-f{position:static}}
+
+
+
+.rx-wrap{position:relative;display:inline-flex}
+.rx-pick{position:absolute;bottom:100%;inset-inline-start:0;margin-bottom:4px;display:flex;gap:2px;background:#fff;border-radius:99px;padding:4px 8px;box-shadow:0 2px 14px rgba(0,0,0,.28);z-index:30;animation:rxin .15s ease-out}
+.rx-pick::after{content:'';position:absolute;left:0;right:0;top:100%;height:10px}
+.rx-e{border:0;background:none;cursor:pointer;font-size:30px;line-height:1;padding:3px 4px;transition:transform .12s;transform-origin:bottom center;font-family:inherit}
+.rx-e:hover{transform:scale(1.4) translateY(-4px)}
+@keyframes rxin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.rx-wrap.c .rx-pick{padding:3px 6px}.rx-wrap.c .rx-e{font-size:24px}
+.rx-stack{display:inline-flex;vertical-align:middle;direction:ltr}
+.rx-stack i{display:inline-grid;place-items:center;border-radius:50%;background:#fff;font-style:normal;box-shadow:0 0 0 2px #fff;margin-inline-end:-3px;line-height:1}
+.cm-lk{display:inline-flex;align-items:center;gap:4px;color:#65676B;font-size:12px;font-weight:700}

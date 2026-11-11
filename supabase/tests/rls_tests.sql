@@ -189,7 +189,7 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
 select pg_temp.t('M: even staff cannot read DMs', $q$do $d$ begin if exists (select 1 from dm_messages) then raise exception 'LEAK'; end if; end $d$$q$, true);
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 select pg_temp.t('M: sender cannot edit', $q$do $d$ begin update dm_messages set body='x'; if not found then raise exception 'zero'; end if; end $d$$q$, false);
-select pg_temp.t('M: sender cannot delete', $q$do $d$ begin delete from dm_messages; if not found then raise exception 'zero'; end if; end $d$$q$, false);
+select pg_temp.t('M: cannot delete others messages', $q$do $d$ begin delete from dm_messages where sender_id <> auth.uid(); if not found then raise exception 'zero'; end if; end $d$$q$, false);
 reset role;
 reset role;
 set role authenticated;
@@ -460,6 +460,33 @@ select pg_temp.t('AG: normal user gets nothing', $q$select 1/(case when (select 
 reset role;
 set role anon;
 select pg_temp.t('AG: anon cannot call', $q$select * from admin_groups()$q$, false);
+reset role;
+
+
+-- 027 dm delete
+reset role;
+insert into dm_messages(id,sender_id,recipient_id,body) values('aaaaaaaa-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b','del1'),('aaaaaaaa-0000-0000-0000-000000000002','00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b','del2');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+delete from dm_messages where id='aaaaaaaa-0000-0000-0000-000000000001';
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('DD: recipient cannot delete', $q$select 1/(case when exists (select 1 from dm_messages where id='aaaaaaaa-0000-0000-0000-000000000001') then 1 else 0 end)$q$, true);
+delete from dm_messages where id='aaaaaaaa-0000-0000-0000-000000000002';
+select pg_temp.t('DD: sender deletes own', $q$select 1/(case when not exists (select 1 from dm_messages where id='aaaaaaaa-0000-0000-0000-000000000002') then 1 else 0 end)$q$, true);
+reset role;
+
+
+-- 028 reactions
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('RX: B reacts love on A post', $q$insert into likes(post_id,user_id,reaction) values('22222222-2222-2222-2222-222222222222','00000000-0000-0000-0000-00000000000b','love')$q$, true);
+select pg_temp.t('RX: invalid reaction rejected', $q$update likes set reaction='zzz' where user_id='00000000-0000-0000-0000-00000000000b'$q$, false);
+select pg_temp.t('RX: B changes own reaction', $q$do $d$ begin update likes set reaction='haha' where user_id='00000000-0000-0000-0000-00000000000b' and post_id='22222222-2222-2222-2222-222222222222'; if not found then raise exception 'zero'; end if; end $d$$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('RX: A cannot change B reaction', $q$do $d$ begin update likes set reaction='sad' where user_id='00000000-0000-0000-0000-00000000000b'; if not found then raise exception 'zero'; end if; end $d$$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('RX: cannot change user_id', $q$update likes set user_id='00000000-0000-0000-0000-00000000000a' where user_id='00000000-0000-0000-0000-00000000000b'$q$, false);
 reset role;
 
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

@@ -7,7 +7,7 @@ export type ChatMsg = { id: string; mine: boolean; label?: string; body: string;
 const EMOJIS = ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','😉','😁','😅','🙂','🤔','😢','😭','😡','😴','🙏','👍','👎','👏','🙌','💪','👌','✌️','🤝','❤️','💔','🔥','🎉','✨','💯','🌹','☕','🎁','😇','🤗','😱','🥳']
 
 // واجهة شات مشتركة (دعم + رسائل مباشرة) على شكل شات فيسبوك: فقاعات + إيموجي + لايك + صورة
-export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly }: { msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
+export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete }: { onDelete?: (id: string) => Promise<void>; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
@@ -20,7 +20,10 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
   const send = async (text = body.trim(), f: File | null = file) => {
     if ((!text && !f) || busy) return
     setBusy(true); setErr('')
-    try { await onSend(text, f); if (text === body.trim()) setBody(''); setFile(null); setEmoji(false) } catch (e) { setErr(errMsg(e)) }
+    const prev = body; const prevFile = file
+    if (text === body.trim()) setBody('')   // نفضّي الخانة فورًا، ولو فشل الإرسال نرجّع النص
+    setFile(null); setEmoji(false)
+    try { await onSend(text, f) } catch (e) { setErr(errMsg(e)); if (text === prev.trim()) setBody(prev); setFile(prevFile) }
     setBusy(false)
     inp.current?.focus()
   }
@@ -36,12 +39,18 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
           return (
             <div key={m.id} className="col" style={{ gap: 3 }}>
               {(gap || i === 0) && <div className="mut" style={{ fontSize: 12, textAlign: 'center', margin: '8px 0 4px' }}>{timeAgo(m.created_at)}</div>}
-              <div style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
+              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '78%', display: 'flex', alignItems: 'center', gap: 4, flexDirection: 'row' }}>
+              {m.mine && onDelete && !m.id.startsWith('tmp-') && (
+                <button type="button" className="cm-del" title="حذف الرسالة" aria-label="حذف الرسالة"
+                  onClick={async () => { if (!confirm('تحذف الرسالة دي؟ هتتمسح عند الطرفين.')) return; try { await onDelete(m.id) } catch (e) { setErr(errMsg(e)) } }}>🗑</button>
+              )}
+              <div style={{ minWidth: 0 }}>
                 {m.label && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.label}</div>}
                 {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener" style={{ display: 'block' }}><img src={m.image_url} alt="" style={{ width: 'min(240px,100%)', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></a>}
                 {m.body && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
                   : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '8px 14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
+              </div>
               </div>
             </div>
           )

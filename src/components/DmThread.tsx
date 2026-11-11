@@ -27,7 +27,11 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
       await supabase.from('dm_messages').update({ read_at: new Date().toISOString() }).eq('sender_id', otherId).eq('recipient_id', uid).is('read_at', null)
     }
   }, [uid, otherId])
-  useEffect(() => { setMsgs([]); load(); const t = setInterval(load, 4000); return () => clearInterval(t) }, [load])
+  useEffect(() => { setMsgs([]); load(); const t = setInterval(load, 2500)
+    // تحديث لحظي لو الـ Realtime متفعّل (تحديث 026)، والتحديث الدوري شغال كاحتياطي
+    const ch = supabase.channel('dm-' + otherId + '-' + Math.random().toString(36).slice(2))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages' }, () => { load() }).subscribe()
+    return () => { clearInterval(t); supabase.removeChannel(ch) } }, [load, otherId])
 
   const onSend = async (text: string, file: File | null) => {
     const image_url = file ? await uploadImage(file, uid) : null
@@ -36,8 +40,13 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     setMsgs((l) => [...l, tmp])
     const { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: text, image_url })
     if (error) { setMsgs((l) => l.filter((m) => m.id !== tmp.id)); throw error }
-    await load()
+    load()
+  }
+  const onDelete = async (id: string) => {
+    const { error } = await supabase.from('dm_messages').delete().eq('id', id)
+    if (error) throw new Error(/permission|policy|denied/i.test(error.message) ? 'شغّل تحديث 027 في Supabase الأول.' : error.message)
+    setMsgs((l) => l.filter((m) => m.id !== id))
   }
   const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, body: m.body, image_url: m.image_url, created_at: m.created_at }))
-  return <ChatBox msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr} fill={fill} />
+  return <ChatBox msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr} fill={fill} onDelete={onDelete} />
 }

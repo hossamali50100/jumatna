@@ -12,10 +12,10 @@ export type Notif = {
 
 // نص الإشعار: [اسم اللي عمل الحدث] + الباقي
 export const NOTIF_TEXT: Record<Notif['type'], string> = {
-  post_like: 'أعجبه منشورك.',
+  post_like: 'تفاعل مع منشورك.',
   post_comment: 'علّق على منشورك.',
   comment_reply: 'رد على تعليقك.',
-  comment_like: 'أعجبه تعليقك.',
+  comment_like: 'تفاعل مع تعليقك.',
   friend_request: 'أرسل لك طلب صداقة.',
   friend_accept: 'قبل طلب صداقتك.',
   group_invite: 'دعاك للانضمام إلى مجموعة',

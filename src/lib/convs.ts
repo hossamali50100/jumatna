@@ -19,7 +19,12 @@ export function useConvItems() {
       .order('created_at', { ascending: false }).limit(300)
     setRows((data as unknown as Row[]) ?? [])
   }, [])
-  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t) }, [load])
+  useEffect(() => {
+    load(); const t = setInterval(load, 4000)
+    const ch = supabase.channel('convs-' + Math.random().toString(36).slice(2))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages' }, () => { load() }).subscribe()
+    return () => { clearInterval(t); supabase.removeChannel(ch) }
+  }, [load])
 
   const map = new Map<string, ConvItem>()
   for (const r of rows) {
