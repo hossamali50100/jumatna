@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Avatar, AvatarOn, Icon, Name } from '../lib/ui'
@@ -8,6 +8,8 @@ import ChatMenu from './ChatMenu'
 import RoomMenu from './RoomMenu'
 import Thread from './Thread'
 import { isRoom, roomKey, useRoom } from '../lib/rooms'
+import { useConvItems } from '../lib/convs'
+import { useChatPrefs } from '../lib/chatprefs'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
 type Win = { id: string; min: boolean }
@@ -71,6 +73,18 @@ export function ChatDockProvider({ children, enabled }: { children: ReactNode; e
     const f = (e: Event) => { const id = (e as CustomEvent<string>).detail; setWins((w) => w.some((x) => x.id === id) ? w : [{ id, min: false }, ...w].slice(0, MAX)) }
     window.addEventListener('jm:incoming', f); return () => window.removeEventListener('jm:incoming', f)
   }, [enabled, onPage])
+  // احتياطي: لو عدّاد الرسائل غير المقروءة زاد لأي محادثة، نفتح نافذتها المصغرة
+  const { items: convItems } = useConvItems()
+  const { muted } = useChatPrefs()
+  const prevUnread = useRef<Record<string, number> | null>(null)
+  useEffect(() => {
+    const cur: Record<string, number> = Object.fromEntries(convItems.map((i) => [i.other, i.unread]))
+    const prev = prevUnread.current
+    if (convItems.length) prevUnread.current = cur
+    if (!prev || !enabled || !onPage) return
+    const add = convItems.filter((i) => i.unread > (prev[i.other] ?? 0) && !muted.has(i.other)).map((i) => i.other)
+    if (add.length) setWins((w) => { let n = w; for (const id of add) if (!n.some((x) => x.id === id)) n = [{ id, min: false }, ...n]; return n.slice(0, MAX) })
+  }, [convItems, enabled, onPage, muted])
   const [vw, setVw] = useState(window.innerWidth)
   useEffect(() => { const f = () => setVw(window.innerWidth); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
   const [open, setOpen] = useState(() => { try { const v = localStorage.getItem('contacts-open'); return v === null ? false : v === '1' } catch { return true } })

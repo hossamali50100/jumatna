@@ -471,7 +471,7 @@ export function Upgrades() {
   return (<><Head title="طلبات الترقية ⭐" /><div className="mut">محادثات طلبات الترقية (منفصلة عن الدعم). افتح المحادثة، ولما يتم الدفع دوس «تفعيل مميز 30 يوم».</div><StaffSupport channel="upgrade" /></>)
 }
 
-type AdRow = { id: string; title: string; body: string; image_url: string | null; post_id: string; starts_at: string; ends_at: string; target_viewers: number; status: string; views: number; likes: number; comments: number; advertiser_name: string | null; advertiser_avatar: string | null }
+type AdRow = { id: string; title: string; body: string; image_url: string | null; post_id: string; starts_at: string; ends_at: string; target_viewers: number; status: string; views: number; likes: number; comments: number; advertiser_name: string | null; advertiser_avatar: string | null; link_url?: string | null }
 const adState = (a: AdRow) => {
   if (a.status === 'paused') return { t: 'متوقف', c: '#B45309', bg: '#FEF3C7' }
   if (new Date(a.ends_at) < new Date()) return { t: 'انتهى', c: '#52525B', bg: '#F4F4F5' }
@@ -533,11 +533,11 @@ export function Ads() {
 }
 
 // حقول الإعلان المشتركة بين صفحة الإضافة وصفحة التعديل
-type AdForm = { advName: string; advAv: string; title: string; body: string; img: string }
+type AdForm = { advName: string; advAv: string; title: string; body: string; img: string; link: string }
 function AdFields({ f, set, setErr }: { f: AdForm; set: (p: Partial<AdForm>) => void; setErr: (s: string) => void }) {
   const { session } = useAuth()
   const [busy, setBusy] = useState(false)
-  const up = async (file: File | null, key: 'advAv' | 'img') => {
+  const up = async (file: File | null, key: 'img') => {
     if (!file) return
     setErr(''); setBusy(true)
     try { set({ [key]: await uploadImage(file, session!.user.id) } as Partial<AdForm>) } catch (e) { setErr(errMsg(e)) }
@@ -546,15 +546,12 @@ function AdFields({ f, set, setErr }: { f: AdForm; set: (p: Partial<AdForm>) => 
   return (
     <>
       <div className="col" style={{ gap: 6 }}>
-        <b style={{ fontSize: 14 }}>المعلِن (الاسم والصورة اللي هيظهروا على الإعلان)</b>
+        <b style={{ fontSize: 14 }}>المعلِن (الاسم اللي هيظهر على الإعلان)</b>
         <div className="row" style={{ gap: 12 }}>
           <Avatar name={f.advName || '؟'} url={f.advAv || null} size={48} />
           <input className="adm-in grow" placeholder="اسم المعلِن" maxLength={60} value={f.advName} onChange={(e) => set({ advName: e.target.value })} />
         </div>
-        <div className="row" style={{ gap: 12 }}>
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={busy} onChange={(e) => up(e.target.files?.[0] ?? null, 'advAv')} />
-          {f.advAv && <button type="button" className="btn sm line" onClick={() => set({ advAv: '' })}>إزالة الصورة</button>}
-        </div>
+        {f.advAv && <div><button type="button" className="btn sm line" onClick={() => set({ advAv: '' })}>إزالة صورة المعلِن القديمة</button></div>}
       </div>
       <input className="adm-in" placeholder="اسم داخلي للإعلان (اختياري، بيظهرلك أنت بس)" maxLength={80} value={f.title} onChange={(e) => set({ title: e.target.value })} />
       <textarea className="adm-in" rows={5} placeholder="نص الإعلان (اللي هيظهر للمستخدمين)" maxLength={5000} value={f.body} onChange={(e) => set({ body: e.target.value })} style={{ resize: 'vertical' }} />
@@ -563,13 +560,15 @@ function AdFields({ f, set, setErr }: { f: AdForm; set: (p: Partial<AdForm>) => 
         <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={busy} onChange={(e) => up(e.target.files?.[0] ?? null, 'img')} />
         {f.img && <><img src={f.img} alt="" style={{ height: 56, borderRadius: 8 }} /><button type="button" className="btn sm line" onClick={() => set({ img: '' })}>إزالة الصورة</button></>}
       </div>
+      <b style={{ fontSize: 14 }}>رابط الإعلان (اختياري)</b>
+      <input className="adm-in" dir="ltr" placeholder="رابط الإعلان (اختياري): https://example.com — لو المستخدم داس على الإعلان يتفتحله" maxLength={500} value={f.link} onChange={(e) => set({ link: e.target.value })} />
     </>
   )
 }
 
 export function AdNew() {
   const nav = useNavigate()
-  const [f, setF] = useState<AdForm>({ advName: '', advAv: '', title: '', body: '', img: '' })
+  const [f, setF] = useState<AdForm>({ advName: '', advAv: '', title: '', body: '', img: '', link: '' })
   const [days, setDays] = useState('3'); const [viewers, setViewers] = useState('1000')
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
   const create = async () => {
@@ -580,7 +579,7 @@ export function AdNew() {
     if (!(d >= 1 && d <= 365)) return setErr('مدة الإعلان من 1 إلى 365 يوم.')
     if (!(v >= 1)) return setErr('اكتب عدد المستخدمين (1 على الأقل).')
     setBusy(true)
-    const { error } = await supabase.rpc('admin_create_ad', { p_title: f.title.trim(), p_body: f.body.trim(), p_image: f.img, p_days: d, p_viewers: v, p_adv_name: f.advName.trim(), p_adv_avatar: f.advAv })
+    const { error } = await supabase.rpc('admin_create_ad', { p_title: f.title.trim(), p_body: f.body.trim(), p_image: f.img, p_days: d, p_viewers: v, ...(f.link.trim() ? { p_link: f.link.trim() } : {}), p_adv_name: f.advName.trim(), p_adv_avatar: f.advAv })
     setBusy(false)
     if (error) return setErr(errMsg(error) + ' — اتأكد إنك شغّلت تحديثات 021 و022 في Supabase.')
     nav('/admin/ads')
@@ -611,7 +610,7 @@ export function AdDetail() {
   const [endDate, setEndDate] = useState(''); const [target, setTarget] = useState(''); const [status, setStatus] = useState('active')
   const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false)
   useEffect(() => {
-    if (a && !f) { setF({ advName: a.advertiser_name ?? '', advAv: a.advertiser_avatar ?? '', title: a.title, body: a.body, img: a.image_url ?? '' }); setEndDate(toDateInput(a.ends_at)); setTarget(String(a.target_viewers)); setStatus(a.status) }
+    if (a && !f) { setF({ advName: a.advertiser_name ?? '', advAv: a.advertiser_avatar ?? '', title: a.title, body: a.body, img: a.image_url ?? '', link: a.link_url ?? '' }); setEndDate(toDateInput(a.ends_at)); setTarget(String(a.target_viewers)); setStatus(a.status) }
   }, [a, f])
   if (rows === null) return <div className="mut">جاري التحميل…</div>
   if (!a || !f) return <><Head title="الإعلان"><Link className="btn line" to="/admin/ads">← رجوع للجدول</Link></Head>{loadErr ? <Err>{loadErr}</Err> : <div className="card mut">الإعلان مش موجود.</div>}</>
@@ -625,7 +624,7 @@ export function AdDetail() {
     if (!endDate) return setErr('اختار تاريخ الانتهاء.')
     const ends = new Date(endDate + 'T23:59:59')
     setBusy(true)
-    const { error } = await supabase.rpc('admin_update_ad', { p_id: a.id, p_title: f.title.trim(), p_body: f.body.trim(), p_image: f.img, p_adv_name: f.advName.trim(), p_adv_avatar: f.advAv, p_ends_at: ends.toISOString(), p_target: t, p_status: status })
+    const { error } = await supabase.rpc('admin_update_ad', { p_id: a.id, p_title: f.title.trim(), p_body: f.body.trim(), p_image: f.img, ...(f.link.trim() || a.link_url ? { p_link: f.link.trim() } : {}), p_adv_name: f.advName.trim(), p_adv_avatar: f.advAv, p_ends_at: ends.toISOString(), p_target: t, p_status: status })
     setBusy(false)
     if (error) return setErr(errMsg(error) + ' — اتأكد إنك شغّلت تحديث 023 في Supabase.')
     setOk('تم حفظ التعديلات'); load()

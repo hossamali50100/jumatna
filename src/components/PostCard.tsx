@@ -4,11 +4,12 @@ import { supabase, errMsg, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import Lightbox from './Lightbox'
 import { ReactButton, RxStack, buildRx, applyRx, rxTotal, emptyRx, type Rx } from './Reactions'
-import { Avatar, Err, Icon, Name, timeAgo } from '../lib/ui'
+import { Avatar, Err, Icon, Name, timeAgo, Check } from '../lib/ui'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
-export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, ad, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; ad?: { name: string; avatar: string | null }; onDeleted: (id: string) => void }) {
+const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u } }
+export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, ad, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; ad?: { name: string; avatar: string | null; link?: string | null }; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
   const me = session!.user.id
   const [rx, setRx] = useState<Rx>(() => ({ mine: liked ? 'like' : null, by: { like: post.likes?.[0]?.count ?? 0 } }))
@@ -156,6 +157,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     )
   }
 
+  const openAd = () => { if (ad?.link) window.open(ad.link, '_blank', 'noopener,noreferrer') }
   return (
     <article className="crd">
       <div className="row">
@@ -170,8 +172,11 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
             <div className="mut" style={{ fontSize: 13 }}><Link to={`/u/${post.author_id}`}>{post.profiles?.name}</Link> · {timeAgo(post.created_at)}</div>
           </div>
         </>) : ad ? (<>
-          <Avatar name={ad.name} url={ad.avatar} size={44} />
-          <div className="grow" style={{ lineHeight: 1.5 }}><b style={{ fontSize: 16 }}>{ad.name}</b></div>
+          <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined, display: 'inline-flex' }}><Avatar name={ad.name} url={ad.avatar} size={44} /></span>
+          <div className="grow" style={{ lineHeight: 1.5 }}>
+            <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined }}><Check /><b style={{ fontSize: 16 }}>{ad.name}</b></span>
+            <div className="mut" style={{ fontSize: 13 }}>إعلان</div>
+          </div>
         </>) : (<>
           <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>
           <div className="grow" style={{ lineHeight: 1.5 }}>
@@ -179,7 +184,6 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
             <div className="mut">{!post.group_id && 'منشور شخصي · '}{timeAgo(post.created_at)}</div>
           </div>
         </>)}
-        {ad && <span className="ad-tag">إعلان</span>}
         <div ref={mref} style={{ position: 'relative' }}>
           <button className="mi" aria-label="خيارات البوست" onClick={() => setMenu(!menu)}><Icon n="more" /></button>
           {menu && (
@@ -192,8 +196,9 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
           )}
         </div>
       </div>
-      <p className="body" style={{ margin: '10px 0' }}>{post.body}</p>
-      {post.image_url && <img className="post-img" src={post.image_url} alt="" loading="lazy" onClick={() => setZoom(true)} />}
+      <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{post.body}</p>
+      {post.image_url && <img className="post-img" src={post.image_url} alt="" loading="lazy" style={ad?.link ? { cursor: 'pointer' } : undefined} onClick={() => ad ? (ad.link ? openAd() : setZoom(true)) : setZoom(true)} />}
+      {ad?.link && <a className="ad-link" href={ad.link} target="_blank" rel="noopener noreferrer nofollow">{hostOf(ad.link)} ↗</a>}
       {zoom && post.image_url && (
         <Lightbox src={post.image_url} onClose={() => setZoom(false)} side={<>
           <div className="row"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={40} /><b><Name p={post.profiles} /></b></div>

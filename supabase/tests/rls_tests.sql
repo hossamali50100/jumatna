@@ -583,4 +583,16 @@ select pg_temp.t('KK: D really removed', $q$select 1/(case when not exists (sele
 select pg_temp.t('KK: creator cannot kick self', $q$select remove_room_member('cccccccc-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000000a')$q$, false);
 reset role;
 
+
+-- 033 ad link
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('LK: bad link rejected', $q$select admin_create_ad('x','b',null,3,5,'ن',null,'javascript:alert(1)')$q$, false);
+select pg_temp.t('LK: link without scheme rejected', $q$select admin_create_ad('x','b',null,3,5,'ن',null,'example.com')$q$, false);
+select pg_temp.t('LK: valid link accepted', $q$select admin_create_ad('lnk','b',null,3,5,'شركة ص',null,'https://example.com/offer?a=1')$q$, true);
+select pg_temp.t('LK: admin_ads returns link', $q$select 1/(case when exists (select 1 from admin_ads() where link_url='https://example.com/offer?a=1') then 1 else 0 end)$q$, true);
+select pg_temp.t('LK: feed_ads carries link', $q$select 1/(case when exists (select 1 from feed_ads() where link_url='https://example.com/offer?a=1') then 1 else 0 end)$q$, true);
+reset role;
+
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;
