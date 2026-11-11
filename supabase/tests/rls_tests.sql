@@ -367,4 +367,99 @@ set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 select pg_temp.t('NM: change after 30d ok', $q$update profiles set name='اسم تالت' where id='00000000-0000-0000-0000-0000000000a1'$q$, true);
 reset role;
+
+-- ===== 021 ads =====
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AD: user cannot create ad', $q$select admin_create_ad('x','body',null,3,2,'ن',null)$q$, false);
+select pg_temp.t('AD: user cannot insert ad post', $q$insert into posts(author_id,body,ad_id) values('00000000-0000-0000-0000-00000000000a','x',gen_random_uuid())$q$, false);
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AD: admin creates ad', $q$select admin_create_ad('اختبار','نص الإعلان',null,3,2,'شركة س',null)$q$, true);
+select pg_temp.t('AD: admin missing advertiser name', $q$select admin_create_ad('x','b',null,3,2,'',null)$q$, false);
+select pg_temp.t('AD: admin bad days', $q$select admin_create_ad('x','b',null,0,2,'ن',null)$q$, false);
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AD: A feed_ads returns 1', $q$select 1/(case when (select count(*) from feed_ads())=1 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: A sees ad post', $q$select 1/(case when (select count(*) from posts where ad_id is not null)=1 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: A likes ad', $q$insert into likes(post_id,user_id) select id,'00000000-0000-0000-0000-00000000000a' from posts where ad_id is not null$q$, true);
+select pg_temp.t('AD: A comments on ad', $q$insert into comments(post_id,author_id,body) select id,'00000000-0000-0000-0000-00000000000a','حلو' from posts where ad_id is not null$q$, true);
+select pg_temp.t('AD: feed carries advertiser name', $q$select 1/(case when (select advertiser_name from feed_ads() limit 1)='شركة س' then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: A second feed_ads still 1', $q$select 1/(case when (select count(*) from feed_ads())=1 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: A cannot see ad_views', $q$select 1/(case when (select count(*) from ad_views)=0 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: A cannot delete ad post', $q$delete from posts where ad_id is not null$q$, true);
+select pg_temp.t('AD: ad post still there', $q$select 1/(case when (select count(*) from posts where ad_id is not null)=1 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: A cannot call admin_ads', $q$select 1/(case when (select count(*) from admin_ads())=0 then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.t('AD: B feed_ads returns 1', $q$select 1/(case when (select count(*) from feed_ads())=1 then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.t('AD: C over cap gets 0', $q$select 1/(case when (select count(*) from feed_ads())=0 then 1 else 0 end)$q$, true);
+reset role;
+select pg_temp.t('AD: views = 2 exactly', $q$select 1/(case when (select count(*) from ad_views)=2 then 1 else 0 end)$q$, true);
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AD: admin_ads stats', $q$select 1/(case when (select views from admin_ads() limit 1)=2 and (select likes from admin_ads() limit 1)=1 and (select comments from admin_ads() limit 1)=1 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: admin extends viewers', $q$select admin_set_ad((select id from ads limit 1), null, 0, 5)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.t('AD: C now gets it after raise', $q$select 1/(case when (select count(*) from feed_ads())=1 then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AD: admin pauses', $q$select admin_set_ad((select id from ads limit 1), 'paused', 0, 0)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AD: paused -> feed 0', $q$select 1/(case when (select count(*) from feed_ads())=0 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: paused -> post hidden', $q$select 1/(case when (select count(*) from posts where ad_id is not null)=0 then 1 else 0 end)$q$, true);
+select pg_temp.t('AD: paused -> cannot comment', $q$insert into comments(post_id,author_id,body) select (select id from posts where ad_id is not null),'00000000-0000-0000-0000-00000000000a','x'$q$, false);
+reset role;
+update ads set status='active', ends_at = now() - interval '1 hour';
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AD: expired -> feed 0', $q$select 1/(case when (select count(*) from feed_ads())=0 then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AD: admin deletes ad', $q$select admin_delete_ad((select id from ads limit 1))$q$, true);
+reset role;
+select pg_temp.t('AD: post gone with ad', $q$select 1/(case when (select count(*) from posts where ad_id is not null)=0 then 1 else 0 end)$q$, true);
+
+
+-- 023 edit ad
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AD2: admin creates ad for edit', $q$select admin_create_ad('تعديل','نص قديم',null,3,10,'معلن',null)$q$, true);
+select pg_temp.t('AD2: admin edits ad', $q$select admin_update_ad((select id from ads where title='تعديل'),'عنوان جديد','نص جديد','http://x/i.png','معلن جديد','http://x/a.png', now()+interval '10 days', 50, 'active')$q$, true);
+select pg_temp.t('AD2: post body updated', $q$select 1/(case when (select body from posts where ad_id=(select id from ads where title='عنوان جديد'))='نص جديد' and (select advertiser_name from ads where title='عنوان جديد')='معلن جديد' then 1 else 0 end)$q$, true);
+select pg_temp.t('AD2: end before start blocked', $q$select admin_update_ad((select id from ads where title='عنوان جديد'),'x','b',null,'n',null, now()-interval '30 days', 5, 'active')$q$, false);
+select pg_temp.t('AD2: bad status blocked', $q$select admin_update_ad((select id from ads where title='عنوان جديد'),'x','b',null,'n',null, now()+interval '1 day', 5, 'zzz')$q$, false);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AD2: user cannot edit ad', $q$select admin_update_ad((select id from ads limit 1),'x','b',null,'n',null, now()+interval '1 day', 5, 'active')$q$, false);
+reset role;
+
+
+-- 024 admin_users
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AU: staff lists users with email', $q$select 1/(case when (select count(*) from admin_users() where email is not null)>=3 then 1 else 0 end)$q$, true);
+select pg_temp.t('AU: counts present', $q$select 1/(case when (select posts from admin_users() where id='00000000-0000-0000-0000-00000000000a')>=1 then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AU: normal user gets nothing', $q$select 1/(case when (select count(*) from admin_users())=0 then 1 else 0 end)$q$, true);
+reset role;
+set role anon;
+select pg_temp.t('AU: anon cannot call', $q$select * from admin_users()$q$, false);
+reset role;
+
+
+-- 025 admin_groups
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000d');
+select pg_temp.t('AG: staff lists groups with counts', $q$select 1/(case when (select count(*) from admin_groups() where owner_name is not null)>=1 and (select max(posts) from admin_groups())>=1 then 1 else 0 end)$q$, true);
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('AG: normal user gets nothing', $q$select 1/(case when (select count(*) from admin_groups())=0 then 1 else 0 end)$q$, true);
+reset role;
+set role anon;
+select pg_temp.t('AG: anon cannot call', $q$select * from admin_groups()$q$, false);
+reset role;
+
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

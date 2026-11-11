@@ -7,7 +7,7 @@ import { Avatar, Err, Icon, Name, timeAgo } from '../lib/ui'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; comment_likes?: { count: number }[]; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
-export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; onDeleted: (id: string) => void }) {
+export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, ad, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; ad?: { name: string; avatar: string | null }; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
   const me = session!.user.id
   const [isLiked, setLiked] = useState(liked)
@@ -157,6 +157,9 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
             <Link to={`/g/${post.group_id}`}><b>{gname}</b></Link>
             <div className="mut" style={{ fontSize: 13 }}><Link to={`/u/${post.author_id}`}>{post.profiles?.name}</Link> · {timeAgo(post.created_at)}</div>
           </div>
+        </>) : ad ? (<>
+          <Avatar name={ad.name} url={ad.avatar} size={44} />
+          <div className="grow" style={{ lineHeight: 1.5 }}><b style={{ fontSize: 16 }}>{ad.name}</b></div>
         </>) : (<>
           <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>
           <div className="grow" style={{ lineHeight: 1.5 }}>
@@ -164,6 +167,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
             <div className="mut">{!post.group_id && 'منشور شخصي · '}{timeAgo(post.created_at)}</div>
           </div>
         </>)}
+        {ad && <span className="ad-tag">إعلان</span>}
         <div ref={mref} style={{ position: 'relative' }}>
           <button className="mi" aria-label="خيارات البوست" onClick={() => setMenu(!menu)}><Icon n="more" /></button>
           {menu && (

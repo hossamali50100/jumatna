@@ -1,10 +1,10 @@
 import { useState, type ReactElement } from 'react'
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
-import { supabase, errMsg } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { usePlatform } from '../lib/platform'
 import { Err, useIsMobile } from '../lib/ui'
-import { Overview, Users, Groups, Posts, Reports, Inbox, Upgrades, Team, Identity, useCounts } from './pages'
+import { Overview, Users, UserDetail, Groups, GroupDetail, Reports, Inbox, Upgrades, Ads, AdNew, AdDetail, Team, Identity, useCounts } from './pages'
 import './admin.css'
 
 type Role = 'admin' | 'mod' | 'support'
@@ -12,10 +12,10 @@ const NAV: { to: string; label: string; icon: string; roles: Role[]; sec?: strin
   { to: '/admin', label: 'نظرة عامة', icon: '📊', roles: ['admin', 'mod', 'support'], sec: 'الرئيسية' },
   { to: '/admin/users', label: 'المستخدمين', icon: '👥', roles: ['admin', 'mod', 'support'], sec: 'المحتوى والناس' },
   { to: '/admin/groups', label: 'المجموعات', icon: '🗂️', roles: ['admin', 'mod'] },
-  { to: '/admin/posts', label: 'المنشورات', icon: '📝', roles: ['admin', 'mod'] },
   { to: '/admin/reports', label: 'البلاغات', icon: '🚩', roles: ['admin', 'mod'], badge: 'reports' },
   { to: '/admin/inbox', label: 'صندوق الدعم', icon: '💬', roles: ['admin', 'support'], sec: 'التواصل' },
   { to: '/admin/upgrades', label: 'طلبات الترقية', icon: '⭐', roles: ['admin', 'support'] },
+  { to: '/admin/ads', label: 'الإعلانات', icon: '📣', roles: ['admin'] },
   { to: '/admin/team', label: 'الفريق والأدوار', icon: '🛡️', roles: ['admin'], sec: 'الإعدادات' },
   { to: '/admin/identity', label: 'هوية المنصة', icon: '🎨', roles: ['admin'] },
 ]
@@ -31,10 +31,6 @@ function Gate({ denied }: { denied?: boolean }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
     setBusy(false)
     if (error) setErr('الإيميل أو كلمة السر غير صحيحة.')
-  }
-  const google = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/admin' } })
-    if (error) setErr(errMsg(error))
   }
   return (
     <div className="adm-gate">
@@ -53,7 +49,6 @@ function Gate({ denied }: { denied?: boolean }) {
             <input className="adm-in" type="password" placeholder="كلمة السر" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" />
             <Err>{err}</Err>
             <button className="btn p" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول'}</button>
-            <button type="button" className="btn line" onClick={google}>الدخول بحساب Google</button>
           </form>
         )}
       </div>
@@ -94,7 +89,6 @@ export default function AdminApp() {
         ))}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid #EEE', paddingTop: 10 }}>
           <div className="mut" style={{ padding: '0 12px', fontSize: 13 }}>{profile.name}</div>
-          <a className="adm-nav" href="/">↩ الرجوع للموقع</a>
           <button className="adm-nav" onClick={async () => { await signOut(); nav('/admin') }}>🚪 تسجيل الخروج</button>
         </div>
       </aside>
@@ -102,11 +96,15 @@ export default function AdminApp() {
         <Routes>
           <Route path="/admin" element={<Overview />} />
           <Route path="/admin/users" element={<Users />} />
+          <Route path="/admin/users/:id" element={<UserDetail />} />
           <Route path="/admin/groups" element={guard('/admin/groups', <Groups />)} />
-          <Route path="/admin/posts" element={guard('/admin/posts', <Posts />)} />
+          <Route path="/admin/groups/:id" element={guard('/admin/groups', <GroupDetail />)} />
           <Route path="/admin/reports" element={guard('/admin/reports', <Reports />)} />
           <Route path="/admin/inbox" element={guard('/admin/inbox', <Inbox />)} />
           <Route path="/admin/upgrades" element={guard('/admin/upgrades', <Upgrades />)} />
+          <Route path="/admin/ads" element={guard('/admin/ads', <Ads />)} />
+          <Route path="/admin/ads/new" element={guard('/admin/ads', <AdNew />)} />
+          <Route path="/admin/ads/:id" element={guard('/admin/ads', <AdDetail />)} />
           <Route path="/admin/team" element={guard('/admin/team', <Team />)} />
           <Route path="/admin/identity" element={guard('/admin/identity', <Identity />)} />
           <Route path="*" element={<Navigate to="/admin" replace />} />

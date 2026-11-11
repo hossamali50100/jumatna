@@ -25,3 +25,8 @@
 .adm-gate .box{background:#fff;border:1px solid #E4E4E7;border-radius:20px;padding:32px;width:min(420px,100%);display:flex;flex-direction:column;gap:14px;text-align:center}
 .adm-gate .av{width:64px;height:64px;border-radius:18px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800;font-size:32px;margin:0 auto;overflow:hidden}
 .adm-gate .av img{width:100%;height:100%;object-fit:cover}
+
+.adm-tbl{width:100%;border-collapse:collapse;font-size:14px}
+.adm-tbl th{text-align:start;padding:10px 14px;background:#FAFAFA;color:#71717A;font-weight:600;border-bottom:1px solid #E4E4E7;white-space:nowrap}
+.adm-tbl td{padding:12px 14px;border-top:1px solid #F0F0F2;vertical-align:middle}
+.adm-tbl tbody tr:hover{background:#F7F9FC}

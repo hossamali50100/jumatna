@@ -8,10 +8,10 @@ const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي�
 
 // شاشة أول دخول (جوجل أو إيميل): الاسم + تاريخ الميلاد + الجنس، وبعدها يدخل المنصة
 export default function Onboarding() {
-  const { profile, refresh, signOut } = useAuth()
+  const { refresh, signOut } = useAuth()
   const pf = usePlatform()
   const thisYear = new Date().getFullYear()
-  const [name, setName] = useState(profile?.name ?? '')
+  const [name, setName] = useState('')
   const [d, setD] = useState(''); const [m, setM] = useState(''); const [y, setY] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
@@ -43,8 +43,8 @@ export default function Onboarding() {
           <span className="mut">كمّل بياناتك الأساسية الأول، وبعدها تدخل المنصة على طول.</span>
         </div>
 
-        <label className="col" style={{ gap: 6 }}><b>الاسم</b>
-          <input className="in" style={{ minHeight: 46 }} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+        <label className="col" style={{ gap: 6 }}><b>اسمك جوه المنصة</b>
+          <input className="in" style={{ minHeight: 46 }} value={name} placeholder="اكتب اسمك هنا" maxLength={60} onChange={(e) => setName(e.target.value)} autoComplete="name" />
         </label>
 
         <div className="col" style={{ gap: 6 }}><b>تاريخ الميلاد</b>

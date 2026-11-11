@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -23,6 +23,7 @@ export default function Home() {
   const mine = useMyGroups(tick).filter((g) => g.myStatus === 'active')
   const [posts, setPosts] = useState<Post[] | null>(null)
   const [liked, setLiked] = useState<Set<string>>(new Set())
+  const [adPosts, setAdPosts] = useState<(Post & { adv: { name: string; avatar: string | null } })[]>([])
   const [err, setErr] = useState('')
 
   const load = useCallback(async () => {
@@ -35,7 +36,18 @@ export default function Home() {
     const { data, error } = await supabase.from('posts').select(POST_SELECT).or(parts.join(',')).order('created_at', { ascending: false }).limit(30)
     if (error) return setErr(errMsg(error))
     const list = (data as unknown as Post[]) ?? []
-    setLiked(await likedSet(list.map((p) => p.id), uid)); setPosts(list)
+    // الإعلانات (لو تحديث 021 مش متشغّل بنتجاهلها بهدوء)
+    let ads: (Post & { adv: { name: string; avatar: string | null } })[] = []
+    try {
+      const { data: ai, error: ae } = await supabase.rpc('feed_ads')
+      const rows = ae ? [] : ((ai ?? []) as { post_id: string; advertiser_name: string | null; advertiser_avatar: string | null }[])
+      if (rows.length) {
+        const { data: ap } = await supabase.from('posts').select(POST_SELECT).in('id', rows.map((r) => r.post_id))
+        ads = ((ap as unknown as Post[]) ?? []).map((p) => { const r = rows.find((x) => x.post_id === p.id); return { ...p, adv: { name: r?.advertiser_name || p.profiles?.name || 'إعلان', avatar: r?.advertiser_avatar ?? null } } })
+      }
+    } catch { /* ignore */ }
+    setAdPosts(ads)
+    setLiked(await likedSet([...list, ...ads].map((p) => p.id), uid)); setPosts(list)
   }, [uid])
   useEffect(() => { load() }, [load])
 
@@ -50,7 +62,13 @@ export default function Home() {
           <Link className="btn p" to="/discover">اكتشف المجموعات</Link>
         </div>
       )}
-      {posts?.map((p) => <PostCard key={p.id} post={p} liked={liked.has(p.id)} onDeleted={(id) => setPosts((l) => l!.filter((x) => x.id !== id))} />)}
+      {posts?.map((p, i) => (
+        <Fragment key={p.id}>
+          <PostCard post={p} liked={liked.has(p.id)} onDeleted={(id) => setPosts((l) => l!.filter((x) => x.id !== id))} />
+          {i === 1 && adPosts.map((a) => <PostCard key={'ad' + a.id} ad={a.adv} post={a} liked={liked.has(a.id)} onDeleted={(id) => setAdPosts((l) => l.filter((x) => x.id !== id))} />)}
+        </Fragment>
+      ))}
+      {posts && posts.length < 2 && adPosts.map((a) => <PostCard key={'ad' + a.id} ad={a.adv} post={a} liked={liked.has(a.id)} onDeleted={(id) => setAdPosts((l) => l.filter((x) => x.id !== id))} />)}
     </>
   )
 }

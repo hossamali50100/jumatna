@@ -96,8 +96,7 @@ function ContactsPanel({ open, onToggle, onPick }: { open: boolean; onToggle: (v
       <button type="button" className="ct-head" aria-expanded={open} onClick={() => onToggle(!open)}>
         <Icon n="friends" s={20} />
         <b className="grow" style={{ textAlign: 'start' }}>جهات الاتصال</b>
-        <span className="ct-n">{list.length}</span>
-        <span style={{ fontSize: 20, lineHeight: 1 }}>{open ? '–' : '▢'}</span>
+        {list.length > 0 && <span className="ct-n">{list.length}</span>}
       </button>
       {open && (
         <div className="ct-list">
