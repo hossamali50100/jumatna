@@ -118,7 +118,7 @@ export default function UserPage() {
                   ? <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
                   : <button className="btn" onClick={() => openChat(pid)}><Icon n="msg" s={18} />إرسال رسالة</button>}
                 {!rel && <button className="btn p" onClick={() => request(pid)}><Icon n="friends" s={18} />إضافة صديق</button>}
-                {rel?.status === 'accepted' && <button className="btn" onClick={() => confirm('حذف الصداقة؟') && remove(pid)}>✓ أصدقاء</button>}
+                {rel?.status === 'accepted' && <button className="btn" onClick={() => confirm('إلغاء الصداقة؟') && remove(pid)}>إلغاء الصداقة</button>}
                 {rel?.status === 'pending' && !rel.incoming && <button className="btn" onClick={() => remove(pid)}>إلغاء طلب الصداقة</button>}
                 {rel?.status === 'pending' && rel.incoming && <button className="btn p" onClick={() => accept(pid)}>قبول طلب الصداقة</button>}
               </>)}
@@ -175,7 +175,7 @@ export default function UserPage() {
           </div>
         </div>
       )}
-      {!locked && tab !== 'posts' && <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {!locked && tab !== 'posts' && <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {tab === 'about' && (
         <div className="crd col">
           <b>نبذة</b>

@@ -20,6 +20,12 @@ export default function Composer({ groups, defaultGroup, allowPersonal, onPosted
   }, [])
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [prev, setPrev] = useState<string | null>(null)
+  useEffect(() => {
+    if (!file) { setPrev(null); return }
+    const u = URL.createObjectURL(file); setPrev(u)
+    return () => URL.revokeObjectURL(u)
+  }, [file])
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const chosen = (sel ?? [targets[0]?.id ?? PERSONAL]).filter((id) => targets.some((t) => t.id === id))
@@ -57,8 +63,9 @@ export default function Composer({ groups, defaultGroup, allowPersonal, onPosted
         <b className="grow" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{names}</b>
       </div>
       <textarea className="in" autoFocus placeholder="اكتب شيئًا..." value={body} maxLength={5000} onChange={(e) => setBody(e.target.value)} />
+      {prev && <div className="cp-prev"><img src={prev} alt="معاينة الصورة" /><button type="button" aria-label="إزالة الصورة" onClick={() => setFile(null)}>✕</button></div>}
       <div className="row">
-        <label className="btn sm" style={{ cursor: 'pointer' }}><Icon n="image" s={18} />صورة
+        <label className="btn sm" style={{ cursor: 'pointer' }}><Icon n="image" s={18} />{file ? 'تغيير الصورة' : 'صورة'}
           <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         {targets.length > 1 && (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import Lightbox from './Lightbox'
 import { Avatar, Err, Icon, Name, timeAgo } from '../lib/ui'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; comment_likes?: { count: number }[]; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
@@ -22,6 +23,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [zoom, setZoom] = useState(false)
   const [reported, setReported] = useState(false)
   const mref = useRef<HTMLDivElement>(null)
   useEffect(() => { if (autoOpen) loadComments() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -173,11 +175,19 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
         </div>
       </div>
       <p className="body" style={{ margin: '10px 0' }}>{post.body}</p>
-      {post.image_url && <img className="post-img" src={post.image_url} alt="" loading="lazy" />}
+      {post.image_url && <img className="post-img" src={post.image_url} alt="" loading="lazy" onClick={() => setZoom(true)} />}
+      {zoom && post.image_url && (
+        <Lightbox src={post.image_url} onClose={() => setZoom(false)} side={<>
+          <div className="row"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={40} /><b><Name p={post.profiles} /></b></div>
+          {post.body && <div className="body">{post.body}</div>}
+          <div className="mut">{likes} إعجاب · {ccount} تعليق</div>
+          <button className="btn p" onClick={() => { setZoom(false); if (!open) toggleComments() }}>عرض التعليقات</button>
+        </>} />
+      )}
       <div className="mut" style={{ paddingBottom: 8, borderBottom: '1px solid #E4E4E7' }}>{likes} إعجاب · {ccount} تعليق</div>
       <div className="row" style={{ justifyContent: 'space-around', marginTop: 4 }}>
-        <button className="btn ghost" style={isLiked ? { fontWeight: 700 } : undefined} onClick={toggleLike}>
-          <Icon n="heart" s={20} />{isLiked ? 'أعجبك' : 'إعجاب'}
+        <button className="btn ghost" style={isLiked ? { fontWeight: 700, color: '#E0245E' } : undefined} onClick={toggleLike}>
+          <Icon n="heart" s={20} on={isLiked} />{isLiked ? 'أعجبك' : 'إعجاب'}
         </button>
         <button className="btn ghost" onClick={toggleComments}><Icon n="comment" s={20} />تعليق</button>
       </div>

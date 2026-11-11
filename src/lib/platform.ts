@@ -37,6 +37,11 @@ export function usePlatform() {
     return () => { subs.delete(setP) }
   }, [])
   useEffect(() => { document.title = p.name }, [p.name])
+  // لو الأدمن رفع لوجو للمنصة نستخدمه كأيقونة للتبويب
+  useEffect(() => {
+    if (!p.logo_url) return
+    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"],link[rel="apple-touch-icon"]').forEach((l) => { l.href = p.logo_url; l.removeAttribute('type'); l.removeAttribute('sizes') })
+  }, [p.logo_url])
   const reload = useCallback(() => loadPlatform(), [])
   return { ...p, reload }
 }

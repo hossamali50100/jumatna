@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, uploadImage, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -14,7 +15,7 @@ const note = { alignSelf: 'stretch', textAlign: 'center', fontSize: 13, borderRa
 
 // محادثة دعم بجلسات. العميل: كل زيارة بتبدأ محادثة جديدة (بتتفتح عند أول رسالة).
 // الإدارة: بتفتح محادثة معينة بـ chatId. المحادثة بتتقفل بزرار "إنهاء" أو تلقائيًا بعد 30 دقيقة من آخر نشاط.
-export default function SupportThread({ userId, staff, topic, hint, channel = 'support', chatId: fixedChat }: { userId: string; staff?: boolean; topic?: string; hint?: string; channel?: Channel; chatId?: string }) {
+export default function SupportThread({ userId, staff, topic, hint, channel = 'support', chatId: fixedChat, actionSlot }: { userId: string; staff?: boolean; topic?: string; hint?: string; channel?: Channel; chatId?: string; actionSlot?: HTMLElement | null }) {
   const { session } = useAuth()
   const uid = session!.user.id
   const [chatId, setChatId] = useState<string | null>(fixedChat ?? null)
@@ -97,9 +98,10 @@ export default function SupportThread({ userId, staff, topic, hint, channel = 's
           🔔 تذكير من النظام: لو ماقفلتش المحادثة، هتتقفل تلقائيًا بعد 30 دقيقة من آخر رسالة{chat ? ` (باقي ${mins} دقيقة)` : ''}.
         </div>
       )}
+      {msgs.length > 0 && !closed && actionSlot && createPortal(<button type="button" className="btn sm" onClick={finish}>✔ إنهاء المحادثة</button>, actionSlot)}
       {msgs.length > 0 && !closed && (
         <div className="row" style={{ gap: 8 }}>
-          <button type="button" className="btn sm" onClick={finish}>✔ إنهاء المحادثة</button>
+          {!actionSlot && <button type="button" className="btn sm" onClick={finish}>✔ إنهاء المحادثة</button>}
           {staff && <button type="button" className="btn sm danger" onClick={del}>🗑 حذف</button>}
         </div>
       )}
