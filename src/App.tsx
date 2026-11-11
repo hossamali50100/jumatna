@@ -18,6 +18,10 @@ import Messages from './pages/Messages'
 import Support from './pages/Support'
 import StaffSupport from './pages/StaffSupport'
 import AdminApp from './admin/AdminApp'
+import Onboarding from './pages/Onboarding'
+import Upgrade from './pages/Upgrade'
+import Notifications from './pages/Notifications'
+import PostView from './pages/PostView'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -38,6 +42,8 @@ export default function App() {
   if (!session) return <Login />
   if (!profile) return <div className="wrap"><div className="card mut">جاري تجهيز حسابك… لو الصفحة فضلت كده أعد التحميل.</div></div>
   if (profile.banned) return <div className="wrap col"><div className="err">تم حظر حسابك. تواصل مع الدعم لو شايف ده خطأ.</div><button className="btn" onClick={signOut}>تسجيل الخروج</button></div>
+  // أول دخول: يكمّل الاسم + تاريخ الميلاد + الجنس (الحسابات القديمة وقبل تحديث 016 بتعدي)
+  if (profile.onboarded === false) return <Onboarding />
   return (
     <Routes>
       <Route element={<Layout />}>
@@ -54,6 +60,9 @@ export default function App() {
         <Route path="messages" element={<Messages />} />
         <Route path="messages/:uid" element={<Messages />} />
         <Route path="support" element={<Support />} />
+        <Route path="upgrade" element={<Upgrade />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="post/:id" element={<PostView />} />
         <Route path="staff/support" element={<StaffSupport />} />
         <Route path="soon/:what" element={<ComingSoon />} />
         <Route path="*" element={<Navigate to="/" replace />} />

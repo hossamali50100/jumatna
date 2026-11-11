@@ -16,7 +16,7 @@ export default function Plans() {
           ? <div className="okmsg">حسابك مميز حاليًا.</div>
           : <>
               <div className="mut" style={{ lineHeight: 1.8 }}>للترقية تواصل مع فريق جمعتنا وهنقولك التفاصيل وطريقة التفعيل.</div>
-              <Link className="btn p" to="/support?topic=premium">اطلب الترقية</Link>
+              <Link className="btn p" to="/upgrade">اطلب الترقية</Link>
             </>}
       </div>
     </div>

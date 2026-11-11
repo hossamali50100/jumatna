@@ -6,13 +6,13 @@ import { Avatar, Err, Icon, Name, timeAgo } from '../lib/ui'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; comment_likes?: { count: number }[]; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
-export default function PostCard({ post, liked, canModerate, hideGroup, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; onDeleted: (id: string) => void }) {
+export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
   const me = session!.user.id
   const [isLiked, setLiked] = useState(liked)
   const [likes, setLikes] = useState(post.likes?.[0]?.count ?? 0)
   const [ccount, setCcount] = useState(post.comments?.[0]?.count ?? 0)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(!!autoOpen)
   const [cms, setCms] = useState<Cm[]>([])
   const [cLiked, setCLiked] = useState<Set<string>>(new Set())
   const [cCount, setCCount] = useState<Record<string, number>>({})
@@ -24,6 +24,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
   const [menu, setMenu] = useState(false)
   const [reported, setReported] = useState(false)
   const mref = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (autoOpen) loadComments() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const f = (e: MouseEvent) => { if (mref.current && !mref.current.contains(e.target as Node)) setMenu(false) }
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)
@@ -66,14 +67,19 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
     if (error) {
       setCLiked((x) => { const n = new Set(x); if (was) n.add(id); else n.delete(id); return n })
       setCCount((m) => ({ ...m, [id]: Math.max(0, (m[id] ?? 0) + (was ? 1 : -1)) }))
-      setErr(errMsg(error))
+      setErr(/comment_likes|schema cache/i.test(error.message) ? 'إعجاب التعليقات محتاج تشغيل تحديث 013 في Supabase (مرة واحدة).' : errMsg(error))
     }
   }
   const sendReply = async () => {
     const body = rtext.trim()
     if (!body || !replyTo || busy) return
     setBusy(true); setErr('')
-    const { error } = await supabase.from('comments').insert({ post_id: post.id, author_id: me, body, parent_id: replyTo.id })
+    let { error } = await supabase.from('comments').insert({ post_id: post.id, author_id: me, body, parent_id: replyTo.id })
+    // لو عمود parent_id لسه مش موجود (تحديث 013 ما اتشغلش)، نبعته تعليق عادي فيه اسم اللي بنرد عليه
+    if (error && /parent_id|schema cache/i.test(error.message)) {
+      const b2 = body.startsWith('@') ? body : `@${replyTo.name} ${body}`
+      ;({ error } = await supabase.from('comments').insert({ post_id: post.id, author_id: me, body: b2 }))
+    }
     setBusy(false)
     if (error) return setErr(errMsg(error))
     setRtext(''); setReplyTo(null); setCcount((n) => n + 1); loadComments()
@@ -109,23 +115,30 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
     if (error) setErr(errMsg(error)); else setReported(true)
   }
   const gname = post.groups?.name
-  const item = (c: Cm, isReply: boolean) => (
-    <div className="row" style={{ alignItems: 'flex-start' }}>
-      <Link to={`/u/${c.author_id}`}><Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={isReply ? 30 : 36} /></Link>
-      <div className="grow">
-        <div style={{ background: '#EFEFF1', borderRadius: 16, padding: '8px 14px', fontSize: 15, display: 'inline-block', maxWidth: '100%' }}>
-          <Link to={`/u/${c.author_id}`}><Name p={c.profiles} /></Link><div className="body">{c.body}</div>
-        </div>
-        <div className="mut row" style={{ padding: '2px 8px', gap: 12, fontSize: 13 }}>
-          <span>{timeAgo(c.created_at)}</span>
-          <button onClick={() => toggleCLike(c.id)} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', fontWeight: cLiked.has(c.id) ? 700 : 500, color: cLiked.has(c.id) ? 'var(--brand)' : 'inherit' }}>{cLiked.has(c.id) ? 'أعجبك' : 'إعجاب'}</button>
-          <button onClick={() => { setReplyTo({ id: c.parent_id ?? c.id, name: c.profiles?.name ?? '' }); setRtext(isReply ? `@${c.profiles?.name ?? ''} ` : '') }} style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}>رد</button>
-          {(cCount[c.id] ?? 0) > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#111111' }}><Icon n="heart" s={14} on />{cCount[c.id]}</span>}
-          {(c.author_id === me || canModerate || staff) && <button style={{ background: 'none', border: 0, color: '#C0392B', cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => delComment(c.id)}>حذف</button>}
+  const item = (c: Cm, isReply: boolean) => {
+    const n = cCount[c.id] ?? 0
+    const lk = cLiked.has(c.id)
+    return (
+      <div className="cm">
+        <Link to={`/u/${c.author_id}`} style={{ flex: 'none' }}><Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={isReply ? 28 : 36} /></Link>
+        <div className="cm-main">
+          <div className="cm-bw">
+            <div className="cm-b">
+              <Link to={`/u/${c.author_id}`} className="cm-n"><Name p={c.profiles} /></Link>
+              <div className="body">{c.body}</div>
+            </div>
+            {n > 0 && <span className="cm-chip"><Icon n="heart" s={13} on />{n > 1 && <span>{n}</span>}</span>}
+          </div>
+          <div className="cm-act">
+            <button onClick={() => toggleCLike(c.id)} className={lk ? 'on' : ''}>{lk ? 'أعجبك' : 'إعجاب'}</button>
+            <button onClick={() => { setReplyTo({ id: c.parent_id ?? c.id, name: c.profiles?.name ?? '' }); setRtext(isReply ? `@${c.profiles?.name ?? ''} ` : '') }}>رد</button>
+            <span className="t">{timeAgo(c.created_at)}</span>
+            {(c.author_id === me || canModerate || staff) && <button className="del" onClick={() => delComment(c.id)}>حذف</button>}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <article className="crd">
@@ -172,19 +185,29 @@ export default function PostCard({ post, liked, canModerate, hideGroup, onDelete
       {open && (
         <div className="col" style={{ gap: 10, marginTop: 8 }}>
           {cms.length === 0 && <div className="mut" style={{ textAlign: 'center' }}>كن أول من يعلّق.</div>}
-          {cms.filter((c) => !c.parent_id).map((c) => (
-            <div key={c.id} className="col" style={{ gap: 8 }}>
-              {item(c, false)}
-              {cms.filter((x) => x.parent_id === c.id).map((x) => <div key={x.id} style={{ marginInlineStart: 44 }}>{item(x, true)}</div>)}
-              {replyTo && (replyTo.id === c.id) && (
-                <div className="row" style={{ marginInlineStart: 44 }}>
-                  <input autoFocus style={{ flex: 1, border: 0, background: '#EFEFF1', borderRadius: 24, padding: '10px 16px', minHeight: 42, outline: 'none' }} placeholder={`رد على ${replyTo.name}...`} aria-label="اكتب ردًا" value={rtext} maxLength={2000} onChange={(e) => setRtext(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') sendReply() }} />
-                  <button className="btn p sm" disabled={busy || !rtext.trim()} onClick={sendReply}>إرسال</button>
-                  <button className="btn sm" onClick={() => { setReplyTo(null); setRtext('') }}>إلغاء</button>
-                </div>
-              )}
-            </div>
-          ))}
+          {cms.filter((c) => !c.parent_id).map((c) => {
+            const reps = cms.filter((x) => x.parent_id === c.id)
+            return (
+              <div key={c.id} className="cm-t">
+                {item(c, false)}
+                {(reps.length > 0 || replyTo?.id === c.id) && (
+                  <div className="cm-reps">
+                    {reps.map((x) => <div key={x.id} className="cm-rep">{item(x, true)}</div>)}
+                    {replyTo?.id === c.id && (
+                      <div className="cm-rep cm-new">
+                        <Avatar name={profile?.name} url={profile?.avatar_url} size={28} />
+                        <div className="cm-in">
+                          <input autoFocus placeholder={`رد على ${replyTo.name}...`} aria-label="اكتب ردًا" value={rtext} maxLength={2000} onChange={(e) => setRtext(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') sendReply(); if (e.key === 'Escape') { setReplyTo(null); setRtext('') } }} />
+                          <button className="cm-send" aria-label="إرسال الرد" disabled={busy || !rtext.trim()} onClick={sendReply}><Icon n="plane" s={18} /></button>
+                        </div>
+                        <button className="cm-x" aria-label="إلغاء" onClick={() => { setReplyTo(null); setRtext('') }}>✕</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
           <div className="row">
             <input style={{ flex: 1, border: 0, background: '#EFEFF1', borderRadius: 24, padding: '12px 18px', minHeight: 48, outline: 'none' }} placeholder="اكتب تعليقًا..." aria-label="اكتب تعليقًا" value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} />
             <button className="btn p" disabled={busy || !text.trim()} onClick={send}>إرسال</button>

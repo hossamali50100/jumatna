@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChatDockProvider } from './ChatDock'
 import { useBadges } from '../lib/badges'
+import { useNotifs } from '../lib/notifs'
+import NotificationsMenu from './NotificationsMenu'
 import { useHeartbeat } from '../lib/presence'
 import MessagesMenu from './MessagesMenu'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -23,14 +25,18 @@ function Desktop() {
   const [q, setQ] = useState('')
   const [menu, setMenu] = useState(false)
   const [dms, setDms] = useState(false)
+  const [nots, setNots] = useState(false)
+  const nref = useRef<HTMLDivElement>(null)
+  const nf = useNotifs(40)
   const ref = useRef<HTMLDivElement>(null)
   const dref = useRef<HTMLDivElement>(null)
   useHeartbeat()
-  useEffect(() => { setMenu(false); setDms(false) }, [loc.pathname])
+  useEffect(() => { setMenu(false); setDms(false); setNots(false) }, [loc.pathname])
   useEffect(() => {
     const f = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false)
       if (dref.current && !dref.current.contains(e.target as Node)) setDms(false)
+      if (nref.current && !nref.current.contains(e.target as Node)) setNots(false)
     }
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)
   }, [])
@@ -60,10 +66,13 @@ function Desktop() {
         </nav>
         <div className="row grow" style={{ justifyContent: 'flex-end', gap: 12 }}>
           <div ref={dref} style={{ position: 'relative' }}>
-            <button className="ibtn" aria-label="الرسائل" aria-expanded={dms} title="الرسائل" onClick={() => { setDms(!dms); setMenu(false) }}><Badged n={bd.msgs}><Icon n="msg" on={dms || loc.pathname.startsWith('/messages')} /></Badged></button>
+            <button className="ibtn" aria-label="الرسائل" aria-expanded={dms} title="الرسائل" onClick={() => { setDms(!dms); setMenu(false); setNots(false) }}><Badged n={bd.msgs}><Icon n="msg" on={dms || loc.pathname.startsWith('/messages')} /></Badged></button>
             {dms && <MessagesMenu onClose={() => setDms(false)} />}
           </div>
-          <Link to="/soon/notifications" className="ibtn" aria-label="الإشعارات" title="الإشعارات"><Icon n="bell" on={loc.pathname.startsWith('/soon/notifications')} /></Link>
+          <div ref={nref} style={{ position: 'relative' }}>
+            <button className="ibtn" aria-label="الإشعارات" aria-expanded={nots} title="الإشعارات" onClick={() => { setNots(!nots); setDms(false); setMenu(false) }}><Badged n={nf.unread}><Icon n="bell" on={nots || loc.pathname.startsWith('/notifications')} /></Badged></button>
+            {nots && <NotificationsMenu items={nf.items} markRead={nf.markRead} markAll={nf.markAll} missing={nf.missing} onClose={() => setNots(false)} />}
+          </div>
           <div ref={ref} style={{ position: 'relative' }}>
             <button onClick={() => setMenu(!menu)} aria-label="حسابي" aria-expanded={menu} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
               <Avatar name={profile?.name} url={profile?.avatar_url} size={42} />
@@ -75,6 +84,7 @@ function Desktop() {
                   <div><PremName name={profile?.name} prem={prem} /><div className="mut">عرض ملفك الشخصي</div></div>
                 </Link>
                 <div className="hr" />
+                <Link to="/profile/edit"><Icon n="user" />إعدادات الملف الشخصي</Link>
                 <Link to="/plans"><Icon n="card" />الباقات والترقية</Link>
                 {profile && profile.role !== 'user' && <a href="/admin"><Icon n="card" />لوحة الإدارة</a>}
                 {profile && profile.role !== 'user' && <Link to="/staff/support"><Icon n="msg" />صندوق الدعم</Link>}
@@ -91,10 +101,10 @@ function Desktop() {
           <Link className="nav fb" to="/support"><span className="sbi"><Icon n="msg" s={22} on /></span><span>الدعم<small>مشكلة أو اقتراح أو سؤال</small></span></Link>
           <div className="hr" style={{ margin: '8px 4px' }} />
           <div className="sbh">مجموعاتك</div>
-          {groups.filter((g) => g.myStatus === 'active').slice(0, 6).map((g) => (
+          {groups.filter((g) => g.myStatus === 'active').slice(0, 3).map((g) => (
             <Link key={g.id} className="nav fb" to={`/g/${g.id}`}><Avatar name={g.name} url={g.cover_url} size={36} square />{g.name}</Link>
           ))}
-          <Link className="nav fb" to="/groups"><span className="sbi gr"><Icon n="more" s={22} /></span>عرض كل مجموعاتي</Link>
+          {groups.filter((g) => g.myStatus === 'active').length > 3 && <Link className="nav fb" to="/groups"><span className="sbi gr"><Icon n="more" s={22} /></span>عرض كل المجموعات</Link>}
           <Link className="nav fb" to="/create"><span className="sbi gr"><Icon n="plus" s={22} /></span>إنشاء مجموعة</Link>
         </aside>}
         <main className="dmain"><Outlet /></main>
@@ -144,8 +154,9 @@ function Mobile() {
           <div className="hr" />
           {item('/friends', 'الأصدقاء', 'friends', bd.friends)}
           {item('/support', 'الدعم والمساعدة', 'msg')}
-          {item('/soon/notifications', 'الإشعارات', 'bell')}
+          {item('/notifications', 'الإشعارات', 'bell')}
           <div className="hr" />
+          {item('/profile/edit', 'إعدادات الملف الشخصي', 'user')}
           {item('/plans', 'الباقات والترقية', 'card')}
           {profile && profile.role !== 'user' && item('/admin', 'لوحة الإدارة', 'card')}
           {profile && profile.role !== 'user' && item('/staff/support', 'صندوق الدعم', 'msg')}

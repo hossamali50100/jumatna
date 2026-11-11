@@ -222,7 +222,7 @@ export function Inbox() {
   return (<><Head title="صندوق الدعم" /><StaffSupport /></>)
 }
 export function Upgrades() {
-  return (<><Head title="طلبات الترقية ⭐" /><div className="mut">كل المحادثات اللي أصحابها اختاروا «الباقة المميزة». افتح المحادثة، ولما يتم الدفع دوس «تفعيل مميز 30 يوم».</div><StaffSupport onlyTopic="premium" /></>)
+  return (<><Head title="طلبات الترقية ⭐" /><div className="mut">محادثات طلبات الترقية (منفصلة عن الدعم). افتح المحادثة، ولما يتم الدفع دوس «تفعيل مميز 30 يوم».</div><StaffSupport channel="upgrade" /></>)
 }
 
 export function Team() {

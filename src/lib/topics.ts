@@ -10,3 +10,7 @@ export const TOPICS = [
 ] as const
 export type TopicKey = (typeof TOPICS)[number]['k']
 export const topicOf = (k?: string | null) => TOPICS.find((t) => t.k === k)
+
+// مواضيع صفحة الدعم (طلبات الترقية ليها صفحة ومحادثة لوحدها)
+export const SUPPORT_TOPICS = TOPICS.filter((t) => t.k !== 'premium')
+export type Channel = 'support' | 'upgrade'

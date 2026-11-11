@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase, errMsg } from '../lib/supabase'
+import { supabase, authErrMsg } from '../lib/supabase'
 import { Err, useIsMobile } from '../lib/ui'
 
 export default function Login() {
@@ -15,7 +15,7 @@ export default function Login() {
   const google = async () => {
     setErr('')
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
-    if (error) setErr(errMsg(error))
+    if (error) setErr(authErrMsg(error))
   }
   const go = (m: 'in' | 'up' | 'reset') => (e: React.MouseEvent) => { e.preventDefault(); setMode(m); setErr(''); setInfo('') }
 
@@ -32,13 +32,15 @@ export default function Login() {
       } else if (mode === 'up') {
         const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { data: { full_name: name.trim() }, emailRedirectTo: window.location.origin } })
         if (error) throw error
-        if (!data.session) setInfo('بعتنالك رسالة تأكيد على الإيميل. افتحها وبعدين سجّل دخول.')
+        // Supabase بيرجّع نجاح وهمي لو الإيميل مسجّل قبل كده (identities فاضية)
+        if (data.user && (data.user.identities?.length ?? 1) === 0) throw new Error('already registered')
+        if (!data.session) setInfo('بعتنالك رسالة تأكيد على الإيميل. افتحها وبعدين سجّل دخول. لو ماوصلتش شوف الـ Spam.')
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
         if (error) throw error
         setInfo('لو الإيميل مسجّل عندنا هيوصلك رابط لتغيير كلمة السر.')
       }
-    } catch (e) { setErr(errMsg(e)) }
+    } catch (e) { setErr(authErrMsg(e)) }
     setBusy(false)
   }
   const title = mobile ? (mode === 'in' ? 'تسجيل الدخول' : mode === 'up' ? 'إنشاء حساب' : 'استرجاع كلمة السر') : (mode === 'in' ? 'أهلًا بعودتك' : mode === 'up' ? 'إنشاء حساب جديد' : 'استرجاع كلمة السر')

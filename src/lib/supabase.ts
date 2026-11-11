@@ -14,7 +14,7 @@ export type Profile = {
   id: string; name: string; avatar_url: string | null
   role: 'user' | 'admin' | 'mod' | 'support'; plan: 'free' | 'premium'
   plan_until: string | null; banned: boolean
-  bio?: string; cover_url?: string | null; created_at?: string; deletion_requested_at?: string | null; is_locked?: boolean
+  bio?: string; cover_url?: string | null; created_at?: string; deletion_requested_at?: string | null; is_locked?: boolean; onboarded?: boolean; name_changed_at?: string | null
 }
 export type Group = {
   id: string; owner_id: string; name: string; description: string
@@ -43,3 +43,17 @@ export async function uploadImage(file: File, uid: string): Promise<string> {
 
 export const errMsg = (e: unknown) =>
   (e as { message?: string })?.message || 'حصلت مشكلة، جرّب تاني.'
+
+// رسائل التسجيل/الدخول بالعربي بدل الإنجليزي بتاع Supabase
+export function authErrMsg(e: unknown): string {
+  const m = ((e as { message?: string })?.message ?? '').toLowerCase()
+  const code = ((e as { code?: string })?.code ?? '').toLowerCase()
+  if (code === 'over_email_send_rate_limit' || /rate limit/.test(m)) return 'اتبعت عدد كبير من رسائل التأكيد في وقت قصير. استنى شوية (ساعة تقريبًا) وجرّب تاني.'
+  if (code === 'user_already_exists' || /already registered|already been registered/.test(m)) return 'الإيميل ده مسجّل قبل كده. جرّب تسجّل دخول، أو "نسيت كلمة السر؟"، أو لو دخلت قبل كده بجوجل استخدم زرار Google.'
+  if (code === 'weak_password' || /password/.test(m)) return 'كلمة السر ضعيفة. استخدم 8 أحرف على الأقل فيها حروف وأرقام.'
+  if (code === 'signup_disabled' || /signups? (not allowed|disabled)/.test(m)) return 'التسجيل بالإيميل متوقف مؤقتًا من إعدادات المنصة.'
+  if (/database error saving new user/.test(m)) return 'حصلت مشكلة في إنشاء الحساب على السيرفر. بلّغ الدعم وهنصلحها.'
+  if (/invalid.*email|email.*invalid/.test(m)) return 'الإيميل غير صحيح.'
+  if (/fetch|network/.test(m)) return 'مفيش اتصال بالإنترنت أو السيرفر مش بيرد. جرّب تاني.'
+  return (e as { message?: string })?.message || 'حصلت مشكلة، جرّب تاني.'
+}

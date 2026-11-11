@@ -109,3 +109,24 @@ textarea.in{resize:vertical;min-height:90px}
 .dbody:not(.wide) .dside{grid-column:1;grid-row:1;justify-self:start;width:300px;flex:none;margin:0}
 .dbody:not(.wide) .dmain{grid-column:2;grid-row:1;max-width:none;width:100%}
 @media(max-width:1100px){.dbody:not(.wide){grid-template-columns:minmax(0,1fr)}.dbody:not(.wide) .dmain{grid-column:1}}
+
+/* تعليقات بشكل فيسبوك */
+.cm{display:flex;gap:8px;align-items:flex-start}
+.cm-main{min-width:0;flex:0 1 auto;max-width:calc(100% - 44px)}
+.cm-bw{position:relative;display:inline-block;max-width:100%}
+.cm-b{background:#F0F2F5;border-radius:18px;padding:8px 12px;font-size:15px;line-height:1.45;min-width:60px}
+.cm-n{font-weight:700;font-size:13px;display:inline-block}
+.cm-b .body{word-break:break-word;white-space:pre-wrap}
+.cm-chip{position:absolute;inset-inline-start:-8px;bottom:-10px;display:inline-flex;align-items:center;gap:3px;background:#fff;border-radius:99px;padding:2px 6px;font-size:12px;color:#E0245E;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.cm-act{display:flex;gap:14px;padding:3px 12px 0;font-size:12px;color:#65676B;font-weight:700;align-items:center;margin-top:4px}
+.cm-act button{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}
+.cm-act button:hover{text-decoration:underline}.cm-act button.on{color:var(--brand)}.cm-act .t{font-weight:400}.cm-act .del{color:#C0392B;font-weight:400}
+.cm-t{display:flex;flex-direction:column;gap:6px}
+.cm-reps{margin-inline-start:18px;padding-inline-start:26px;display:flex;flex-direction:column;gap:8px;position:relative;border-inline-start:2px solid #E4E6EB;border-bottom-right-radius:0}
+.cm-rep{display:flex;gap:8px;align-items:flex-start;position:relative}
+.cm-rep::before{content:'';position:absolute;inset-inline-start:-26px;top:14px;width:20px;border-top:2px solid #E4E6EB}
+.cm-new{align-items:center}
+.cm-in{flex:1;display:flex;align-items:center;background:#F0F2F5;border-radius:22px;padding:0 6px 0 14px;min-height:38px}
+.cm-in input{flex:1;border:0;background:none;outline:none;font:inherit;font-size:15px;min-width:0}
+.cm-send{background:none;border:0;color:var(--brand);cursor:pointer;display:grid;place-items:center;padding:6px}.cm-send:disabled{color:#BCC0C4;cursor:default}
+.cm-x{background:none;border:0;color:#65676B;cursor:pointer;padding:4px}

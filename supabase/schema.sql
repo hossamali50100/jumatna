@@ -749,6 +749,332 @@ revoke all on function public.admin_set_role(uuid,text) from public, anon;
 grant execute on function public.admin_set_role(uuid,text) to authenticated;
 notify pgrst, 'reload schema';
 
+-- (016) أول دخول: الاسم + تاريخ الميلاد + الجنس قبل ما يدخل المنصة
+-- البيانات الحساسة (تاريخ الميلاد والجنس) في جدول خاص: صاحبها والفريق بس هم اللي يشوفوها
+alter table public.profiles add column if not exists onboarded boolean not null default false;
+-- كل الحسابات الموجودة قبل التحديث ده تعتبر مكمّلة بياناتها (متتطلبش شاشة البداية)
+update public.profiles set onboarded = true where onboarded = false;
+
+create table if not exists public.profile_private (
+  user_id    uuid primary key references public.profiles(id) on delete cascade,
+  birth_date date not null,
+  gender     text not null check (gender in ('male','female')),
+  updated_at timestamptz not null default now()
+);
+alter table public.profile_private enable row level security;
+drop policy if exists pp_select on public.profile_private;
+create policy pp_select on public.profile_private for select to authenticated
+  using (user_id = auth.uid() or public.is_staff());
+grant select on public.profile_private to authenticated;
+
+create or replace function public.complete_onboarding(p_name text, p_birth date, p_gender text)
+returns void language plpgsql security definer set search_path = public as $$
+declare nm text := btrim(coalesce(p_name,''));
+begin
+  if auth.uid() is null then raise exception 'سجّل دخول الأول'; end if;
+  if char_length(nm) < 2 or char_length(nm) > 60 then raise exception 'الاسم لازم يكون من 2 لـ 60 حرف'; end if;
+  if p_gender not in ('male','female') then raise exception 'اختار الجنس'; end if;
+  if p_birth is null or p_birth > current_date or p_birth < date '1900-01-01' then raise exception 'تاريخ الميلاد غير صحيح'; end if;
+  if p_birth > (current_date - interval '13 years')::date then raise exception 'لازم يكون عمرك 13 سنة على الأقل'; end if;
+  update profiles set name = nm, onboarded = true where id = auth.uid();
+  insert into profile_private(user_id, birth_date, gender) values (auth.uid(), p_birth, p_gender)
+    on conflict (user_id) do update set birth_date = excluded.birth_date, gender = excluded.gender, updated_at = now();
+end $$;
+revoke all on function public.complete_onboarding(text,date,text) from public, anon;
+grant execute on function public.complete_onboarding(text,date,text) to authenticated;
+notify pgrst, 'reload schema';
+
+-- (017) فصل محادثة الدعم عن محادثة طلبات الترقية + مسح المحادثة
+alter table public.support_messages add column if not exists channel text not null default 'support';
+alter table public.support_messages drop constraint if exists support_messages_channel_check;
+alter table public.support_messages add constraint support_messages_channel_check check (channel in ('support','upgrade'));
+-- الرسائل القديمة اللي كانت على موضوع "الباقة المميزة" تروح لمحادثة الترقية
+update public.support_messages set channel = 'upgrade' where topic = 'premium' and channel = 'support';
+create index if not exists support_chan_idx on public.support_messages (user_id, channel, created_at);
+
+-- مسح محادثة كاملة: صاحبها يمسح محادثته، والفريق يمسح أي محادثة
+create or replace function public.clear_support_chat(p_user uuid, p_channel text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'سجّل دخول الأول'; end if;
+  if p_channel not in ('support','upgrade') then raise exception 'محادثة غير صحيحة'; end if;
+  if p_user <> auth.uid() and not public.is_staff() then raise exception 'غير مسموح'; end if;
+  delete from support_messages where user_id = p_user and channel = p_channel;
+end $$;
+revoke all on function public.clear_support_chat(uuid,text) from public, anon;
+grant execute on function public.clear_support_chat(uuid,text) to authenticated;
+notify pgrst, 'reload schema';
+
+-- (018) محادثات دعم بجلسات: كل زيارة = محادثة جديدة، وبتتقفل بزرار "إنهاء" أو تلقائيًا بعد 30 دقيقة من آخر نشاط
+create table if not exists public.support_chats (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references public.profiles(id) on delete cascade,
+  channel          text not null default 'support' check (channel in ('support','upgrade')),
+  status           text not null default 'open' check (status in ('open','closed')),
+  closed_by        text check (closed_by in ('user','staff','system')),
+  created_at       timestamptz not null default now(),
+  last_activity_at timestamptz not null default now(),
+  closed_at        timestamptz
+);
+create index if not exists support_chats_user_idx on public.support_chats (user_id, channel, status);
+create index if not exists support_chats_act_idx on public.support_chats (last_activity_at);
+alter table public.support_chats enable row level security;
+drop policy if exists sc_select on public.support_chats;
+create policy sc_select on public.support_chats for select to authenticated
+  using (user_id = auth.uid() or public.is_staff());
+grant select on public.support_chats to authenticated;
+
+alter table public.support_messages add column if not exists chat_id uuid references public.support_chats(id) on delete cascade;
+create index if not exists support_msg_chat_idx on public.support_messages (chat_id, created_at);
+
+-- الرسائل القديمة: كل (عميل + قناة) يبقى محادثة مقفولة في السجل
+with g as (
+  select user_id, channel, gen_random_uuid() as id, min(created_at) as c, max(created_at) as l
+  from public.support_messages where chat_id is null group by user_id, channel
+), ins as (
+  insert into public.support_chats(id, user_id, channel, status, closed_by, created_at, last_activity_at, closed_at)
+  select id, user_id, channel, 'closed', 'system', c, l, l from g returning id, user_id, channel
+)
+update public.support_messages m set chat_id = ins.id
+  from ins where m.user_id = ins.user_id and m.channel = ins.channel and m.chat_id is null;
+
+-- كل رسالة جديدة لازم تكون في محادثة مفتوحة، وبتجدّد وقت آخر نشاط
+create or replace function public.support_msg_chat() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare c public.support_chats%rowtype;
+begin
+  if new.chat_id is null then
+    select * into c from support_chats
+      where user_id = new.user_id and channel = new.channel and status = 'open'
+        and last_activity_at > now() - interval '30 minutes'
+      order by last_activity_at desc limit 1;
+    if not found then
+      if new.from_staff then raise exception 'المحادثة مقفولة'; end if;
+      insert into support_chats(user_id, channel) values (new.user_id, new.channel) returning * into c;
+    end if;
+    new.chat_id := c.id;
+  else
+    select * into c from support_chats where id = new.chat_id;
+    if not found or c.user_id <> new.user_id or c.channel <> new.channel then raise exception 'محادثة غير صحيحة'; end if;
+    if c.status <> 'open' then raise exception 'المحادثة مقفولة'; end if;
+    if c.last_activity_at < now() - interval '30 minutes' then raise exception 'المحادثة اتقفلت تلقائيًا لعدم النشاط'; end if;
+  end if;
+  update support_chats set last_activity_at = now() where id = c.id;
+  return new;
+end $$;
+drop trigger if exists support_msg_chat_trg on public.support_messages;
+create trigger support_msg_chat_trg before insert on public.support_messages
+  for each row execute function public.support_msg_chat();
+
+-- بدء محادثة جديدة (بحد أقصى 10 محادثات في الساعة)
+create or replace function public.start_support_chat(p_channel text) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare cid uuid;
+begin
+  if auth.uid() is null then raise exception 'سجّل دخول الأول'; end if;
+  if public.is_banned() then raise exception 'الحساب محظور'; end if;
+  if p_channel not in ('support','upgrade') then raise exception 'محادثة غير صحيحة'; end if;
+  if (select count(*) from support_chats where user_id = auth.uid() and created_at > now() - interval '1 hour') >= 10 then
+    raise exception 'محادثات كتير في وقت قصير، جرّب بعد شوية.';
+  end if;
+  insert into support_chats(user_id, channel) values (auth.uid(), p_channel) returning id into cid;
+  return cid;
+end $$;
+
+-- إنهاء محادثة: صاحبها أو الفريق
+create or replace function public.close_support_chat(p_chat uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare c public.support_chats%rowtype;
+begin
+  select * into c from support_chats where id = p_chat;
+  if not found then raise exception 'المحادثة مش موجودة'; end if;
+  if c.user_id <> auth.uid() and not public.is_staff() then raise exception 'غير مسموح'; end if;
+  if c.status = 'open' then
+    update support_chats set status = 'closed', closed_at = now(),
+      closed_by = case when c.user_id = auth.uid() then 'user' else 'staff' end where id = p_chat;
+  end if;
+end $$;
+
+-- قفل تلقائي لأي محادثة ماحصلش فيها نشاط 30 دقيقة (بيتنادى من الموقع وبيشتغل بدون pg_cron)
+create or replace function public.support_sweep() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if auth.uid() is null then return 0; end if;
+  update support_chats set status = 'closed', closed_by = 'system', closed_at = now()
+    where status = 'open' and last_activity_at < now() - interval '30 minutes';
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- حذف محادثة: صاحبها أو الفريق
+create or replace function public.delete_support_chat(p_chat uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from support_chats where id = p_chat and (user_id = auth.uid() or public.is_staff())) then
+    raise exception 'غير مسموح';
+  end if;
+  delete from support_chats where id = p_chat;
+end $$;
+
+-- مسح كل محادثات قناة معينة (يمسح الجلسات والرسائل معًا)
+create or replace function public.clear_support_chat(p_user uuid, p_channel text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'سجّل دخول الأول'; end if;
+  if p_channel not in ('support','upgrade') then raise exception 'محادثة غير صحيحة'; end if;
+  if p_user <> auth.uid() and not public.is_staff() then raise exception 'غير مسموح'; end if;
+  delete from support_chats where user_id = p_user and channel = p_channel;
+  delete from support_messages where user_id = p_user and channel = p_channel;
+end $$;
+
+revoke all on function public.start_support_chat(text), public.close_support_chat(uuid), public.support_sweep(), public.delete_support_chat(uuid) from public, anon;
+grant execute on function public.start_support_chat(text), public.close_support_chat(uuid), public.support_sweep(), public.delete_support_chat(uuid) to authenticated;
+notify pgrst, 'reload schema';
+
+-- (019) الإشعارات: إعجاب/تعليق/رد على بوستك، طلبات الصداقة، دعوات المجموعات وطلبات الانضمام
+create table if not exists public.notifications (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references public.profiles(id) on delete cascade,   -- اللي بيستلم الإشعار
+  actor_id   uuid references public.profiles(id) on delete cascade,            -- اللي عمل الحدث
+  type       text not null check (type in ('post_like','post_comment','comment_reply','comment_like','friend_request','friend_accept','group_invite','group_join')),
+  post_id    uuid references public.posts(id) on delete cascade,
+  group_id   uuid references public.groups(id) on delete cascade,
+  comment_id uuid references public.comments(id) on delete cascade,
+  read_at    timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+create unique index if not exists notifications_dedupe_idx on public.notifications
+  (user_id, actor_id, type, coalesce(post_id,'00000000-0000-0000-0000-000000000000'::uuid), coalesce(group_id,'00000000-0000-0000-0000-000000000000'::uuid), coalesce(comment_id,'00000000-0000-0000-0000-000000000000'::uuid));
+alter table public.notifications enable row level security;
+drop policy if exists n_select on public.notifications;
+drop policy if exists n_update on public.notifications;
+drop policy if exists n_delete on public.notifications;
+create policy n_select on public.notifications for select to authenticated using (user_id = auth.uid());
+create policy n_update on public.notifications for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy n_delete on public.notifications for delete to authenticated using (user_id = auth.uid());
+revoke update on public.notifications from authenticated, anon;
+grant select, delete on public.notifications to authenticated;
+grant update (read_at) on public.notifications to authenticated;
+
+create or replace function public.push_notif(p_user uuid, p_actor uuid, p_type text, p_post uuid, p_group uuid, p_comment uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_user is null or p_user = p_actor then return; end if;
+  insert into notifications(user_id, actor_id, type, post_id, group_id, comment_id)
+    values (p_user, p_actor, p_type, p_post, p_group, p_comment) on conflict do nothing;
+end $$;
+revoke all on function public.push_notif(uuid,uuid,text,uuid,uuid,uuid) from public, anon, authenticated;
+
+-- إعجاب على بوست
+create or replace function public.trg_notif_like() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  perform push_notif((select author_id from posts where id = new.post_id), new.user_id, 'post_like', new.post_id, null, null);
+  return new;
+end $$;
+drop trigger if exists notif_like_trg on public.likes;
+create trigger notif_like_trg after insert on public.likes for each row execute function public.trg_notif_like();
+
+-- تعليق أو رد
+create or replace function public.trg_notif_comment() returns trigger language plpgsql security definer set search_path = public as $$
+declare pa uuid; ca uuid;
+begin
+  select author_id into pa from posts where id = new.post_id;
+  if new.parent_id is not null then
+    select author_id into ca from comments where id = new.parent_id;
+    perform push_notif(ca, new.author_id, 'comment_reply', new.post_id, null, new.id);
+    if pa is distinct from ca then perform push_notif(pa, new.author_id, 'post_comment', new.post_id, null, new.id); end if;
+  else
+    perform push_notif(pa, new.author_id, 'post_comment', new.post_id, null, new.id);
+  end if;
+  return new;
+end $$;
+drop trigger if exists notif_comment_trg on public.comments;
+create trigger notif_comment_trg after insert on public.comments for each row execute function public.trg_notif_comment();
+
+-- إعجاب على تعليق
+create or replace function public.trg_notif_clike() returns trigger language plpgsql security definer set search_path = public as $$
+declare c record;
+begin
+  select author_id, post_id into c from comments where id = new.comment_id;
+  perform push_notif(c.author_id, new.user_id, 'comment_like', c.post_id, null, new.comment_id);
+  return new;
+end $$;
+drop trigger if exists notif_clike_trg on public.comment_likes;
+create trigger notif_clike_trg after insert on public.comment_likes for each row execute function public.trg_notif_clike();
+
+-- صداقة: طلب جديد / قبول
+create or replace function public.trg_notif_friend() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' and new.status = 'pending' then
+    perform push_notif(new.addressee_id, new.requester_id, 'friend_request', null, null, null);
+  elsif tg_op = 'UPDATE' and new.status = 'accepted' and old.status <> 'accepted' then
+    perform push_notif(new.requester_id, new.addressee_id, 'friend_accept', null, null, null);
+  end if;
+  return new;
+end $$;
+drop trigger if exists notif_friend_trg on public.friendships;
+create trigger notif_friend_trg after insert or update on public.friendships for each row execute function public.trg_notif_friend();
+
+-- دعوة لمجموعة
+create or replace function public.trg_notif_invite() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  perform push_notif(new.invitee_id, new.inviter_id, 'group_invite', null, new.group_id, null);
+  return new;
+end $$;
+drop trigger if exists notif_invite_trg on public.group_invites;
+create trigger notif_invite_trg after insert on public.group_invites for each row execute function public.trg_notif_invite();
+
+-- طلب انضمام لمجموعة (بيوصل لصاحب المجموعة)
+create or replace function public.trg_notif_join() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'pending' then
+    perform push_notif((select owner_id from groups where id = new.group_id), new.user_id, 'group_join', null, new.group_id, null);
+  end if;
+  return new;
+end $$;
+drop trigger if exists notif_join_trg on public.group_members;
+create trigger notif_join_trg after insert on public.group_members for each row execute function public.trg_notif_join();
+notify pgrst, 'reload schema';
+
+-- (020) تغيير الاسم مرة كل 30 يوم (بيتفرض من السيرفر)
+alter table public.profiles add column if not exists name_changed_at timestamptz;
+
+create or replace function public.profiles_name_limit() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.name is distinct from old.name and coalesce(current_setting('app.skip_name_limit', true), '') <> '1' then
+    if old.name_changed_at is not null and old.name_changed_at > now() - interval '30 days' then
+      raise exception 'تقدر تغيّر اسمك مرة كل 30 يوم. التغيير الجاي بعد % يوم.',
+        ceil(extract(epoch from (old.name_changed_at + interval '30 days' - now())) / 86400)::int;
+    end if;
+    new.name_changed_at := now();
+  end if;
+  return new;
+end $$;
+drop trigger if exists profiles_name_limit_trg on public.profiles;
+create trigger profiles_name_limit_trg before update of name on public.profiles
+  for each row execute function public.profiles_name_limit();
+
+-- شاشة أول دخول: اختيار الاسم أول مرة ما يحسبش كتغيير
+create or replace function public.complete_onboarding(p_name text, p_birth date, p_gender text)
+returns void language plpgsql security definer set search_path = public as $$
+declare nm text := btrim(coalesce(p_name,''));
+begin
+  if auth.uid() is null then raise exception 'سجّل دخول الأول'; end if;
+  if char_length(nm) < 2 or char_length(nm) > 60 then raise exception 'الاسم لازم يكون من 2 لـ 60 حرف'; end if;
+  if p_gender not in ('male','female') then raise exception 'اختار الجنس'; end if;
+  if p_birth is null or p_birth > current_date or p_birth < date '1900-01-01' then raise exception 'تاريخ الميلاد غير صحيح'; end if;
+  if p_birth > (current_date - interval '13 years')::date then raise exception 'لازم يكون عمرك 13 سنة على الأقل'; end if;
+  perform set_config('app.skip_name_limit', '1', true);
+  update profiles set name = nm, onboarded = true where id = auth.uid();
+  perform set_config('app.skip_name_limit', '0', true);
+  insert into profile_private(user_id, birth_date, gender) values (auth.uid(), p_birth, p_gender)
+    on conflict (user_id) do update set birth_date = excluded.birth_date, gender = excluded.gender, updated_at = now();
+end $$;
+notify pgrst, 'reload schema';
+
 -- بعد ما تسجل أول مرة بحسابك، خليه أدمن (غيّر الإيميل بإيميلك):
 --   update public.profiles set role = 'admin'
 --   where id = (select id from auth.users where email = 'hossamali50100@gmail.com');

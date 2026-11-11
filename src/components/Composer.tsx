@@ -65,7 +65,7 @@ export default function Composer({ groups, defaultGroup, allowPersonal, onPosted
           <div ref={pref} style={{ position: 'relative' }}>
             <button type="button" className="btn sm" aria-expanded={pick} onClick={() => setPick(!pick)}><Icon n="groups" s={18} />مكان النشر ({chosen.length})</button>
             {pick && (
-              <div className="pop" style={{ top: 'auto', bottom: 'calc(100% + 6px)', minWidth: 260, maxHeight: 280, overflowY: 'auto' }}>
+              <div className="pop" style={{ minWidth: 260, maxHeight: 280, overflowY: 'auto' }}>
                 <b style={{ display: 'block', padding: '6px 10px' }}>انشر في:</b>
                 {targets.map((t) => (
                   <label key={t.id} className="row" style={{ padding: '8px 10px', cursor: 'pointer', gap: 10 }}>
