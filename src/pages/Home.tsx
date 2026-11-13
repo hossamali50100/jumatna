@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg, type Post } from '../lib/supabase'
+import { useHides, type HideDetail } from '../lib/hides'
 import { useAuth } from '../lib/auth'
 import { useMyGroups } from '../lib/groups'
 import PostCard from '../components/PostCard'
@@ -25,6 +26,12 @@ export default function Home() {
   const [liked, setLiked] = useState<Set<string>>(new Set())
   const [adPosts, setAdPosts] = useState<(Post & { adv: { name: string; avatar: string | null; link: string | null } })[]>([])
   const [err, setErr] = useState('')
+  const hd = useHides()
+  const [undo, setUndo] = useState<HideDetail | null>(null)
+  useEffect(() => {
+    const f = (e: Event) => { setUndo((e as CustomEvent<HideDetail>).detail); setTimeout(() => setUndo(null), 9000) }
+    window.addEventListener('jm:hid', f); return () => window.removeEventListener('jm:hid', f)
+  }, [])
 
   const load = useCallback(async () => {
     const { data: ms, error: e1 } = await supabase.from('group_members').select('group_id').eq('user_id', uid).eq('status', 'active')
@@ -54,6 +61,7 @@ export default function Home() {
   return (
     <>
       <Err>{err}</Err>
+      {undo && <div className="crd row" style={{ background: '#EAF3FF', color: '#0B4FAE' }}><span className="grow">تم إخفاء منشورات <b>{undo.name}</b> من صفحتك الرئيسية.</span><button className="btn sm" onClick={() => { hd.unhide(undo.kind, undo.id); setUndo(null) }}>تراجع</button><Link to="/hidden" className="btn sm">المخفي</Link></div>}
       <Composer groups={mine} allowPersonal onPosted={() => { load(); setTick((t) => t + 1) }} />
       {posts === null && !err && <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>}
       {posts?.length === 0 && (
@@ -62,7 +70,7 @@ export default function Home() {
           <Link className="btn p" to="/discover">اكتشف المجموعات</Link>
         </div>
       )}
-      {posts?.map((p, i) => (
+      {posts?.filter((p) => !(p.author_id !== uid && hd.users.has(p.author_id)) && !(p.group_id && hd.groups.has(p.group_id))).map((p, i) => (
         <Fragment key={p.id}>
           <PostCard post={p} liked={liked.has(p.id)} onDeleted={(id) => setPosts((l) => l!.filter((x) => x.id !== id))} />
           {i === 1 && adPosts.map((a) => <PostCard key={'ad' + a.id} ad={a.adv} post={a} liked={liked.has(a.id)} onDeleted={(id) => setAdPosts((l) => l.filter((x) => x.id !== id))} />)}

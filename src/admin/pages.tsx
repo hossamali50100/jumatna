@@ -116,7 +116,10 @@ export function Users() {
   )
 }
 
-type Tab = 'info' | 'posts' | 'friends' | 'groups'
+type Tab = 'info' | 'posts' | 'friends' | 'groups' | 'chats'
+type ChatItem = { kind: 'dm' | 'room'; other_id: string | null; room_id: string | null; title: string | null; avatar: string | null; last_body: string | null; last_at: string | null; msg_count: number }
+type ChatMsgRow = { id: string; sender_id: string; sender_name?: string | null; body: string; image_url: string | null; created_at: string }
+type AuditRow = { id: string; action: string; created_at: string; admin: { name: string } | null }
 type UPostRow = { id: string; body: string; image_url: string | null; created_at: string; group_id: string | null; ad_id?: string | null; groups: { name: string } | null; likes: { count: number }[]; comments: { count: number }[] }
 type FriendRow = { requester_id: string; addressee_id: string; created_at?: string; req: { name: string; avatar_url: string | null } | null; adr: { name: string; avatar_url: string | null } | null }
 type GroupRow = { role: string; groups: { id: string; name: string; privacy: string; cover_url: string | null } | null }
@@ -134,8 +137,12 @@ export function UserDetail() {
   const [posts, setPosts] = useState<UPostRow[] | null>(null)
   const [friends, setFriends] = useState<FriendRow[] | null>(null)
   const [groups, setGroups] = useState<GroupRow[] | null>(null)
+  const [chats, setChats] = useState<ChatItem[] | null>(null)
+  const [openChat, setOpenChat] = useState<ChatItem | null>(null)
+  const [cmsgs, setCmsgs] = useState<ChatMsgRow[] | null>(null)
+  const [audit, setAudit] = useState<AuditRow[]>([])
   const [err, setErr] = useState(''); const [ok, setOk] = useState('')
-  useEffect(() => { setTab('info'); setFull(null); setPriv(null); setPosts(null); setFriends(null); setGroups(null) }, [id])
+  useEffect(() => { setTab('info'); setFull(null); setPriv(null); setPosts(null); setFriends(null); setGroups(null); setChats(null); setOpenChat(null); setCmsgs(null); setAudit([]) }, [id])
   useEffect(() => {
     if (!id) return
     supabase.from('profiles').select('*').eq('id', id).maybeSingle().then(({ data }) => setFull((data as Profile) ?? null))
@@ -157,7 +164,23 @@ export function UserDetail() {
       supabase.from('group_members').select('role,groups!group_id(id,name,privacy,cover_url)').eq('user_id', id).eq('status', 'active').limit(200)
         .then(({ data, error }) => { if (error) setErr(errMsg(error)); else setGroups((data ?? []) as unknown as GroupRow[]) })
     }
-  }, [tab, id, posts, friends, groups, loadPosts])
+    if (tab === 'chats' && isAdmin && chats === null) {
+      supabase.rpc('admin_user_chats', { p_user: id }).then(({ data, error }) => { if (error) setErr(/admin_user_chats|schema cache|function/i.test(error.message) ? 'المحادثات محتاجة تحديث 041 في Supabase (مرة واحدة).' : errMsg(error)); else setChats((data ?? []) as ChatItem[]) })
+      loadAudit()
+    }
+  }, [tab, id, posts, friends, groups, chats, isAdmin, loadPosts])  // eslint-disable-line react-hooks/exhaustive-deps
+  const loadAudit = async () => {
+    const { data } = await supabase.from('admin_audit').select('id,action,created_at,admin:profiles!admin_id(name)').eq('subject_id', id!).order('created_at', { ascending: false }).limit(15)
+    setAudit((data ?? []) as unknown as AuditRow[])
+  }
+  const openThread = async (c: ChatItem) => {
+    setErr(''); setOpenChat(c); setCmsgs(null)
+    const { data, error } = c.kind === 'dm'
+      ? await supabase.rpc('admin_dm_messages', { p_user: id, p_other: c.other_id })
+      : await supabase.rpc('admin_room_messages', { p_user: id, p_room: c.room_id })
+    if (error) { setErr(errMsg(error)); setOpenChat(null); return }
+    setCmsgs((data ?? []) as ChatMsgRow[]); loadAudit()
+  }
   const rpc = async (fn: string, args: Record<string, unknown>, msg: string) => {
     setErr(''); setOk('')
     const { error } = await supabase.rpc(fn, args)
@@ -172,7 +195,7 @@ export function UserDetail() {
   if (users === null) return <div className="mut">جاري التحميل…</div>
   if (!u) return <><Head title="المستخدم">{back}</Head>{loadErr ? <Err>{loadErr}</Err> : <div className="card mut">المستخدم مش موجود.</div>}</>
   const age = priv?.birth_date ? Math.floor((Date.now() - new Date(priv.birth_date).getTime()) / 31557600000) : null
-  const tabs: [Tab, string][] = [['info', 'بياناته'], ['posts', `المنشورات (${u.posts})`], ['friends', `الأصدقاء (${u.friends})`], ['groups', `المجموعات (${u.groups})`]]
+  const tabs: [Tab, string][] = [['info', 'بياناته'], ['posts', `المنشورات (${u.posts})`], ['friends', `الأصدقاء (${u.friends})`], ['groups', `المجموعات (${u.groups})`], ...(isAdmin ? [['chats', 'المحادثات'] as [Tab, string]] : [])]
   const Row = ({ k, v }: { k: string; v: ReactNode }) => <div className="row" style={{ gap: 12, padding: '8px 0', borderTop: '1px solid #F0F0F2' }}><span className="mut" style={{ width: 120 }}>{k}</span><span className="grow">{v}</span></div>
   return (
     <>
@@ -250,6 +273,54 @@ export function UserDetail() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {tab === 'chats' && isAdmin && (
+        <div className="col" style={{ gap: 12 }}>
+          <div className="card" style={{ background: '#FFF7E0', color: '#8A5A00' }}>🔒 محادثات خاصة. فتح أي محادثة بيتسجّل باسمك في "سجل الاطلاع" (مين فتح ومتى). استخدمها للتحقق من بلاغ أو مخالفة بس.</div>
+          {!openChat && (
+            <div className="adm-table">
+              {chats === null && <div className="adm-row mut">جاري التحميل…</div>}
+              {chats?.length === 0 && <div className="adm-row mut">مفيش محادثات.</div>}
+              {chats?.map((c) => (
+                <div key={(c.other_id ?? c.room_id) as string} className="adm-row" style={{ cursor: 'pointer' }} onClick={() => openThread(c)}>
+                  <Avatar name={c.title} url={c.avatar} size={40} square={c.kind === 'room'} />
+                  <span className="grow col" style={{ gap: 0, minWidth: 0 }}>
+                    <b>{c.title ?? '—'} {c.kind === 'room' && <span className="mut" style={{ fontWeight: 400 }}>· شات جماعي</span>}</b>
+                    <span className="mut" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last_body ?? ''}</span>
+                  </span>
+                  <span className="mut" style={{ fontSize: 13 }}>{c.msg_count} رسالة{c.last_at ? ` · ${timeAgo(c.last_at)}` : ''}</span>
+                  <span className="mut">فتح ←</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {openChat && (
+            <div className="card col" style={{ gap: 8 }}>
+              <div className="row"><button className="btn line" onClick={() => { setOpenChat(null); setCmsgs(null) }}>← كل المحادثات</button><b className="grow">{openChat.title}</b><span className="mut">{u.name} (الأزرق)</span></div>
+              <div className="col" style={{ gap: 4, maxHeight: 520, overflowY: 'auto', background: '#fff', borderRadius: 12, padding: 10 }}>
+                {cmsgs === null && <span className="mut">جاري التحميل…</span>}
+                {cmsgs?.length === 0 && <span className="mut">مفيش رسائل.</span>}
+                {cmsgs?.map((m) => {
+                  const mine = m.sender_id === u.id
+                  return (
+                    <div key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
+                      {openChat.kind === 'room' && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.sender_name ?? '—'}</div>}
+                      {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener"><img src={m.image_url} alt="" style={{ width: 200, maxHeight: 220, objectFit: 'cover', borderRadius: 12, display: 'block' }} /></a>}
+                      {m.body && <div style={{ background: mine ? 'var(--brand, #0866FF)' : '#EFEFF1', color: mine ? '#fff' : '#111', borderRadius: 16, padding: '7px 12px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>}
+                      <div className="mut" style={{ fontSize: 11, padding: '0 8px', textAlign: mine ? 'end' : 'start' }}>{new Date(m.created_at).toLocaleString('ar-EG')}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <div className="card col" style={{ gap: 4 }}>
+            <b>سجل الاطلاع على محادثات {u.name}</b>
+            {audit.length === 0 && <span className="mut">لسه محدش فتح محادثاته.</span>}
+            {audit.map((a) => <div key={a.id} className="mut" style={{ fontSize: 13 }}>• {a.admin?.name ?? 'أدمن'} فتح {a.action === 'view_room' ? 'شات جماعي' : 'محادثة خاصة'} — {new Date(a.created_at).toLocaleString('ar-EG')}</div>)}
+          </div>
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase, errMsg, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import Lightbox from './Lightbox'
+import { hideFeed } from '../lib/hides'
 import { ReactButton, RxStack, buildRx, applyRx, rxTotal, emptyRx, type Rx } from './Reactions'
 import { Avatar, Err, Icon, Name, timeAgo, Check } from '../lib/ui'
 
@@ -28,6 +29,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   const [zoom, setZoom] = useState<number | false>(false)
   const imgs = [post.image_url, ...(post.extra_images ?? [])].filter((x): x is string => !!x)
   const [reported, setReported] = useState(false)
+  const [hidNote, setHidNote] = useState('')
   const mref = useRef<HTMLDivElement>(null)
   useEffect(() => { if (autoOpen) loadComments() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -125,6 +127,11 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     if (error) return setErr(errMsg(error))
     onDeleted(post.id)
   }
+  const hide = async (kind: 'user' | 'group', id: string, name: string) => {
+    setMenu(false)
+    const e = await hideFeed(me, kind, id, name)
+    setHidNote(e || `تم إخفاء منشورات ${name} من صفحتك الرئيسية. تقدر ترجّعها من "المنشورات المخفية".`)
+  }
   const report = async () => {
     setMenu(false)
     const reason = prompt('سبب البلاغ؟')?.trim()
@@ -187,9 +194,11 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
         <div ref={mref} style={{ position: 'relative' }}>
           <button className="mi" aria-label="خيارات البوست" onClick={() => setMenu(!menu)}><Icon n="more" /></button>
           {menu && (
-            <div className="pop" style={{ minWidth: 180, insetInlineStart: 0 }}>
+            <div className="pop" style={{ minWidth: 200, insetInlineStart: 'auto', insetInlineEnd: 0 }}>
               {post.author_id !== me && !reported && <button onClick={report}>إبلاغ عن البوست</button>}
               {reported && <span className="mut" style={{ padding: 10, display: 'block' }}>تم الإبلاغ</span>}
+              {!ad && post.author_id !== me && <button onClick={() => hide('user', post.author_id, post.profiles?.name ?? 'الشخص ده')}>إخفاء منشورات {post.profiles?.name ?? 'الشخص ده'}</button>}
+              {!ad && post.group_id && <button onClick={() => hide('group', post.group_id!, post.groups?.name ?? 'المجموعة دي')}>إخفاء منشورات {post.groups?.name ?? 'المجموعة دي'}</button>}
               {canDelete && <button onClick={delPost} style={{ color: '#C0392B' }}>حذف البوست</button>}
               {post.author_id === me && !canDelete && null}
             </div>
@@ -197,6 +206,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
         </div>
       </div>
       {post.approval === 'pending' && <div className="pend-note">⏳ بانتظار موافقة مشرف المجموعة — لسه ما ظهرش للأعضاء</div>}
+      {hidNote && <div className="pend-note" style={{ background: '#EAF3FF', color: '#0B4FAE' }}>{hidNote}</div>}
       <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{post.body}</p>
       {imgs.length === 1 && <img className="post-img" src={imgs[0]} alt="" loading="lazy" style={ad?.link ? { cursor: 'pointer' } : undefined} onClick={() => ad ? (ad.link ? openAd() : setZoom(0)) : setZoom(0)} />}
       {imgs.length > 1 && <div className={'pg n' + imgs.length}>{imgs.map((u, k) => <img key={u} src={u} alt="" loading="lazy" onClick={() => ad?.link ? openAd() : setZoom(k)} />)}</div>}
