@@ -23,6 +23,7 @@ import Onboarding from './pages/Onboarding'
 import Upgrade from './pages/Upgrade'
 import Notifications from './pages/Notifications'
 import Hidden from './pages/Hidden'
+import PresenceTest from './pages/PresenceTest'
 import PostView from './pages/PostView'
 import ComingSoon from './pages/ComingSoon'
 
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="upgrade" element={<Upgrade />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="hidden" element={<Hidden />} />
+        <Route path="presence-test" element={<PresenceTest />} />
         <Route path="post/:id" element={<PostView />} />
         <Route path="staff/support" element={<StaffSupport />} />
         <Route path="soon/:what" element={<ComingSoon />} />

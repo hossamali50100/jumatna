@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { usePlatform } from '../lib/platform'
@@ -8,13 +8,30 @@ const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي�
 
 // شاشة أول دخول (جوجل أو إيميل): الاسم + تاريخ الميلاد + الجنس، وبعدها يدخل المنصة
 export default function Onboarding() {
-  const { refresh, signOut } = useAuth()
+  const { refresh, signOut, session } = useAuth()
   const pf = usePlatform()
   const thisYear = new Date().getFullYear()
   const [name, setName] = useState('')
   const [d, setD] = useState(''); const [m, setM] = useState(''); const [y, setY] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
+  // لو سجّل بالإيميل وكتب بياناته كلها في شاشة التسجيل: نكمّل تلقائي من غير ما نسأله تاني
+  const meta = (session?.user.user_metadata ?? {}) as { full_name?: string; birth_date?: string; gender?: string }
+  const auto = !!(meta.full_name && meta.full_name.trim().length >= 2 && /^\d{4}-\d{2}-\d{2}$/.test(meta.birth_date ?? '') && (meta.gender === 'male' || meta.gender === 'female'))
+  const [autoing, setAutoing] = useState(auto)
+  const tried = useRef(false)
+  useEffect(() => {
+    if (!auto || tried.current) return
+    tried.current = true
+    ;(async () => {
+      const { error } = await supabase.rpc('complete_onboarding', { p_name: meta.full_name!.trim(), p_birth: meta.birth_date, p_gender: meta.gender })
+      if (error) {
+        const [yy, mm, dd] = meta.birth_date!.split('-')
+        setName(meta.full_name!.trim()); setY(String(Number(yy))); setM(String(Number(mm))); setD(String(Number(dd))); setGender(meta.gender as 'male' | 'female')
+        setErr(/complete_onboarding|schema cache/i.test(error.message) ? 'السيرفر محتاج تحديث 016 (مرة واحدة من Supabase).' : errMsg(error)); setAutoing(false)
+      } else await refresh()
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setErr('')
@@ -32,6 +49,7 @@ export default function Onboarding() {
   }
   const sel = { minHeight: 46, flex: 1, border: '1px solid #D4D4D8', borderRadius: 12, padding: '0 10px', background: '#fff', fontFamily: 'inherit', fontSize: 15, minWidth: 0 } as const
 
+  if (autoing) return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#F2F3F5' }}><span className="mut">جاري تجهيز حسابك…</span></div>
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#F2F3F5', padding: 16 }}>
       <form onSubmit={submit} className="card col" style={{ width: 'min(460px,100%)', gap: 16, padding: 26 }}>
