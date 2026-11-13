@@ -17,6 +17,9 @@ export function useHeartbeat() {
     if (!uid) return
     // نحدّث الصف الموجود، ولو مفيش نضيفه (الـ upsert كان بيفشل بعد أول مرة بسبب صلاحيات العمود)
     const beat = async () => {
+      // الأول الدالة بتاعة السيرفر (تحديث 035)، ولو مش موجودة الطريقة القديمة
+      const h = await supabase.rpc('heartbeat')
+      if (!h.error) return setPresErr('')
       const now = new Date().toISOString()
       const u = await supabase.from('presence').update({ last_seen: now }).eq('user_id', uid).select('user_id')
       if (u.error) return setPresErr(failMsg(u.error))
@@ -38,7 +41,11 @@ export function useOnline(allIds: string[]) {
     if (!ids.length) { setOn(new Set()); return }
     let live = true
     const load = async () => {
-      // الأول: الحساب على السيرفر (تحديث 034) عشان ساعات الأجهزة متفرقش
+      // الأول: دالة الأصدقاء المتصلين (تحديث 035)
+      const f = await supabase.rpc('online_friends')
+      if (!live) return
+      if (!f.error) { setPresErr(''); const set = new Set(ids); setOn(new Set(((f.data ?? []) as unknown as string[]).map(String).filter((x) => set.has(x)))); return }
+      // وبعدها: الحساب على السيرفر (تحديث 034) عشان ساعات الأجهزة متفرقش
       const r = await supabase.rpc('online_users', { ids })
       if (!live) return
       if (!r.error) { setPresErr(''); setOn(new Set(((r.data ?? []) as unknown as string[]).map(String))); return }

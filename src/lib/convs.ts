@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { useFriends } from './friends'
@@ -18,11 +18,16 @@ export function useConvItems() {
   const { clears } = useChatPrefs()
   const [rows, setRows] = useState<Row[]>([])
   const [rooms, setRooms] = useState<RoomRow[]>([]); const [rmsgs, setRmsgs] = useState<RMsg[]>([]); const [reads, setReads] = useState<Record<string, string>>({})
+  const delivered = useRef('')
   const load = useCallback(async () => {
     const { data } = await supabase.from('dm_messages')
       .select('sender_id,recipient_id,body,image_url,created_at,read_at,s:profiles!sender_id(name,avatar_url,plan,plan_until),r:profiles!recipient_id(name,avatar_url,plan,plan_until)')
       .order('created_at', { ascending: false }).limit(300)
-    setRows((data as unknown as Row[]) ?? [])
+    const rs = (data as unknown as Row[]) ?? []
+    setRows(rs)
+    // أي رسالة جاية ليا بتعتبر "وصلت" (علامتين عند المرسل) — تحديث 038، ولو مش متشغّل نتجاهل
+    const inc = rs.filter((x) => x.recipient_id === uid).map((x) => x.created_at).sort().pop() ?? ''
+    if (inc && inc > delivered.current) { delivered.current = inc; void supabase.rpc('mark_delivered').then(() => {}, () => {}) }
     // مجموعات الشات (لو تحديث 031 متشغّل)
     const [r, m, rd] = await Promise.all([
       supabase.from('chat_rooms').select('id,name,avatar_url,created_at'),

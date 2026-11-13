@@ -25,7 +25,8 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [menu, setMenu] = useState(false)
-  const [zoom, setZoom] = useState(false)
+  const [zoom, setZoom] = useState<number | false>(false)
+  const imgs = [post.image_url, ...(post.extra_images ?? [])].filter((x): x is string => !!x)
   const [reported, setReported] = useState(false)
   const mref = useRef<HTMLDivElement>(null)
   useEffect(() => { if (autoOpen) loadComments() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -195,11 +196,13 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
           )}
         </div>
       </div>
+      {post.approval === 'pending' && <div className="pend-note">⏳ بانتظار موافقة مشرف المجموعة — لسه ما ظهرش للأعضاء</div>}
       <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{post.body}</p>
-      {post.image_url && <img className="post-img" src={post.image_url} alt="" loading="lazy" style={ad?.link ? { cursor: 'pointer' } : undefined} onClick={() => ad ? (ad.link ? openAd() : setZoom(true)) : setZoom(true)} />}
+      {imgs.length === 1 && <img className="post-img" src={imgs[0]} alt="" loading="lazy" style={ad?.link ? { cursor: 'pointer' } : undefined} onClick={() => ad ? (ad.link ? openAd() : setZoom(0)) : setZoom(0)} />}
+      {imgs.length > 1 && <div className={'pg n' + imgs.length}>{imgs.map((u, k) => <img key={u} src={u} alt="" loading="lazy" onClick={() => ad?.link ? openAd() : setZoom(k)} />)}</div>}
       {ad?.link && <a className="ad-link" href={ad.link} target="_blank" rel="noopener noreferrer nofollow">{hostOf(ad.link)} ↗</a>}
-      {zoom && post.image_url && (
-        <Lightbox src={post.image_url} onClose={() => setZoom(false)} side={<>
+      {zoom !== false && imgs.length > 0 && (
+        <Lightbox srcs={imgs} start={zoom} onClose={() => setZoom(false)} side={<>
           <div className="row"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={40} /><b><Name p={post.profiles} /></b></div>
           {post.body && <div className="body">{post.body}</div>}
           <div className="mut">{likes > 0 && <><RxStack by={rx.by} /> {likes} · </>}{ccount} تعليق</div>

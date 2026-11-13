@@ -72,7 +72,7 @@ function Desktop() {
           </div>
           <div ref={nref} style={{ position: 'relative' }}>
             <button className="ibtn" aria-label="الإشعارات" aria-expanded={nots} title="الإشعارات" onClick={() => { setNots(!nots); setDms(false); setMenu(false) }}><Badged n={nf.unread}><Icon n="bell" on={nots || loc.pathname.startsWith('/notifications')} /></Badged></button>
-            {nots && <NotificationsMenu items={nf.items} markRead={nf.markRead} markAll={nf.markAll} missing={nf.missing} onClose={() => setNots(false)} />}
+            {nots && <NotificationsMenu items={nf.items} markMany={nf.markMany} markAll={nf.markAll} missing={nf.missing} onClose={() => setNots(false)} />}
           </div>
           <div ref={ref} style={{ position: 'relative' }}>
             <button onClick={() => setMenu(!menu)} aria-label="حسابي" aria-expanded={menu} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%' }}>

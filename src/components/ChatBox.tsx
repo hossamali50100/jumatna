@@ -2,13 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import { errMsg } from '../lib/supabase'
 import { Avatar, Err, Icon, timeAgo } from '../lib/ui'
 
-export type ChatMsg = { id: string; mine: boolean; label?: string; body: string; image_url: string | null; created_at: string; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
+export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; created_at: string; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
+// علامات الرسالة (زي واتساب): ✓ اتبعتت — ✓✓ وصلت — ✓✓ خضرا اتقرت
+function Ticks({ t }: { t: 'sending' | 'sent' | 'delivered' | 'read' }) {
+  const col = t === 'read' ? '#16A34A' : '#8A8D91'
+  const two = t === 'delivered' || t === 'read'
+  return (
+    <svg width="24" height="15" viewBox="0 0 24 14" fill="none" stroke={col} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-label={t === 'read' ? 'تمت القراءة' : t === 'delivered' ? 'وصلت' : t === 'sent' ? 'تم الإرسال' : 'جاري الإرسال'} style={{ direction: 'ltr', opacity: t === 'sending' ? 0.5 : 1 }}>
+      <path d="M2 7.5l4 4L13 2.500" />
+      {two && <path d="M8 7.500l4 4L19 2.500" />}
+    </svg>
+  )
+}
 const QUICK = ['👍', '❤️', '😂', '😮', '😢', '😡']
 
 const EMOJIS = ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','😉','😁','😅','🙂','🤔','😢','😭','😡','😴','🙏','👍','👎','👏','🙌','💪','👌','✌️','🤝','❤️','💔','🔥','🎉','✨','💯','🌹','☕','🎁','😇','🤗','😱','🥳']
 
 // واجهة شات مشتركة (دعم + رسائل مباشرة) على شكل شات فيسبوك: فقاعات + إيموجي + لايك + صورة
-export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward }: { onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
+export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
@@ -21,14 +32,14 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
   }
   const box = useRef<HTMLDivElement>(null)
   const inp = useRef<HTMLInputElement>(null)
-  useEffect(() => { const b = box.current; if (b) b.scrollTop = b.scrollHeight }, [msgs.length])
+  useEffect(() => { const b = box.current; if (b) b.scrollTop = b.scrollHeight }, [msgs.length, typing])
 
   const send = async (text = body.trim(), f: File | null = file) => {
     if ((!text && !f) || busy) return
     setBusy(true); setErr('')
     const prev = body; const prevFile = file
     if (text === body.trim()) setBody('')   // نفضّي الخانة فورًا، ولو فشل الإرسال نرجّع النص
-    setFile(null); setEmoji(false)
+    setFile(null); setEmoji(false); onStopTyping?.()
     try { await onSend(text, f) } catch (e) { setErr(errMsg(e)); if (text === prev.trim()) setBody(prev); setFile(prevFile) }
     setBusy(false)
     inp.current?.focus()
@@ -71,9 +82,11 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
               </div>
               {!m.mine && !m.id.startsWith('tmp-') && (onReact || onForward) && tools(m)}
               </div>
+              {m.tick && <div style={{ alignSelf: 'flex-end', padding: '0 8px', lineHeight: 0 }} title={m.tickTitle}><Ticks t={m.tick} /></div>}
             </div>
           )
         })}
+        {typing && <div className="cm-typing" aria-live="polite"><span className="dots"><i /><i /><i /></span><span className="mut" style={{ fontSize: 12 }}>{typing}</span></div>}
       </div>
       {pop && (<>
         <div className="cm-ov" onClick={() => setPop(null)} />
@@ -98,7 +111,7 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
           <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         <button type="button" style={ib} aria-label="إيموجي" title="إيموجي" onClick={() => setEmoji((v) => !v)}>🙂</button>
-        <input ref={inp} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => setBody(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
+        <input ref={inp} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
         {body.trim() || file
           ? <button type="button" style={ib} aria-label="إرسال" title="إرسال" disabled={busy} onClick={() => send()}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
           : <button type="button" style={ib} aria-label="لايك" title="لايك" disabled={busy} onClick={() => send('👍', null)}>👍</button>}

@@ -136,7 +136,7 @@ function ContactsPanel({ open, onToggle, onPick }: { open: boolean; onToggle: (v
     <aside aria-label="الأصدقاء المتصلين" className="contacts">
       <button type="button" className="ct-head" aria-expanded={open} onClick={() => onToggle(!open)}>
         <Icon n="friends" s={20} />
-        <b className="grow" style={{ textAlign: 'start' }}>جهات الاتصال</b>
+        <b className="grow" style={{ textAlign: 'start' }}>الأصدقاء المتصلون</b>
         {list.length > 0 && <span className="ct-n">{list.length}</span>}
       </button>
       {open && (

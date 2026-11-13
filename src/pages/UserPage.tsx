@@ -43,7 +43,7 @@ export default function UserPage() {
   useEffect(() => { loadProfile() }, [loadProfile])
 
   const loadPosts = useCallback(async () => {
-    const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('author_id', pid).order('created_at', { ascending: false }).limit(30)
+    const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('author_id', pid).or(`approval.eq.approved,author_id.eq.${uid}`).order('created_at', { ascending: false }).limit(30)
     if (error) return setErr(errMsg(error))
     const list = (data ?? []) as unknown as Post[]
     setPosts(list); setLiked(await likedSet(list.map((x) => x.id), uid))

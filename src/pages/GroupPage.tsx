@@ -22,10 +22,11 @@ export default function GroupPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [liked, setLiked] = useState<Set<string>>(new Set())
   const [pend, setPend] = useState<Pending[]>([])
+  const [review, setReview] = useState<Post[]>([])
   const [err, setErr] = useState('')
   const [missing, setMissing] = useState(false)
   const mobile = useIsMobile()
-  const [tab, setTab] = useState<'talk' | 'media' | 'members' | 'requests'>('talk')
+  const [tab, setTab] = useState<'talk' | 'media' | 'members' | 'requests' | 'review'>('talk')
   const [members, setMembers] = useState<Member[]>([])
   const [media, setMedia] = useState<{ id: string; image_url: string }[]>([])
   const [invite, setInvite] = useState(false)
@@ -44,7 +45,7 @@ export default function GroupPage() {
     const [m, c, p] = await Promise.all([
       supabase.from('group_members').select('role,status').eq('group_id', gid).eq('user_id', uid).maybeSingle(),
       supabase.from('group_members').select('*', { count: 'exact', head: true }).eq('group_id', gid).eq('status', 'active'),
-      supabase.from('posts').select(POST_SELECT).eq('group_id', gid).order('created_at', { ascending: false }).limit(30),
+      supabase.from('posts').select(POST_SELECT).eq('group_id', gid).or(`approval.eq.approved,author_id.eq.${uid}`).order('created_at', { ascending: false }).limit(30),
     ])
     setMem(m.data as { role: string; status: string } | null); setCount(c.count ?? 0)
     if (p.error) setErr(errMsg(p.error))
@@ -53,6 +54,9 @@ export default function GroupPage() {
     if (m.data && ['owner', 'admin'].includes((m.data as { role: string }).role)) {
       const { data } = await supabase.from('group_members').select('user_id,profiles!user_id(name,avatar_url)').eq('group_id', gid).eq('status', 'pending')
       setPend((data as unknown as Pending[]) ?? [])
+      // البوستات اللي بانتظار موافقتي كمشرف
+      const rv = await supabase.from('posts').select(POST_SELECT).eq('group_id', gid).eq('approval', 'pending').order('created_at', { ascending: true })
+      setReview(rv.error ? [] : ((rv.data as unknown as Post[]) ?? []))
     }
   }, [id, uid])
   useEffect(() => { setG(null); setTab('talk'); setInvite(false); load() }, [load])
@@ -62,7 +66,7 @@ export default function GroupPage() {
       supabase.from('group_members').select('user_id,role,profiles!user_id(name,avatar_url,plan,plan_until)').eq('group_id', g.id).eq('status', 'active').order('created_at', { ascending: true }).then(({ data, error }) => { if (error) setErr(errMsg(error)); else setMembers((data as unknown as Member[]) ?? []) })
     }
     if (tab === 'media') {
-      supabase.from('posts').select('id,image_url').eq('group_id', g.id).not('image_url', 'is', null).order('created_at', { ascending: false }).limit(60).then(({ data, error }) => { if (error) setErr(errMsg(error)); else setMedia((data as { id: string; image_url: string }[]) ?? []) })
+      supabase.from('posts').select('id,image_url').eq('group_id', g.id).eq('approval', 'approved').not('image_url', 'is', null).order('created_at', { ascending: false }).limit(60).then(({ data, error }) => { if (error) setErr(errMsg(error)); else setMedia((data as { id: string; image_url: string }[]) ?? []) })
     }
   }, [tab, g?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -88,6 +92,16 @@ export default function GroupPage() {
       ? await supabase.from('group_members').update({ status: 'active' }).eq('group_id', g.id).eq('user_id', u)
       : await supabase.from('group_members').delete().eq('group_id', g.id).eq('user_id', u)
     if (error) setErr(errMsg(error)); else load()
+  }
+  const reviewPost = async (pid: string, ok: boolean) => {
+    const { error } = await supabase.rpc('review_post', { p_id: pid, p_approve: ok })
+    if (error) return setErr(errMsg(error))
+    setReview((l) => l.filter((x) => x.id !== pid)); if (ok) load()
+  }
+  const toggleApproval = async (v: boolean) => {
+    const { error } = await supabase.from('groups').update({ require_approval: v }).eq('id', g.id)
+    if (error) return setErr(/require_approval|schema cache/i.test(error.message) ? 'شغّل تحديث 037 في Supabase الأول (مرة واحدة).' : errMsg(error))
+    setG({ ...g, require_approval: v }); if (!v) { setReview([]); load() }
   }
   const friendsList = rels.filter((r) => r.status === 'accepted')
   const openInvite = async () => {
@@ -198,7 +212,7 @@ export default function GroupPage() {
           })()}
         </div>
         <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4 }}>
-          {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && g.privacy === 'private' ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : [])] as [typeof tab, string][]).map(([k, l]) => (
+          {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && (g.require_approval || review.length) ? [['review', `منشورات للمراجعة${review.length ? ` (${review.length})` : ''}`]] : []), ...(isAdmin && g.privacy === 'private' ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : [])] as [typeof tab, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? 'var(--brand)' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? 'var(--brand)' : '#55555C', fontSize: 15, cursor: 'pointer' }}>{l}</button>
           ))}
         </div>
@@ -211,6 +225,12 @@ export default function GroupPage() {
           {g.description ? <div className="body">{g.description}</div> : <span className="mut">مفيش وصف للمجموعة.</span>}
           <div className="mut">{g.privacy === 'public' ? '🌐 مجموعة عامة: أي حد ينضم ويشوف البوستات' : '🔒 مجموعة خاصة: الانضمام بموافقة المشرف'}</div>
           <div className="mut">{count} عضو</div>
+          {isAdmin && (
+            <label className="row" style={{ gap: 10, cursor: 'pointer', padding: '10px 0 2px', borderTop: '1px solid #E4E4E7', alignItems: 'flex-start' }}>
+              <input type="checkbox" checked={!!g.require_approval} onChange={(e) => toggleApproval(e.target.checked)} style={{ width: 20, height: 20, accentColor: 'var(--brand)', marginTop: 2 }} />
+              <span><b>الموافقة على المنشورات</b><br /><span className="mut" style={{ fontSize: 13 }}>{g.require_approval ? 'بوستات الأعضاء بتستنى موافقتك قبل ما تظهر.' : 'مقفولة: أي عضو ينشر وبيظهر على طول.'}</span></span>
+            </label>
+          )}
           <div className="mut">تأسست في {new Date(g.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long' })}</div>
         </div>
       </aside>
@@ -226,6 +246,20 @@ export default function GroupPage() {
         : <div className="crd" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 8 }}>
             {media.map((m) => <a key={m.id} href={m.image_url} target="_blank" rel="noreferrer noopener"><img src={m.image_url} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, display: 'block' }} /></a>)}
           </div>)}
+      {tab === 'review' && (
+        <div className="col" style={{ gap: 16 }}>
+          {review.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش منشورات بانتظار الموافقة.</div>}
+          {review.map((p) => (
+            <div key={p.id} className="col" style={{ gap: 0 }}>
+              <PostCard post={p} hideGroup liked={false} canModerate={false} onDeleted={() => undefined} />
+              <div className="crd row" style={{ gap: 8, marginTop: -8, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                <button className="btn p grow" onClick={() => reviewPost(p.id, true)}>موافقة ونشر</button>
+                <button className="btn danger grow" onClick={() => reviewPost(p.id, false)}>رفض</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {tab === 'requests' && (
         <div className="crd col">
           {pend.length === 0 && <span className="mut">مفيش طلبات انضمام دلوقتي.</span>}

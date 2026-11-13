@@ -226,3 +226,21 @@ textarea.in{resize:vertical;min-height:90px}
 .cm-chev{background:#E4E6EB;color:#1C1E21;width:26px!important;height:26px!important;margin-inline-start:2px}
 .cm-chev:hover{background:#D0D3D9}
 .ad-badge{display:inline-block;background:#16A34A;color:#fff;border-radius:999px;padding:2px 12px;font-size:12px;font-weight:700;line-height:1.5}
+.cp-grid{display:grid;gap:6px;grid-template-columns:1fr 1fr}.cp-grid.n1{grid-template-columns:1fr}
+.cp-grid .cp-prev img{width:100%;height:150px;object-fit:cover}.cp-grid.n1 .cp-prev img{height:auto;max-height:300px;object-fit:contain}
+.pg{display:grid;gap:3px;border-radius:12px;overflow:hidden;margin-bottom:10px;height:380px;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.pg img{width:100%;height:100%;object-fit:cover;cursor:pointer;display:block}
+.pg.n2{grid-template-rows:1fr}
+.pg.n3 img:first-child{grid-row:span 2}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.18);color:#fff;font-size:30px;line-height:1;cursor:pointer;font-family:inherit}.lb-nav:hover{background:rgba(255,255,255,.32)}
+.lb-stage{flex:1;position:relative;display:flex;min-width:0}.lb-stage .lb-img{flex:1}
+.lb-nav.l{left:14px}.lb-nav.r{right:14px}
+.lb-count{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:3;background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:3px 12px;font-size:13px}
+@media(max-width:800px){.pg{height:300px}}
+.pend-note{background:#FFF7E0;color:#8A5A00;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;margin:8px 0}
+.cm-typing{display:flex;align-items:center;gap:8px;align-self:flex-start;background:#EFEFF1;border-radius:18px;padding:6px 12px;margin-top:4px}
+.cm-typing .dots{display:inline-flex;gap:3px}.cm-typing .dots i{width:6px;height:6px;border-radius:50%;background:#8A8D91;animation:cmdot 1.2s infinite}
+.cm-typing .dots i:nth-child(2){animation-delay:.2s}.cm-typing .dots i:nth-child(3){animation-delay:.4s}
+@keyframes cmdot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.ntf{width:100%;background:none;border:0;border-radius:10px;padding:8px 10px;font-family:inherit;text-align:start;cursor:pointer;color:inherit}
+.ntf:hover{background:#F0F2F5}

@@ -8,7 +8,7 @@ import Composer from '../components/Composer'
 import { Err } from '../lib/ui'
 
 // profiles!author_id و groups!group_id: تحديد العلاقة صراحةً (من غيره PostgREST بيتلخبط لأن فيه أكتر من طريق)
-export const POST_SELECT = 'id,group_id,author_id,body,image_url,created_at,profiles!author_id(name,avatar_url,plan,plan_until),groups!group_id(name,cover_url),likes(count),comments(count)'
+export const POST_SELECT = 'id,group_id,author_id,body,image_url,extra_images,approval,created_at,profiles!author_id(name,avatar_url,plan,plan_until),groups!group_id(name,cover_url),likes(count),comments(count)'
 
 export async function likedSet(ids: string[], uid: string) {
   if (!ids.length) return new Set<string>()
@@ -33,7 +33,7 @@ export default function Home() {
     // بوستات مجموعاتي + بوستاتي الشخصية
     const parts = [`and(group_id.is.null,author_id.eq.${uid})`]
     if (ids.length) parts.unshift(`group_id.in.(${ids.join(',')})`)
-    const { data, error } = await supabase.from('posts').select(POST_SELECT).or(parts.join(',')).order('created_at', { ascending: false }).limit(30)
+    const { data, error } = await supabase.from('posts').select(POST_SELECT).or(parts.join(',')).or(`approval.eq.approved,author_id.eq.${uid}`).order('created_at', { ascending: false }).limit(30)
     if (error) return setErr(errMsg(error))
     const list = (data as unknown as Post[]) ?? []
     // الإعلانات (لو تحديث 021 مش متشغّل بنتجاهلها بهدوء)
