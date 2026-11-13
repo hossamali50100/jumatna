@@ -17,7 +17,6 @@ export function useHeartbeat() {
     if (!uid) return
     // نحدّث الصف الموجود، ولو مفيش نضيفه (الـ upsert كان بيفشل بعد أول مرة بسبب صلاحيات العمود)
     const beat = async () => {
-      if (document.visibilityState !== 'visible') return
       const now = new Date().toISOString()
       const u = await supabase.from('presence').update({ last_seen: now }).eq('user_id', uid).select('user_id')
       if (u.error) return setPresErr(failMsg(u.error))
@@ -25,8 +24,8 @@ export function useHeartbeat() {
     }
     beat()
     const t = setInterval(beat, 30000)
-    document.addEventListener('visibilitychange', beat)
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', beat) }
+    document.addEventListener('visibilitychange', beat); window.addEventListener('focus', beat); window.addEventListener('online', beat)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', beat); window.removeEventListener('focus', beat); window.removeEventListener('online', beat) }
   }, [uid])
 }
 
@@ -39,11 +38,16 @@ export function useOnline(allIds: string[]) {
     if (!ids.length) { setOn(new Set()); return }
     let live = true
     const load = async () => {
+      // الأول: الحساب على السيرفر (تحديث 034) عشان ساعات الأجهزة متفرقش
+      const r = await supabase.rpc('online_users', { ids })
+      if (!live) return
+      if (!r.error) { setPresErr(''); setOn(new Set(((r.data ?? []) as unknown as string[]).map(String))); return }
+      // لو 034 لسه ما اتشغّلتش: الطريقة القديمة
       const { data, error } = await supabase.from('presence').select('user_id,last_seen').in('user_id', ids)
       if (!live) return
       if (error) setPresErr(failMsg(error))
       const now = Date.now()
-      setOn(new Set(((data ?? []) as { user_id: string; last_seen: string }[]).filter((r) => now - new Date(r.last_seen).getTime() < 100000).map((r) => r.user_id)))
+      setOn(new Set(((data ?? []) as { user_id: string; last_seen: string }[]).filter((r2) => now - new Date(r2.last_seen).getTime() < 100000).map((r2) => r2.user_id)))
     }
     load()
     const t = setInterval(load, 15000)

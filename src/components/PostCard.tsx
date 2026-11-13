@@ -174,8 +174,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
         </>) : ad ? (<>
           <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined, display: 'inline-flex' }}><Avatar name={ad.name} url={ad.avatar} size={44} /></span>
           <div className="grow" style={{ lineHeight: 1.5 }}>
-            <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined }}><Check /><b style={{ fontSize: 16 }}>{ad.name}</b></span>
-            <div className="mut" style={{ fontSize: 13 }}>إعلان</div>
+            <div className="row" style={{ gap: 8 }}><span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined }}><Check /><b style={{ fontSize: 16 }}>{ad.name}</b></span><span className="ad-badge">إعلان</span></div>
           </div>
         </>) : (<>
           <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>

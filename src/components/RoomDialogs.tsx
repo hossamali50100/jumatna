@@ -49,9 +49,9 @@ function AvatarPick({ file, setFile, current, name }: { file: File | null; setFi
 }
 
 // إنشاء مجموعة شات جديدة
-export function NewRoomModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function NewRoomModal({ onClose, onCreated, initial }: { onClose: () => void; onCreated: (id: string) => void; initial?: string[] }) {
   const { session } = useAuth(); const uid = session!.user.id
-  const [name, setName] = useState(''); const [file, setFile] = useState<File | null>(null); const [sel, setSel] = useState<Set<string>>(new Set())
+  const [name, setName] = useState(''); const [file, setFile] = useState<File | null>(null); const [sel, setSel] = useState<Set<string>>(new Set(initial ?? []))
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('')
   const create = async () => {
     setBusy(true); setErr('')
@@ -64,14 +64,14 @@ export function NewRoomModal({ onClose, onCreated }: { onClose: () => void; onCr
     setBusy(false)
   }
   return (
-    <Modal title="دردشة جماعية جديدة" onClose={onClose}>
+    <Modal title="شات جماعي جديد" onClose={onClose}>
       <div className="col" style={{ padding: '12px 14px 0', gap: 10 }}>
         <AvatarPick file={file} setFile={setFile} name={name} />
-        <input className="in" placeholder="اسم المجموعة" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="in" placeholder="اسم الشات الجماعي" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
         <span className="mut" style={{ fontSize: 13 }}>اختار صديقين على الأقل ({sel.size} مختار)</span>
       </div>
       <Picker sel={sel} setSel={setSel} />
-      <div style={{ padding: 14 }} className="col"><Err>{err}</Err><button className="btn p" disabled={busy || !name.trim() || sel.size < 2} onClick={create}>{busy ? 'استنى…' : 'إنشاء المجموعة'}</button></div>
+      <div style={{ padding: 14 }} className="col"><Err>{err}</Err><button className="btn p" disabled={busy || !name.trim() || sel.size < 2} onClick={create}>{busy ? 'استنى…' : 'إنشاء الشات'}</button></div>
     </Modal>
   )
 }
@@ -91,7 +91,7 @@ export function EditRoomModal({ room, onClose }: { room: RoomInfo; onClose: () =
     setBusy(false)
   }
   return (
-    <Modal title="تعديل المجموعة" onClose={onClose}>
+    <Modal title="تعديل الشات الجماعي" onClose={onClose}>
       <div className="col" style={{ padding: 14, gap: 12 }}>
         <AvatarPick file={file} setFile={setFile} current={room.avatar_url} name={name} />
         <input className="in" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
@@ -126,7 +126,7 @@ export function MembersModal({ room, onClose }: { room: RoomInfo; onClose: () =>
   const canKick = room.created_by === uid
   const [err, setErr] = useState('')
   const kick = async (id: string, name?: string) => {
-    if (!confirm(`تطرد ${name ?? 'العضو ده'} من المجموعة؟`)) return
+    if (!confirm(`تطرد ${name ?? 'العضو ده'} من الشات؟`)) return
     const { error } = await supabase.rpc('remove_room_member', { p_room: room.id, p_user: id })
     if (error) return setErr(/remove_room_member|schema cache/i.test(error.message) ? 'الطرد محتاج تحديث 032 في Supabase (مرة واحدة).' : errMsg(error))
     refreshRooms()
@@ -137,7 +137,7 @@ export function MembersModal({ room, onClose }: { room: RoomInfo; onClose: () =>
       <div className="fw-l">
         {room.members.map((m) => (
           <div key={m.user_id} className="fw-r">
-            <Link to={`/u/${m.user_id}`} onClick={onClose} className="row grow" style={{ gap: 10 }}><Avatar name={m.profiles?.name} url={m.profiles?.avatar_url} size={40} /><div className="grow"><Name p={m.profiles} />{m.user_id === room.created_by && <span className="mut" style={{ fontSize: 12 }}> · منشئ المجموعة</span>}</div></Link>
+            <Link to={`/u/${m.user_id}`} onClick={onClose} className="row grow" style={{ gap: 10 }}><Avatar name={m.profiles?.name} url={m.profiles?.avatar_url} size={40} /><div className="grow"><Name p={m.profiles} />{m.user_id === room.created_by && <span className="mut" style={{ fontSize: 12 }}> · منشئ الشات</span>}</div></Link>
             {canKick && m.user_id !== uid && <button className="btn sm" style={{ color: '#B91C1C' }} onClick={() => kick(m.user_id, m.profiles?.name)}>طرد</button>}
           </div>
         ))}

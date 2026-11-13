@@ -595,4 +595,10 @@ select pg_temp.t('LK: admin_ads returns link', $q$select 1/(case when exists (se
 select pg_temp.t('LK: feed_ads carries link', $q$select 1/(case when exists (select 1 from feed_ads() where link_url='https://example.com/offer?a=1') then 1 else 0 end)$q$, true);
 reset role;
 
+
+reset role;
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.t('P34: heartbeat stamps server time', $q$do $d$ declare r timestamptz; begin insert into presence(user_id,last_seen) values('00000000-0000-0000-0000-00000000000a','2000-01-01') on conflict (user_id) do update set last_seen='2000-01-01'; select last_seen into r from presence where user_id='00000000-0000-0000-0000-00000000000a'; if r < now() - interval '1 minute' then raise exception 'client time trusted'; end if; end $d$$q$, true);
+select pg_temp.t('P34: online_users returns self', $q$do $d$ begin if not exists (select 1 from online_users(array['00000000-0000-0000-0000-00000000000a']::uuid[])) then raise exception 'no'; end if; end $d$$q$, true);
 select case when ok then 'PASS ' else 'FAIL ' end || name from pg_temp.res order by ok, name;

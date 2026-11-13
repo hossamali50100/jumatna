@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useChatPrefs, refreshChatPrefs, setMute } from '../lib/chatprefs'
 import { useAuth } from '../lib/auth'
+import { NewRoomModal } from './RoomDialogs'
+import { MI, Chev } from './MenuIcons'
 
 // قايمة السهم ⌄ جنب اسم الشخص في الشات: الملف الشخصي / حظر / حذف الدردشة
-export default function ChatMenu({ otherId, name }: { otherId: string; name?: string }) {
+export default function ChatMenu({ otherId, name, onRoom }: { otherId: string; name?: string; onRoom?: (id: string) => void }) {
+  const [mk, setMk] = useState(false)
   const { session } = useAuth()
   const { blocked, muted } = useChatPrefs()
   const isMuted = muted.has(otherId)
@@ -29,17 +32,19 @@ export default function ChatMenu({ otherId, name }: { otherId: string; name?: st
   }
   return (
     <>
-      <button type="button" aria-label="خيارات المحادثة" title="خيارات المحادثة" className="cm-tb" style={{ width: 24, height: 24, fontSize: 16 }}
-        onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 170) }) }}>⌄</button>
+      <button type="button" aria-label="خيارات المحادثة" title="خيارات المحادثة" className="cm-tb cm-chev" 
+        onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 250) }) }}><Chev /></button>
       {pos && (<>
         <div className="cm-ov" onClick={(e) => { e.stopPropagation(); setPos(null) }} />
         <div className="cm-pop" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
-          <Link to={`/u/${otherId}`} onClick={() => setPos(null)} className="cm-pi">عرض الملف الشخصي</Link>
-          <button type="button" onClick={doMute}>{isMuted ? 'تفعيل إشعارات الرسائل' : 'كتم إشعارات الرسائل'}</button>
-          <button type="button" onClick={doBlock} style={{ color: isBlocked ? undefined : '#B91C1C' }}>{isBlocked ? 'إلغاء الحظر' : 'حظر'}</button>
-          <button type="button" onClick={doClear}>حذف الدردشة</button>
+          <Link to={`/u/${otherId}`} onClick={() => setPos(null)} className="cm-pi"><MI n="user" />عرض الملف الشخصي</Link>
+          <button type="button" onClick={() => { setPos(null); setMk(true) }}><MI n="users" />إنشاء شات جماعي</button>
+          <button type="button" onClick={doMute}><MI n={isMuted ? 'bell' : 'bellOff'} />{isMuted ? 'تفعيل إشعارات الرسائل' : 'كتم إشعارات الرسائل'}</button>
+          <button type="button" onClick={doBlock} style={{ color: isBlocked ? undefined : '#B91C1C' }}><MI n={isBlocked ? 'undo' : 'ban'} />{isBlocked ? 'إلغاء الحظر' : 'حظر'}</button>
+          <button type="button" onClick={doClear}><MI n="trash" />حذف الدردشة</button>
         </div>
       </>)}
+      {mk && <NewRoomModal initial={[otherId]} onClose={() => setMk(false)} onCreated={(id) => onRoom?.(id)} />}
     </>
   )
 }

@@ -21,6 +21,7 @@ const MAX = 12 // أقصى عدد محادثات (اللي فوق عدد الن�
 
 function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; index: number; base: number; min: boolean; onMin: () => void; onClose: () => void }) {
   const [p, setP] = useState<P | null>(null)
+  const { openChat: onRoomMade } = useChatDock()
   const online = useOnline([id]).has(id)
   const isR = isRoom(id)
   const { room } = useRoom(isR ? roomKey(id) : null)
@@ -47,7 +48,7 @@ function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; inde
               </span>
             </span>
           </Link>
-          <ChatMenu otherId={id} name={p?.name} />
+          <ChatMenu otherId={id} name={p?.name} onRoom={onRoomMade} />
         </>)}
         <span className="grow" />
         <Link to={`/messages/${id}`} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="فتح في صفحة الرسائل" title="فتح في صفحة الرسائل" style={{ display: 'grid', placeItems: 'center', width: 28, height: 28 }}><Icon n="msg" s={20} /></Link>

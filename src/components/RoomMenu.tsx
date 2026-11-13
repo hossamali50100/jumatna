@@ -3,6 +3,7 @@ import { supabase, errMsg } from '../lib/supabase'
 import { refreshRooms, type RoomInfo } from '../lib/rooms'
 import { useChatPrefs, setMute } from '../lib/chatprefs'
 import { useAuth } from '../lib/auth'
+import { MI, Chev } from './MenuIcons'
 import { AddMembersModal, EditRoomModal, MembersModal } from './RoomDialogs'
 
 // قايمة السهم ⌄ لمجموعة الشات
@@ -16,7 +17,7 @@ export default function RoomMenu({ room, onLeft }: { room: RoomInfo; onLeft?: ()
   const [dlg, setDlg] = useState<'' | 'members' | 'edit' | 'add'>('')
   const leave = async () => {
     setPos(null)
-    if (!confirm(`تغادر مجموعة «${room.name}»؟`)) return
+    if (!confirm(`تغادر الشات الجماعي «${room.name}»؟`)) return
     const { error } = await supabase.rpc('leave_chat_room', { p_room: room.id })
     if (error) return alert(errMsg(error))
     refreshRooms(); onLeft?.()
@@ -24,16 +25,15 @@ export default function RoomMenu({ room, onLeft }: { room: RoomInfo; onLeft?: ()
   const open = (d: 'members' | 'edit' | 'add') => { setPos(null); setDlg(d) }
   return (
     <>
-      <button type="button" aria-label="خيارات المجموعة" title="خيارات المجموعة" className="cm-tb" style={{ width: 24, height: 24, fontSize: 16 }}
-        onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 220) }) }}>⌄</button>
+      <button type="button" aria-label="خيارات الشات الجماعي" title="خيارات الشات الجماعي" className="cm-tb cm-chev"         onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 220) }) }}><Chev /></button>
       {pos && (<>
         <div className="cm-ov" onClick={(e) => { e.stopPropagation(); setPos(null) }} />
         <div className="cm-pop" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={() => open('members')}>الأعضاء</button>
-          <button type="button" onClick={() => open('add')}>إضافة أعضاء</button>
-          <button type="button" onClick={() => open('edit')}>تغيير الاسم والصورة</button>
-          <button type="button" onClick={doMute}>{isMuted ? 'تفعيل إشعارات المجموعة' : 'كتم إشعارات المجموعة'}</button>
-          <button type="button" onClick={leave} style={{ color: '#B91C1C' }}>مغادرة المجموعة</button>
+          <button type="button" onClick={() => open('members')}><MI n="users" />الأعضاء</button>
+          <button type="button" onClick={() => open('add')}><MI n="userPlus" />إضافة أعضاء</button>
+          <button type="button" onClick={() => open('edit')}><MI n="edit" />تغيير الاسم والصورة</button>
+          <button type="button" onClick={doMute}><MI n={isMuted ? 'bell' : 'bellOff'} />{isMuted ? 'تفعيل إشعارات الشات الجماعي' : 'كتم إشعارات الشات الجماعي'}</button>
+          <button type="button" onClick={leave} style={{ color: '#B91C1C' }}><MI n="logout" />مغادرة الشات الجماعي</button>
         </div>
       </>)}
       {dlg === 'members' && <MembersModal room={room} onClose={() => setDlg('')} />}

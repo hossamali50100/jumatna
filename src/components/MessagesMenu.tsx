@@ -4,14 +4,12 @@ import { useConvItems } from '../lib/convs'
 import { useOnline } from '../lib/presence'
 import { Avatar, AvatarOn, Icon, Name, timeAgo } from '../lib/ui'
 import { useChatDock } from './ChatDock'
-import { NewRoomModal } from './RoomDialogs'
 
 // قايمة الدردشات المنسدلة زي ماسنجر: المحادثات الأخيرة + كل الأصدقاء
 export default function MessagesMenu({ onClose }: { onClose: () => void }) {
   const { openChat } = useChatDock()
   const { items: all } = useConvItems()
   const [q, setQ] = useState('')
-  const [newRoom, setNewRoom] = useState(false)
   const [unreadOnly, setUnreadOnly] = useState(false)
   let items = all
   if (unreadOnly) items = items.filter((i) => i.unread > 0)
@@ -22,7 +20,6 @@ export default function MessagesMenu({ onClose }: { onClose: () => void }) {
     <div className="pop" style={{ insetInlineStart: 'auto', insetInlineEnd: 'auto', left: 0, width: 380, padding: 0, maxHeight: '78vh', display: 'flex', flexDirection: 'column' }}>
       <div className="row" style={{ padding: '14px 16px 6px' }}>
         <b className="grow" style={{ fontSize: 22 }}>الدردشات</b>
-        <button type="button" className="btn sm" onClick={() => setNewRoom(true)} title="دردشة جماعية جديدة">＋ مجموعة</button>
         <Link to="/messages" onClick={onClose} aria-label="فتح الرسائل في صفحة كاملة" title="فتح في صفحة كاملة" style={{ display: 'grid', placeItems: 'center', width: 34, height: 34, borderRadius: '50%' }}><Icon n="expand" s={18} /></Link>
       </div>
       <div style={{ padding: '0 14px 8px' }}>
@@ -46,7 +43,6 @@ export default function MessagesMenu({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
-      {newRoom && <NewRoomModal onClose={() => setNewRoom(false)} onCreated={(id) => { openChat(id); onClose() }} />}
     </div>
   )
 }

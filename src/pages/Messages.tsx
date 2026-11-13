@@ -59,7 +59,7 @@ export default function Messages() {
   const online = useOnline(convs.map((c) => c.other))
   const list = (
     <div className="crd col" style={{ gap: 6 }}>
-      <div className="row"><b className="grow" style={{ fontSize: 18 }}>الرسائل</b><button className="btn sm" onClick={() => setNewRm(true)}>＋ مجموعة</button></div>
+      <div className="row"><b className="grow" style={{ fontSize: 18 }}>الرسائل</b><button className="btn sm" onClick={() => setNewRm(true)}>＋ شات جماعي</button></div>
       {roomItems.map((c) => (
         <Link key={c.other} to={`/messages/${c.other}`} className="row" style={{ borderRadius: 12, padding: 8 }}>
           <Avatar name={c.profile?.name} url={c.profile?.avatar_url} size={44} />
@@ -125,7 +125,7 @@ function Messenger({ other }: { other?: string }) {
   return (
     <div className="msgr" dir="rtl">
       <aside className="mlist">
-        <div className="row" style={{ padding: '16px 16px 8px' }}><b className="grow" style={{ fontSize: 24 }}>الدردشات</b><button className="btn sm" onClick={() => setNewRoom(true)} title="دردشة جماعية جديدة">＋ مجموعة</button></div>
+        <div className="row" style={{ padding: '16px 16px 8px' }}><b className="grow" style={{ fontSize: 24 }}>الدردشات</b><button className="btn sm" onClick={() => setNewRoom(true)} title="شات جماعي جديد">＋ شات جماعي</button></div>
         <div style={{ padding: '0 14px 8px' }}>
           <div className="dsearch" style={{ display: 'flex', width: '100%', maxWidth: 'none', boxSizing: 'border-box' }}><Icon n="search" s={18} /><input placeholder="ابحث في الدردشات" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث في الدردشات" /></div>
         </div>
@@ -167,7 +167,7 @@ function Messenger({ other }: { other?: string }) {
               </>) : (<>
                 <AvatarOn online={isOn}><Avatar name={cur?.name} url={cur?.avatar_url} size={44} /></AvatarOn>
                 <Link to={`/u/${other}`} className="grow col" style={{ gap: 0 }}><Name p={cur} /><span className="mut" style={{ fontSize: 12 }}>{isOn ? 'نشط الآن' : ''}</span></Link>
-                <ChatMenu otherId={other!} name={cur?.name} />
+                <ChatMenu otherId={other!} name={cur?.name} onRoom={(id) => nav('/messages/' + id)} />
               </>)}
             </div>
             <div style={{ flex: 1, minHeight: 0, padding: '0 12px' }}><Thread key={other} id={other} fill /></div>
