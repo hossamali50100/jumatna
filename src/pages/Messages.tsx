@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { supabase, errMsg } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { Avatar, AvatarOn, Err, Icon, Name, timeAgo, useIsMobile } from '../lib/ui'
-import { useConvItems } from '../lib/convs'
+import { Avatar, AvatarOn, Icon, Name, timeAgo, useIsMobile } from '../lib/ui'
+import { useConvItems, type ConvItem } from '../lib/convs'
+import { MI } from '../components/MenuIcons'
 import { useOnline } from '../lib/presence'
-import { useChatPrefs } from '../lib/chatprefs'
+import { usePins } from '../lib/pins'
+import ConvActions, { useLongPress, type ActItem } from '../components/ConvActions'
 import ChatMenu from '../components/ChatMenu'
 import RoomMenu from '../components/RoomMenu'
 import Thread from '../components/Thread'
@@ -13,41 +15,14 @@ import { NewRoomModal } from '../components/RoomDialogs'
 import { isRoom, roomKey, useRoom } from '../lib/rooms'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
-type Row = { sender_id: string; recipient_id: string; body: string; image_url: string | null; created_at: string; read_at: string | null; s: P | null; r: P | null }
-type Conv = { other: string; profile: P | null; last: Row; unread: number }
 
 export default function Messages() {
   const { uid: other } = useParams()
-  const { session } = useAuth()
-  const uid = session!.user.id
   const mobile = useIsMobile()
-  const [convs, setConvs] = useState<Conv[]>([])
-  const { clears } = useChatPrefs()
-  const { items: ci } = useConvItems()
-  const roomItems = ci.filter((i) => i.room)
   const isRm = isRoom(other)
   const { room: rinfo } = useRoom(isRm ? roomKey(other!) : null)
   const navM = useNavigate()
-  const [newRm, setNewRm] = useState(false)
   const [cur, setCur] = useState<P | null>(null)
-  const [err, setErr] = useState('')
-
-  const load = useCallback(async () => {
-    const { data, error } = await supabase.from('dm_messages')
-      .select('sender_id,recipient_id,body,image_url,created_at,read_at,s:profiles!sender_id(name,avatar_url,plan,plan_until),r:profiles!recipient_id(name,avatar_url,plan,plan_until)')
-      .order('created_at', { ascending: false }).limit(300)
-    if (error) return setErr(errMsg(error))
-    const seen = new Map<string, Conv>(); const out: Conv[] = []
-    for (const r of (data as unknown as Row[]) ?? []) {
-      const o = r.sender_id === uid ? r.recipient_id : r.sender_id
-      if (clears[o] && r.created_at <= clears[o]) continue
-      let c = seen.get(o)
-      if (!c) { c = { other: o, profile: r.sender_id === uid ? r.r : r.s, last: r, unread: 0 }; seen.set(o, c); out.push(c) }
-      if (r.recipient_id === uid && !r.read_at) c.unread++
-    }
-    setConvs(out)
-  }, [uid, clears])
-  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t) }, [load])
 
   // اسم الطرف التاني لو مفيش محادثة سابقة معاه
   useEffect(() => {
@@ -55,29 +30,6 @@ export default function Messages() {
     if (!other || isRoom(other)) return
     supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', other).maybeSingle().then(({ data }) => setCur((data as P) ?? null))
   }, [other])
-
-  const online = useOnline(convs.map((c) => c.other))
-  const list = (
-    <div className="crd col" style={{ gap: 6 }}>
-      <div className="row"><b className="grow" style={{ fontSize: 18 }}>الرسائل</b><button className="btn sm" onClick={() => setNewRm(true)}>＋ شات جماعي</button></div>
-      {roomItems.map((c) => (
-        <Link key={c.other} to={`/messages/${c.other}`} className="row" style={{ borderRadius: 12, padding: 8 }}>
-          <Avatar name={c.profile?.name} url={c.profile?.avatar_url} size={44} />
-          <span className="grow" style={{ minWidth: 0, fontWeight: c.unread ? 700 : 400 }}><b>{c.profile?.name}</b><div className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.preview}</div></span>
-          {c.unread > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{c.unread}</span>}
-        </Link>
-      ))}
-      {convs.length === 0 && roomItems.length === 0 && <span className="mut">لسه مفيش رسائل. ادخل على صفحة أي شخص واضغط "إرسال رسالة".</span>}
-      {convs.map((c) => (
-        <Link key={c.other} to={`/messages/${c.other}`} className="row" style={{ borderRadius: 12, padding: 8, background: other === c.other ? '#EFEFF1' : 'none' }}>
-          <AvatarOn online={online.has(c.other)}><Avatar name={c.profile?.name} url={c.profile?.avatar_url} size={44} /></AvatarOn>
-          <span className="grow" style={{ minWidth: 0, fontWeight: c.unread ? 700 : 400 }}><Name p={c.profile} /><div className="mut" style={{ fontWeight: c.unread ? 700 : 400, color: c.unread ? '#111111' : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last.sender_id === uid ? 'أنت: ' : ''}{c.last.body || '📷 صورة'}</div></span>
-          <span className="mut" style={{ fontSize: 12 }}>{timeAgo(c.last.created_at)}</span>
-          {c.unread > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{c.unread}</span>}
-        </Link>
-      ))}
-    </div>
-  )
 
   const thread = other && (
     <div className="crd col">
@@ -94,9 +46,7 @@ export default function Messages() {
   if (!mobile) return <Messenger other={other} />
   return (
     <>
-      {newRm && <NewRoomModal onClose={() => setNewRm(false)} onCreated={(id) => navM('/messages/' + id)} />}
-      <Err>{err}</Err>
-      {other ? thread : list}
+      {other ? thread : <MobileList />}
     </>
   )
 }
@@ -107,7 +57,8 @@ function Messenger({ other }: { other?: string }) {
   const online = useOnline(items.map((i) => i.other))
   const [q, setQ] = useState('')
   const [unreadOnly, setUnreadOnly] = useState(false)
-  let shown = items
+  const pins = usePins()
+  let shown = [...items].sort((a, b) => Number(pins.has(b.other)) - Number(pins.has(a.other)))
   if (unreadOnly) shown = shown.filter((i) => i.unread > 0)
   if (q.trim()) shown = shown.filter((i) => (i.profile?.name ?? '').toLowerCase().includes(q.trim().toLowerCase()))
   const [cur, setCur] = useState<P | null>(null)
@@ -136,16 +87,7 @@ function Messenger({ other }: { other?: string }) {
         </div>
         <div className="col" style={{ gap: 2, overflowY: 'auto', padding: '0 8px 10px', flex: 1, minHeight: 0 }}>
           {shown.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 24 }}>{unreadOnly ? 'مفيش رسائل غير مقروءة.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
-          {shown.map((i) => (
-            <Link key={i.other} to={`/messages/${i.other}`} className="row" style={{ borderRadius: 12, padding: 8, gap: 12, background: other === i.other ? '#EFEFF1' : 'none' }}>
-              <AvatarOn online={online.has(i.other)}><Avatar name={i.profile?.name} url={i.profile?.avatar_url} size={56} /></AvatarOn>
-              <span className="grow col" style={{ minWidth: 0, gap: 0, fontWeight: i.unread ? 700 : 400 }}>
-                <Name p={i.profile} />
-                <span className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, fontWeight: i.unread ? 700 : 400, color: i.unread ? '#111111' : undefined }}>{i.preview}{i.at && ` · ${timeAgo(i.at)}`}</span>
-              </span>
-              {i.unread > 0 && <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#E5383B', flex: 'none' }} aria-label="رسالة جديدة" />}
-            </Link>
-          ))}
+          {shown.map((i) => <DeskRow key={i.other} i={i} active={other === i.other} on={online.has(i.other)} />)}
         </div>
       </aside>
 
@@ -225,5 +167,84 @@ function MediaPanel({ other }: { other: string }) {
         </div>
       )}
     </details>
+  )
+}
+
+function DeskRow({ i, active, on }: { i: ConvItem; active: boolean; on: boolean }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const lp = useLongPress((x, y) => setMenu({ x, y }))
+  const item: ActItem = { other: i.other, name: i.profile?.name ?? '', room: i.room }
+  return (<>
+    <Link to={`/messages/${i.other}`} className="row" {...lp} style={{ ...lp.style, borderRadius: 12, padding: 8, gap: 12, background: active ? '#EFEFF1' : 'none' }}>
+      <AvatarOn online={on}><Avatar name={i.profile?.name} url={i.profile?.avatar_url} size={56} /></AvatarOn>
+      <span className="grow col" style={{ minWidth: 0, gap: 0, fontWeight: i.unread ? 700 : 400 }}>
+        <Name p={i.profile} />
+        <span className="mut" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, fontWeight: i.unread ? 700 : 400, color: i.unread ? '#111111' : undefined }}>{i.preview}{i.at && ` · ${timeAgo(i.at)}`}</span>
+      </span>
+      {i.unread > 0 && <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#E5383B', flex: 'none' }} aria-label="رسالة جديدة" />}
+    </Link>
+    {menu && <ConvActions item={item} at={menu} sheet={false} onClose={() => setMenu(null)} />}
+  </>)
+}
+
+// ======= قايمة الدردشات على الموبايل (شكل ماسنجر) =======
+function MobileRow({ i, on }: { i: ConvItem; on: boolean }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const lp = useLongPress((x, y) => setMenu({ x, y }))
+  const pinned = usePins().has(i.other)
+  const item: ActItem = { other: i.other, name: i.profile?.name ?? '', room: i.room }
+  return (<>
+    <Link to={`/messages/${i.other}`} className="row" {...lp} style={{ ...lp.style, padding: '8px 4px', gap: 12, borderRadius: 14 }}>
+      <AvatarOn online={on}><Avatar name={i.profile?.name} url={i.profile?.avatar_url} size={60} /></AvatarOn>
+      <span className="grow col" style={{ minWidth: 0, gap: 2 }}>
+        <span style={{ fontWeight: i.unread ? 800 : 600, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Name p={i.profile} /></span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, fontWeight: i.unread ? 700 : 400, color: i.unread ? '#111' : '#6B6F76' }}>{i.preview}</span>
+      </span>
+      <span className="col" style={{ alignItems: 'flex-end', gap: 6, flex: 'none' }}>
+        <span style={{ fontSize: 12, color: '#6B6F76' }}>{i.at ? timeAgo(i.at) : ''}</span>
+        {i.unread > 0 ? <span style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--brand)' }} aria-label="رسالة جديدة" /> : pinned ? <span style={{ color: '#8A8D94' }}><MI n="pin" s={14} /></span> : <span style={{ height: 12 }} />}
+      </span>
+    </Link>
+    {menu && <ConvActions item={item} at={menu} sheet onClose={() => setMenu(null)} />}
+  </>)
+}
+
+function MobileList() {
+  const { items } = useConvItems()
+  const online = useOnline(items.map((i) => i.other))
+  const pins = usePins()
+  const [q, setQ] = useState('')
+  const [f, setF] = useState<'all' | 'unread' | 'groups'>('all')
+  const onlineFriends = items.filter((i) => !i.room && online.has(i.other))
+  let shown = [...items].sort((a, b) => Number(pins.has(b.other)) - Number(pins.has(a.other)))
+  if (f === 'unread') shown = shown.filter((i) => i.unread > 0)
+  if (f === 'groups') shown = shown.filter((i) => i.room)
+  if (q.trim()) shown = shown.filter((i) => (i.profile?.name ?? '').toLowerCase().includes(q.trim().toLowerCase()))
+  return (
+    <div className="col" style={{ gap: 12 }}>
+      <div className="row"><b className="grow" style={{ fontSize: 24 }}>الدردشات</b></div>
+      <div className="dsearch" style={{ display: 'flex', width: '100%', maxWidth: 'none', boxSizing: 'border-box' }}><Icon n="search" s={18} /><input placeholder="ابحث في الدردشات" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث في الدردشات" /></div>
+      {onlineFriends.length > 0 && (
+        <div className="col" style={{ gap: 6 }}>
+          <span className="mut" style={{ fontSize: 13, fontWeight: 700 }}>الأصدقاء المتصلين الآن</span>
+          <div className="cv-on">
+            {onlineFriends.map((i) => (
+              <Link key={i.other} to={`/messages/${i.other}`}>
+                <AvatarOn online><Avatar name={i.profile?.name} url={i.profile?.avatar_url} size={56} /></AvatarOn>
+                <span style={{ maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(i.profile?.name ?? '').split(' ')[0]}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="row" style={{ gap: 8 }}>
+        {([['all', 'الكل'], ['unread', 'غير مقروءة'], ['groups', 'المجموعات']] as const).map(([k, l]) => <button key={k} className={'cv-chip' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{l}</button>)}
+      </div>
+      <div className="col" style={{ gap: 0 }}>
+        {shown.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 28 }}>{f === 'unread' ? 'مفيش رسائل غير مقروءة.' : f === 'groups' ? 'مفيش شاتات جماعية.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
+        {shown.map((i) => <MobileRow key={i.other} i={i} on={online.has(i.other)} />)}
+      </div>
+      <span className="mut" style={{ fontSize: 12, textAlign: 'center' }}>اضغط مطوّلًا على أي محادثة لخيارات أكتر</span>
+    </div>
   )
 }

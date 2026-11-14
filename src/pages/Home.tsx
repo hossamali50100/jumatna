@@ -40,7 +40,7 @@ export default function Home() {
     // بوستات مجموعاتي + بوستاتي الشخصية
     const parts = [`and(group_id.is.null,author_id.eq.${uid})`]
     if (ids.length) parts.unshift(`group_id.in.(${ids.join(',')})`)
-    const { data, error } = await supabase.from('posts').select(POST_SELECT).or(parts.join(',')).or(`approval.eq.approved,author_id.eq.${uid}`).order('created_at', { ascending: false }).limit(30)
+    const { data, error } = await supabase.from('posts').select(POST_SELECT).is('ad_id', null).or(parts.join(',')).or(`approval.eq.approved,author_id.eq.${uid}`).order('created_at', { ascending: false }).limit(30)
     if (error) return setErr(errMsg(error))
     const list = (data as unknown as Post[]) ?? []
     // الإعلانات (لو تحديث 021 مش متشغّل بنتجاهلها بهدوء)

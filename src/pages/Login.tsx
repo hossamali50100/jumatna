@@ -27,7 +27,7 @@ export default function Login() {
     if (!/^\S+@\S+\.\S+$/.test(email)) return setErr('اكتب إيميل صحيح.')
     if (mode !== 'reset' && pw.length < 8) return setErr('كلمة السر لازم تكون 8 أحرف على الأقل.')
     if (mode === 'up' && name.trim().length < 2) return setErr('اكتب اسمك.')
-    if (mode === 'up' && !mobile && pw !== pw2) return setErr('كلمتا السر مش متطابقتين.')
+    if (mode === 'up' && pw !== pw2) return setErr('كلمتا السر مش متطابقتين.')
     const chk = mode === 'up' ? checkBG(bg) : {}
     if (mode === 'up' && chk.error) return setErr(chk.error)
     setBusy(true)
@@ -55,13 +55,6 @@ export default function Login() {
   const form = (
     <form className={mobile ? 'crd' : undefined} style={{ display: 'flex', flexDirection: 'column', gap: mobile ? 14 : 14, padding: mobile ? 14 : '18px 32px 0' }} onSubmit={submit}>
       <b style={{ fontSize: mobile ? 20 : 22, textAlign: mobile ? undefined : 'center' }}>{title}</b>
-      {mobile && mode === 'in' && (<>
-        <button type="button" className={'btn line' + (mobile ? ' prim' : '')} style={{ gap: 10 }} onClick={google}>
-          <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--brand)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'Arial,sans-serif' }}>G</span>
-          تسجيل الدخول بحساب Google
-        </button>
-        <div className="row mut" style={{ gap: 12 }}><span style={{ flex: 1, height: 1, background: '#E4E4E7' }} />أو بالبريد الإلكتروني<span style={{ flex: 1, height: 1, background: '#E4E4E7' }} /></div>
-      </>)}
       {mode === 'up' && !mobile ? (<>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
         <label className="col" style={{ gap: 6 }}><b>الاسم</b><input className="in" style={inp} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
@@ -75,12 +68,20 @@ export default function Login() {
       {mode === 'up' && <label className="col" style={{ gap: 6 }}><b>الاسم</b><input className="in" style={inp} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>}
       <label className="col" style={{ gap: 6 }}><b>البريد الإلكتروني</b><input className="in" style={inp} type="email" dir="ltr" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
       {mode !== 'reset' && <label className="col" style={{ gap: 6 }}><b>كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} /></label>}
+      {mode === 'up' && <label className="col" style={{ gap: 6 }}><b>تأكيد كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" /></label>}
         {mode === 'up' && <BirthGender value={bg} onChange={setBg} minHeight={inp.minHeight} />}
       </>)}
       <Err>{err}</Err>
       {info && <div className="okmsg">{info}</div>}
       <button className={'btn p' + (mobile ? ' prim' : '')} disabled={busy}>{busy ? '…' : mode === 'in' ? 'دخول' : mode === 'up' ? 'إنشاء الحساب' : 'إرسال الرابط'}</button>
       {mode === 'in' && <a href="#" onClick={go('reset')} style={{ textAlign: 'center', fontSize: 14 }}>نسيت كلمة السر؟</a>}
+      {mobile && mode === 'in' && (<>
+        <div className="row mut" style={{ gap: 12 }}><span style={{ flex: 1, height: 1, background: '#E4E4E7' }} />أو<span style={{ flex: 1, height: 1, background: '#E4E4E7' }} /></div>
+        <button type="button" className="btn line prim" style={{ gap: 10 }} onClick={google}>
+          <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--brand)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'Arial,sans-serif' }}>G</span>
+          تسجيل الدخول بحساب Google
+        </button>
+      </>)}
       {!mobile && mode === 'in' && <div className="hr" />}
       {!mobile && mode === 'in' && <button type="button" className="btn" style={{ gap: 10, background: '#2B2B2E', color: '#fff', border: 0 }} onClick={google}>
           <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: '#fff', color: '#111111', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'Arial,sans-serif' }}>G</span>
