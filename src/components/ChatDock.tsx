@@ -27,28 +27,20 @@ function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; inde
   const { room } = useRoom(isR ? roomKey(id) : null)
   useEffect(() => { if (isR) return; supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', id).maybeSingle().then(({ data }) => setP((data as P) ?? null)) }, [id, isR])
   return (
-    <div role="dialog" aria-label="محادثة" style={{ position: 'fixed', bottom: 0, left: base + index * 352, width: 340, zIndex: 60, background: '#fff', borderRadius: '14px 14px 0 0', boxShadow: '0 0 12px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column' }}>
+    <div role="dialog" aria-label="محادثة" className="cw" style={{ position: 'fixed', bottom: 0, left: base + index * 352, width: 340, zIndex: 60, background: '#fff', borderRadius: '14px 14px 0 0', boxShadow: '0 0 12px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column' }}>
       <div className="row" onClick={onMin} style={{ padding: '8px 12px', borderBottom: min ? 0 : '1px solid #E4E4E7', gap: 8, cursor: 'pointer' }}>
         {isR ? (<>
-          <span className="row" style={{ minWidth: 0, gap: 8 }}>
-            <Avatar name={room?.name} url={room?.avatar_url} size={32} />
-            <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
-              <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room?.name ?? '…'}</b>
-              <span className="mut" style={{ fontSize: 12 }}>{room ? `${room.members.length} أعضاء` : ''}</span>
-            </span>
-          </span>
-          {room && <RoomMenu room={room} onLeft={onClose} />}
+          <Avatar name={room?.name} url={room?.avatar_url} size={32} />
+          {room && <RoomMenu room={room} onLeft={onClose} wrap={<span className="cw-nm"><b>{room.name}</b><span>{`${room.members.length} أعضاء`}</span></span>} />}
         </>) : (<>
-          <Link to={`/u/${id}`} onClick={(e) => e.stopPropagation()} className="row" style={{ minWidth: 0, gap: 8 }}>
+          <Link to={`/u/${id}`} onClick={(e) => e.stopPropagation()} aria-label="الملف الشخصي" title="الملف الشخصي" style={{ display: 'inline-flex', flex: 'none' }}>
             <AvatarOn online={online}><Avatar name={p?.name} url={p?.avatar_url} size={32} /></AvatarOn>
-            <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
-              <b style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Name p={p} /></b>
-              <span style={{ fontSize: 12, color: online ? '#16A34A' : '#65676B', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <i style={{ width: 8, height: 8, borderRadius: '50%', background: online ? '#22C55E' : '#BCC0C4', display: 'inline-block' }} />{online ? 'متصل الآن' : 'غير متصل'}
-              </span>
-            </span>
           </Link>
-          <ChatMenu otherId={id} name={p?.name} onRoom={onRoomMade} />
+          <ChatMenu otherId={id} name={p?.name} onRoom={onRoomMade} wrap={
+            <span className="cw-nm">
+              <b><Name p={p} /></b>
+              <span style={{ color: online ? '#16A34A' : '#65676B' }}>{online ? 'متصل الآن' : 'غير متصل'}</span>
+            </span>} />
         </>)}
         <span className="grow" />
         <Link to={`/messages/${id}`} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="فتح في صفحة الرسائل" title="فتح في صفحة الرسائل" style={{ display: 'grid', placeItems: 'center', width: 28, height: 28 }}><Icon n="msg" s={20} /></Link>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useChatPrefs, refreshChatPrefs, setMute } from '../lib/chatprefs'
@@ -7,7 +7,7 @@ import { NewRoomModal } from './RoomDialogs'
 import { MI, Chev } from './MenuIcons'
 
 // قايمة السهم ⌄ جنب اسم الشخص في الشات: الملف الشخصي / حظر / حذف الدردشة
-export default function ChatMenu({ otherId, name, onRoom }: { otherId: string; name?: string; onRoom?: (id: string) => void }) {
+export default function ChatMenu({ otherId, name, onRoom, wrap }: { otherId: string; name?: string; onRoom?: (id: string) => void; wrap?: ReactNode }) {
   const [mk, setMk] = useState(false)
   const { session } = useAuth()
   const { blocked, muted } = useChatPrefs()
@@ -32,8 +32,8 @@ export default function ChatMenu({ otherId, name, onRoom }: { otherId: string; n
   }
   return (
     <>
-      <button type="button" aria-label="خيارات المحادثة" title="خيارات المحادثة" className="cm-tb cm-chev" 
-        onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 250) }) }}><Chev /></button>
+      <button type="button" aria-label="خيارات المحادثة" title="خيارات المحادثة" className={wrap ? 'cm-hd' : 'cm-tb cm-chev'}
+        onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 250) }) }}>{wrap}<Chev /></button>
       {pos && (<>
         <div className="cm-ov" onClick={(e) => { e.stopPropagation(); setPos(null) }} />
         <div className="cm-pop" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>

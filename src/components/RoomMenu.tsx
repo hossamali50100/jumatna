@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { refreshRooms, type RoomInfo } from '../lib/rooms'
 import { useChatPrefs, setMute } from '../lib/chatprefs'
@@ -7,7 +7,7 @@ import { MI, Chev } from './MenuIcons'
 import { AddMembersModal, EditRoomModal, MembersModal } from './RoomDialogs'
 
 // قايمة السهم ⌄ لمجموعة الشات
-export default function RoomMenu({ room, onLeft }: { room: RoomInfo; onLeft?: () => void }) {
+export default function RoomMenu({ room, onLeft, wrap }: { room: RoomInfo; onLeft?: () => void; wrap?: ReactNode }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const { session } = useAuth()
   const { muted } = useChatPrefs()
@@ -25,7 +25,7 @@ export default function RoomMenu({ room, onLeft }: { room: RoomInfo; onLeft?: ()
   const open = (d: 'members' | 'edit' | 'add') => { setPos(null); setDlg(d) }
   return (
     <>
-      <button type="button" aria-label="خيارات الشات الجماعي" title="خيارات الشات الجماعي" className="cm-tb cm-chev"         onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 220) }) }}><Chev /></button>
+      <button type="button" aria-label="خيارات الشات الجماعي" title="خيارات الشات الجماعي" className="cm-tb cm-chev"         onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 220) }) }}>{wrap}<Chev /></button>
       {pos && (<>
         <div className="cm-ov" onClick={(e) => { e.stopPropagation(); setPos(null) }} />
         <div className="cm-pop" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>

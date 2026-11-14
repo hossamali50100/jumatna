@@ -87,7 +87,6 @@ function Desktop() {
                 <div className="hr" />
                 <Link to="/profile/edit"><Icon n="user" />إعدادات الملف الشخصي</Link>
                 <Link to="/plans"><Icon n="card" />الباقات والترقية</Link>
-                <Link to="/hidden"><Icon n="more" />المنشورات المخفية</Link>
                 {profile && profile.role !== 'user' && <a href="/admin"><Icon n="card" />لوحة الإدارة</a>}
                 {profile && profile.role !== 'user' && <Link to="/staff/support"><Icon n="msg" />صندوق الدعم</Link>}
                 <button onClick={signOut}><Icon n="out" />تسجيل الخروج</button>

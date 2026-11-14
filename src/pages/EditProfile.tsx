@@ -1,3 +1,4 @@
+import { MI } from '../components/MenuIcons'
 import { useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -63,7 +64,7 @@ export default function EditProfile() {
         <b>الخصوصية</b>
         <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
           <input type="checkbox" checked={!!profile.is_locked} style={{ width: 20, height: 20, accentColor: 'var(--brand)' }} onChange={(e) => patch({ is_locked: e.target.checked }, e.target.checked ? 'تم قفل حسابك: الغرباء مش هيشوفوا أصدقاءك ولا مجموعاتك ولا منشوراتك.' : 'تم فتح حسابك.')} />
-          <span className="grow"><b>قفل الحساب</b><span className="mut" style={{ display: 'block', fontSize: 13 }}>الغرباء يشوفوا الاسم والصورة بس. أصدقاءك يشوفوا كل حاجة.</span></span>
+          <span className="grow"><b className="row" style={{ gap: 6 }}><MI n="lock" s={18} />قفل الحساب</b><span className="mut" style={{ display: 'block', fontSize: 13 }}>الغرباء يشوفوا الاسم والصورة بس. أصدقاءك يشوفوا كل حاجة.</span></span>
         </label>
       </div>
 

@@ -11,7 +11,6 @@ import ConvActions, { useLongPress, type ActItem } from '../components/ConvActio
 import ChatMenu from '../components/ChatMenu'
 import RoomMenu from '../components/RoomMenu'
 import Thread from '../components/Thread'
-import { NewRoomModal } from '../components/RoomDialogs'
 import { isRoom, roomKey, useRoom } from '../lib/rooms'
 
 type P = { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null }
@@ -65,7 +64,6 @@ function Messenger({ other }: { other?: string }) {
   const isR = isRoom(other)
   const { room } = useRoom(isR ? roomKey(other!) : null)
   const nav = useNavigate()
-  const [newRoom, setNewRoom] = useState(false)
   useEffect(() => {
     setCur(null)
     if (!other || isR) return
@@ -76,7 +74,7 @@ function Messenger({ other }: { other?: string }) {
   return (
     <div className="msgr" dir="rtl">
       <aside className="mlist">
-        <div className="row" style={{ padding: '16px 16px 8px' }}><b className="grow" style={{ fontSize: 24 }}>الدردشات</b><button className="btn sm" onClick={() => setNewRoom(true)} title="شات جماعي جديد">＋ شات جماعي</button></div>
+        <div className="row" style={{ padding: '16px 16px 8px' }}><b className="grow" style={{ fontSize: 24 }}>الدردشات</b></div>
         <div style={{ padding: '0 14px 8px' }}>
           <div className="dsearch" style={{ display: 'flex', width: '100%', maxWidth: 'none', boxSizing: 'border-box' }}><Icon n="search" s={18} /><input placeholder="ابحث في الدردشات" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث في الدردشات" /></div>
         </div>
@@ -91,7 +89,6 @@ function Messenger({ other }: { other?: string }) {
         </div>
       </aside>
 
-      {newRoom && <NewRoomModal onClose={() => setNewRoom(false)} onCreated={(id) => nav('/messages/' + id)} />}
       {!other ? (
         <section className="col" style={{ alignItems: 'center', justifyContent: 'center', gap: 14, background: '#fff' }}>
           <span style={{ width: 150, height: 150, borderRadius: '50%', background: '#F1F1F3', display: 'grid', placeItems: 'center' }}><Icon n="msg" s={64} /></span>

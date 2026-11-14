@@ -61,7 +61,7 @@ export default function Home() {
   return (
     <>
       <Err>{err}</Err>
-      {undo && <div className="crd row" style={{ background: '#EAF3FF', color: '#0B4FAE' }}><span className="grow">تم إخفاء منشورات <b>{undo.name}</b> من صفحتك الرئيسية.</span><button className="btn sm" onClick={() => { hd.unhide(undo.kind, undo.id); setUndo(null) }}>تراجع</button><Link to="/hidden" className="btn sm">المخفي</Link></div>}
+      {undo && <div className="crd row" style={{ background: '#EAF3FF', color: '#0B4FAE' }}><span className="grow">تم إخفاء منشورات <b>{undo.name}</b> من صفحتك الرئيسية.</span><button className="btn sm" onClick={() => { hd.unhide(undo.kind, undo.id); setUndo(null) }}>تراجع</button></div>}
       <Composer groups={mine} allowPersonal onPosted={() => { load(); setTick((t) => t + 1) }} />
       {posts === null && !err && <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>}
       {posts?.length === 0 && (
