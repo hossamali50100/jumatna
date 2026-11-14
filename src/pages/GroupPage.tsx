@@ -20,13 +20,17 @@ export default function GroupPage() {
   const [mem, setMem] = useState<{ role: string; status: string } | null>(null)
   const [count, setCount] = useState(0)
   const [posts, setPosts] = useState<Post[]>([])
+  const PAGE = 50
+  const [lim, setLim] = useState(PAGE)
+  const [sort, setSortS] = useState<'top' | 'new'>(() => { try { return localStorage.getItem('jm_gsort') === 'new' ? 'new' : 'top' } catch { return 'top' } })
+  const setSort = (v: 'top' | 'new') => { setSortS(v); try { localStorage.setItem('jm_gsort', v) } catch { /* ignore */ } }
   const [liked, setLiked] = useState<Set<string>>(new Set())
   const [pend, setPend] = useState<Pending[]>([])
   const [review, setReview] = useState<Post[]>([])
   const [err, setErr] = useState('')
   const [missing, setMissing] = useState(false)
   const mobile = useIsMobile()
-  const [tab, setTab] = useState<'talk' | 'media' | 'members' | 'requests' | 'review'>('talk')
+  const [tab, setTab] = useState<'talk' | 'media' | 'members' | 'requests' | 'review' | 'settings'>('talk')
   const [members, setMembers] = useState<Member[]>([])
   const [media, setMedia] = useState<{ id: string; image_url: string }[]>([])
   const [invite, setInvite] = useState(false)
@@ -45,12 +49,12 @@ export default function GroupPage() {
     const [m, c, p] = await Promise.all([
       supabase.from('group_members').select('role,status').eq('group_id', gid).eq('user_id', uid).maybeSingle(),
       supabase.from('group_members').select('*', { count: 'exact', head: true }).eq('group_id', gid).eq('status', 'active'),
-      supabase.from('posts').select(POST_SELECT).eq('group_id', gid).or(`approval.eq.approved,author_id.eq.${uid}`).order('created_at', { ascending: false }).limit(30),
+      supabase.from('posts').select(POST_SELECT).eq('group_id', gid).eq('approval', 'approved').order('created_at', { ascending: false }).limit(PAGE),
     ])
     setMem(m.data as { role: string; status: string } | null); setCount(c.count ?? 0)
     if (p.error) setErr(errMsg(p.error))
     const list = (p.data as unknown as Post[]) ?? []
-    setPosts(list); setLiked(await likedSet(list.map((x) => x.id), uid))
+    setPosts(list); setLim(PAGE); setLiked(await likedSet(list.map((x) => x.id), uid))
     if (m.data && ['owner', 'admin'].includes((m.data as { role: string }).role)) {
       const { data } = await supabase.from('group_members').select('user_id,profiles!user_id(name,avatar_url)').eq('group_id', gid).eq('status', 'pending')
       setPend((data as unknown as Pending[]) ?? [])
@@ -59,6 +63,14 @@ export default function GroupPage() {
       setReview(rv.error ? [] : ((rv.data as unknown as Post[]) ?? []))
     }
   }, [id, uid])
+  const more = async () => {
+    const n = lim + PAGE
+    const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('group_id', id!).eq('approval', 'approved').order('created_at', { ascending: false }).limit(n)
+    if (error) return setErr(errMsg(error))
+    const list = (data as unknown as Post[]) ?? []
+    setPosts(list); setLim(n); setLiked(await likedSet(list.map((x) => x.id), uid))
+  }
+  const shownPosts = sort === 'new' ? posts : [...posts].sort((a, b) => ((b.likes[0]?.count ?? 0) + (b.comments[0]?.count ?? 0)) - ((a.likes[0]?.count ?? 0) + (a.comments[0]?.count ?? 0)) || b.created_at.localeCompare(a.created_at))
   useEffect(() => { setG(null); setTab('talk'); setInvite(false); load() }, [load])
   useEffect(() => {
     if (!g) return
@@ -102,6 +114,13 @@ export default function GroupPage() {
     const { error } = await supabase.from('groups').update({ require_approval: v }).eq('id', g.id)
     if (error) return setErr(/require_approval|schema cache/i.test(error.message) ? 'شغّل تحديث 037 في Supabase الأول (مرة واحدة).' : errMsg(error))
     setG({ ...g, require_approval: v }); if (!v) { setReview([]); load() }
+  }
+  const setPrivacy = async (v: 'public' | 'private') => {
+    if (v === g.privacy) return
+    if (v === 'private' && !confirm('تخلي المجموعة خاصة؟ الأعضاء الحاليين هيفضلوا زي ما هم، والجداد هيحتاجوا موافقتك.')) return
+    const { error } = await supabase.from('groups').update({ privacy: v }).eq('id', g.id)
+    if (error) return setErr(errMsg(error))
+    setG({ ...g, privacy: v })
   }
   const friendsList = rels.filter((r) => r.status === 'accepted')
   const openInvite = async () => {
@@ -212,7 +231,7 @@ export default function GroupPage() {
           })()}
         </div>
         <div className="row" style={{ borderTop: '1px solid #E4E4E7', padding: '0 12px', gap: 4 }}>
-          {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && (g.require_approval || review.length) ? [['review', `منشورات للمراجعة${review.length ? ` (${review.length})` : ''}`]] : []), ...(isAdmin && g.privacy === 'private' ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : [])] as [typeof tab, string][]).map(([k, l]) => (
+          {([['talk', 'المناقشة'], ['media', 'الوسائط'], ['members', 'الأعضاء'], ...(isAdmin && (g.require_approval || review.length) ? [['review', `منشورات للمراجعة${review.length ? ` (${review.length})` : ''}`]] : []), ...(isAdmin && (g.privacy === 'private' || pend.length) ? [['requests', `طلبات الانضمام${pend.length ? ` (${pend.length})` : ''}`]] : []), ...(isAdmin ? [['settings', 'إعدادات المجموعة']] : [])] as [typeof tab, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ fontFamily: 'inherit', background: 'none', border: 0, borderBottom: `3px solid ${tab === k ? 'var(--brand)' : 'transparent'}`, padding: '14px 16px', fontWeight: tab === k ? 700 : 500, color: tab === k ? 'var(--brand)' : '#55555C', fontSize: 15, cursor: 'pointer' }}>{l}</button>
           ))}
         </div>
@@ -225,19 +244,15 @@ export default function GroupPage() {
           {g.description ? <div className="body">{g.description}</div> : <span className="mut">مفيش وصف للمجموعة.</span>}
           <div className="mut">{g.privacy === 'public' ? '🌐 مجموعة عامة: أي حد ينضم ويشوف البوستات' : '🔒 مجموعة خاصة: الانضمام بموافقة المشرف'}</div>
           <div className="mut">{count} عضو</div>
-          {isAdmin && (
-            <label className="row" style={{ gap: 10, cursor: 'pointer', padding: '10px 0 2px', borderTop: '1px solid #E4E4E7', alignItems: 'flex-start' }}>
-              <input type="checkbox" checked={!!g.require_approval} onChange={(e) => toggleApproval(e.target.checked)} style={{ width: 20, height: 20, accentColor: 'var(--brand)', marginTop: 2 }} />
-              <span><b>الموافقة على المنشورات</b><br /><span className="mut" style={{ fontSize: 13 }}>{g.require_approval ? 'بوستات الأعضاء بتستنى موافقتك قبل ما تظهر.' : 'مقفولة: أي عضو ينشر وبيظهر على طول.'}</span></span>
-            </label>
-          )}
           <div className="mut">تأسست في {new Date(g.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long' })}</div>
         </div>
       </aside>
       <div className="col" style={{ gap: 16, minWidth: 0 }}>
       {active && <Composer groups={[{ id: g.id, name: g.name }]} defaultGroup={g.id} onPosted={load} />}
       {posts.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش بوستات لسه.</div>}
-      {posts.map((p) => <PostCard key={p.id} post={p} hideGroup liked={liked.has(p.id)} canModerate={isAdmin || staff} onDeleted={(x) => setPosts((l) => l.filter((y) => y.id !== x))} />)}
+      {posts.length > 1 && <div className="crd row" style={{ gap: 10, flexWrap: 'wrap' }}><b className="grow" style={{ fontSize: 17 }}>منشورات المجموعة</b><span className="mut" style={{ fontSize: 13 }}>ترتيب حسب:</span><button className={'cv-chip' + (sort === 'top' ? ' on' : '')} onClick={() => setSort('top')}>الأكثر تفاعلًا</button><button className={'cv-chip' + (sort === 'new' ? ' on' : '')} onClick={() => setSort('new')}>الأحدث</button></div>}
+      {shownPosts.map((p) => <PostCard key={p.id} post={p} hideGroup liked={liked.has(p.id)} canModerate={isAdmin || staff} onDeleted={(x) => setPosts((l) => l.filter((y) => y.id !== x))} />)}
+      {posts.length >= lim && <button className="btn" onClick={more}>تحميل المزيد</button>}
       </div>
       </div>}
       {tab !== 'talk' && <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -258,6 +273,26 @@ export default function GroupPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {tab === 'settings' && isAdmin && (
+        <div className="col" style={{ gap: 12, maxWidth: 720, margin: '0 auto', width: '100%' }}>
+          <div className="crd col" style={{ gap: 10 }}>
+            <b style={{ fontSize: 18 }}>الانضمام للمجموعة</b>
+            {([['public', '🌐 مفتوحة', 'أي حد ينضم على طول من غير موافقة، ويشوف البوستات.'], ['private', '🔒 بموافقة المشرف', 'اللي عايز ينضم يبعت طلب، وانت تقبله أو ترفضه من تبويب "طلبات الانضمام".']] as const).map(([v, t, d]) => (
+              <label key={v} className="row" style={{ gap: 10, cursor: 'pointer', padding: 10, borderRadius: 12, border: `2px solid ${g.privacy === v ? 'var(--brand)' : '#E4E4E7'}`, alignItems: 'flex-start' }}>
+                <input type="radio" name="gpriv" checked={g.privacy === v} onChange={() => setPrivacy(v)} style={{ width: 20, height: 20, accentColor: 'var(--brand)', marginTop: 2 }} />
+                <span><b>{t}</b><br /><span className="mut" style={{ fontSize: 13 }}>{d}</span></span>
+              </label>
+            ))}
+          </div>
+          <div className="crd col" style={{ gap: 10 }}>
+            <b style={{ fontSize: 18 }}>المنشورات</b>
+            <label className="row" style={{ gap: 10, cursor: 'pointer', alignItems: 'flex-start' }}>
+              <input type="checkbox" checked={!!g.require_approval} onChange={(e) => toggleApproval(e.target.checked)} style={{ width: 20, height: 20, accentColor: 'var(--brand)', marginTop: 2 }} />
+              <span><b>الموافقة على المنشورات</b><br /><span className="mut" style={{ fontSize: 13 }}>{g.require_approval ? 'بوستات الأعضاء بتستنى موافقتك قبل ما تظهر (من تبويب "منشورات للمراجعة").' : 'مقفولة: أي عضو ينشر وبيظهر على طول.'}</span></span>
+            </label>
+          </div>
         </div>
       )}
       {tab === 'requests' && (
