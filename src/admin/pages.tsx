@@ -813,9 +813,9 @@ export function Identity() {
   const { session } = useAuth()
   const pf = usePlatform()
   const [name, setName] = useState(pf.name); const [logo, setLogo] = useState(pf.logo_url); const [brand, setBrand] = useState(pf.brand)
-  const [lt, setLt] = useState(pf.login_title); const [ls, setLs] = useState(pf.login_sub); const [tg, setTg] = useState(pf.tagline); const [lay, setLay] = useState<'row' | 'stack'>(pf.logo_layout)
+  const [lt, setLt] = useState(pf.login_title); const [ls, setLs] = useState(pf.login_sub); const [tg, setTg] = useState(pf.tagline); const [lay, setLay] = useState<'row' | 'stack'>(pf.logo_layout); const [place, setPlace] = useState<'inside' | 'outside'>(pf.logo_place); const [gap, setGap] = useState(pf.logo_gap)
   const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false)
-  useEffect(() => { setName(pf.name); setLogo(pf.logo_url); setBrand(pf.brand); setLt(pf.login_title); setLs(pf.login_sub); setTg(pf.tagline); setLay(pf.logo_layout) }, [pf.name, pf.logo_url, pf.brand, pf.login_title, pf.login_sub, pf.tagline, pf.logo_layout])
+  useEffect(() => { setName(pf.name); setLogo(pf.logo_url); setBrand(pf.brand); setLt(pf.login_title); setLs(pf.login_sub); setTg(pf.tagline); setLay(pf.logo_layout); setPlace(pf.logo_place); setGap(pf.logo_gap) }, [pf.name, pf.logo_url, pf.brand, pf.login_title, pf.login_sub, pf.tagline, pf.logo_layout, pf.logo_place, pf.logo_gap])
   const pick = async (f: File | null) => {
     if (!f) return
     setErr(''); setBusy(true)
@@ -824,7 +824,7 @@ export function Identity() {
   }
   const save = async () => {
     setErr(''); setOk(''); setBusy(true)
-    const { error } = await supabase.from('platform_settings').upsert([{ key: 'name', value: name.trim() || 'جمعتنا' }, { key: 'logo_url', value: logo }, { key: 'brand', value: brand }, { key: 'login_title', value: lt.trim() }, { key: 'login_sub', value: ls.trim() }, { key: 'tagline', value: tg.trim() }, { key: 'logo_layout', value: lay }])
+    const { error } = await supabase.from('platform_settings').upsert([{ key: 'name', value: name.trim() || 'جمعتنا' }, { key: 'logo_url', value: logo }, { key: 'brand', value: brand }, { key: 'login_title', value: lt.trim() }, { key: 'login_sub', value: ls.trim() }, { key: 'tagline', value: tg.trim() }, { key: 'logo_layout', value: lay }, { key: 'logo_place', value: place }, { key: 'logo_gap', value: String(gap) }])
     setBusy(false)
     if (error) return setErr(errMsg(error) + ' — اتأكد إنك شغّلت تحديث 015 في Supabase.')
     setOk('تم الحفظ'); pf.reload()
@@ -849,7 +849,13 @@ export function Identity() {
               <button key={k} className={'btn sm ' + (lay === k ? 'p' : 'line')} onClick={() => setLay(k)}>{t}</button>
             ))}
           </div>
-          <div className={lay === 'row' ? 'row' : 'col'} dir="rtl" style={{ alignItems: 'center', justifyContent: 'center', gap: 10, padding: 14, background: '#F7F7F8', borderRadius: 12 }}>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            {([['inside', 'جوه الكارد'], ['outside', 'بره الكارد (فوقه)']] as const).map(([k, t]) => (
+              <button key={k} className={'btn sm ' + (place === k ? 'p' : 'line')} onClick={() => setPlace(k)}>{t}</button>
+            ))}
+          </div>
+          <label className="row" style={{ gap: 10 }}><span className="mut">المسافة بين الشعار والاسم: {gap}px</span><input type="range" min={0} max={40} value={gap} onChange={(e) => setGap(Number(e.target.value))} style={{ flex: 1, maxWidth: 220 }} /></label>
+          <div className={lay === 'row' ? 'row' : 'col'} dir="rtl" style={{ alignItems: 'center', justifyContent: 'center', gap, padding: 14, background: place === 'outside' ? '#E4E4E7' : '#fff', border: '1px solid #E4E4E7', borderRadius: 12 }}>
             {lay === 'row' && <b style={{ fontSize: 20 }}>{name || 'جمعتنا'}</b>}
             <div className="adm-brand" style={{ border: 0, padding: 0, margin: 0 }}><div className="av">{logo ? <img src={logo} alt="" /> : (name || 'ج').charAt(0)}</div></div>
             {lay !== 'row' && <b style={{ fontSize: 20 }}>{name || 'جمعتنا'}</b>}

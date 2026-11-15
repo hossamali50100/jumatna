@@ -7,6 +7,13 @@ import BirthGender, { BirthField, GenderField, checkBG, emptyBG, type BG } from 
 export default function Login() {
   const mobile = useIsMobile()
   const pf = usePlatform()
+  const brandHead = (sz: number, fs: number, extra?: React.CSSProperties) => (
+    <div className={pf.logo_layout === 'row' ? 'row' : 'col'} style={{ alignItems: 'center', justifyContent: 'center', gap: pf.logo_gap, ...extra }}>
+      {pf.logo_layout === 'row' && <b style={{ fontSize: fs }}>{pf.name}</b>}
+      <div className="av" style={{ width: sz, height: sz, background: 'var(--brand)', borderRadius: sz > 70 ? 20 : undefined, fontSize: 28, overflow: 'hidden' }}>{logo}</div>
+      {pf.logo_layout !== 'row' && <b style={{ fontSize: fs }}>{pf.name}</b>}
+    </div>
+  )
   const logo = (pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0))
   const [mode, setMode] = useState<'in' | 'up' | 'reset'>('in')
   const [name, setName] = useState('')
@@ -100,11 +107,7 @@ export default function Login() {
     return (
       <div className="mroot"><main className="mmain"><div className="col" style={{ gap: 16, padding: '16px 4px' }}>
         <div className="col" style={{ alignItems: 'center', gap: 10, padding: '8px 0' }}>
-          <div className={pf.logo_layout === 'row' ? 'row' : 'col'} style={{ alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            {pf.logo_layout === 'row' && <b style={{ fontSize: 28 }}>{pf.name}</b>}
-            <div className="av" style={{ width: 72, height: 72, background: 'var(--brand)', borderRadius: 20, fontSize: 28, overflow: 'hidden' }}>{logo}</div>
-            {pf.logo_layout !== 'row' && <b style={{ fontSize: 28 }}>{pf.name}</b>}
-          </div>
+          {brandHead(72, 28)}
           <span className="mut" style={{ fontSize: 14 }}>{pf.tagline}</span>
         </div>
         {form}
@@ -114,13 +117,12 @@ export default function Login() {
   return (
     <div dir="ltr" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#F1F1F1' }}>
       <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', maxWidth: 1180, minHeight: 'min(620px, calc(100vh - 48px))' }}>
-        <div dir="rtl" className="col" style={{ width: mode === 'up' ? 520 : 420, flex: 'none', transition: 'width .2s', gap: 0, justifyContent: 'center', padding: '44px 0 36px', background: '#fff', border: '1px solid #E4E4E7', borderRadius: 18, boxShadow: '0 10px 40px rgba(0,0,0,.06)' }}>
-          {mode !== 'up' && <div className={pf.logo_layout === 'row' ? 'row' : 'col'} style={{ alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 28px' }}>
-            {pf.logo_layout === 'row' && <b style={{ fontSize: 24 }}>{pf.name}</b>}
-            <div className="av" style={{ width: 56, height: 56, background: 'var(--brand)', fontSize: 28, overflow: 'hidden' }}>{logo}</div>
-            {pf.logo_layout !== 'row' && <b style={{ fontSize: 24 }}>{pf.name}</b>}
-          </div>}
+        <div dir="rtl" className="col" style={{ width: mode === 'up' ? 520 : 420, flex: 'none', transition: 'width .2s', gap: 18, justifyContent: 'center' }}>
+        {mode !== 'up' && pf.logo_place === 'outside' && brandHead(64, 28)}
+        <div className="col" style={{ gap: 0, justifyContent: 'center', padding: '44px 0 36px', background: '#fff', border: '1px solid #E4E4E7', borderRadius: 18, boxShadow: '0 10px 40px rgba(0,0,0,.06)' }}>
+          {mode !== 'up' && pf.logo_place !== 'outside' && brandHead(56, 24, { padding: '0 28px' })}
           {form}
+        </div>
         </div>
         <NetworkMap logo={logo} title={pf.login_title} sub={pf.login_sub} />
       </div>
