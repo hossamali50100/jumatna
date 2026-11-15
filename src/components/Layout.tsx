@@ -57,7 +57,7 @@ function Desktop() {
           <Link to="/" aria-label="الرئيسية" className="av" style={{ width: 42, height: 42, background: 'var(--brand)', fontSize: 22, overflow: 'hidden' }}>{pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0)}</Link>
           <form className="dsearch" onSubmit={(e) => { e.preventDefault(); nav(`/search?q=${encodeURIComponent(q.trim())}`) }}>
             <Icon n="search" s={18} />
-            <input placeholder="ابحث في جمعتنا" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث" />
+            <input placeholder={`ابحث في ${pf.name}`} value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث" />
           </form>
         </div>
         <nav className="tnav" aria-label="التنقل">

@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Check } from '../lib/ui'
 import { useAuth } from '../lib/auth'
+import { usePlatform } from '../lib/platform'
 import { isPremium } from '../lib/supabase'
 
 const prem = ['إنشاء حتى 10 مجموعات', 'علامة التوثيق الخضراء بجانب اسمك', 'دعم مباشر وسريع من فريق جمعتنا']
 
 export default function Plans() {
+  const pf = usePlatform()
   const { profile } = useAuth()
   return (
     <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -15,7 +17,7 @@ export default function Plans() {
         {isPremium(profile)
           ? <div className="okmsg">حسابك مميز حاليًا.</div>
           : <>
-              <div className="mut" style={{ lineHeight: 1.8 }}>للترقية تواصل مع فريق جمعتنا وهنقولك التفاصيل وطريقة التفعيل.</div>
+              <div className="mut" style={{ lineHeight: 1.8 }}>للترقية تواصل مع فريق {pf.name} وهنقولك التفاصيل وطريقة التفعيل.</div>
               <Link className="btn p" to="/upgrade">اطلب الترقية</Link>
             </>}
       </div>

@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { supabase, authErrMsg } from '../lib/supabase'
 import { Err, useIsMobile } from '../lib/ui'
+import { usePlatform } from '../lib/platform'
 import BirthGender, { BirthField, GenderField, checkBG, emptyBG, type BG } from '../components/BirthGender'
 
 export default function Login() {
   const mobile = useIsMobile()
+  const pf = usePlatform()
+  const logo = (pf.logo_url ? <img src={pf.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : pf.name.charAt(0))
   const [mode, setMode] = useState<'in' | 'up' | 'reset'>('in')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -97,9 +100,12 @@ export default function Login() {
     return (
       <div className="mroot"><main className="mmain"><div className="col" style={{ gap: 16, padding: '16px 4px' }}>
         <div className="col" style={{ alignItems: 'center', gap: 10, padding: '8px 0' }}>
-          <div className="av" style={{ width: 72, height: 72, background: 'var(--brand)', borderRadius: 20, fontSize: 28 }}>ج</div>
-          <b style={{ fontSize: 28 }}>جمعتنا</b>
-          <span className="mut" style={{ fontSize: 14 }}>مجموعاتك وأصدقاؤك في تطبيق واحد</span>
+          <div className={pf.logo_layout === 'row' ? 'row' : 'col'} style={{ alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+            {pf.logo_layout === 'row' && <b style={{ fontSize: 28 }}>{pf.name}</b>}
+            <div className="av" style={{ width: 72, height: 72, background: 'var(--brand)', borderRadius: 20, fontSize: 28, overflow: 'hidden' }}>{logo}</div>
+            {pf.logo_layout !== 'row' && <b style={{ fontSize: 28 }}>{pf.name}</b>}
+          </div>
+          <span className="mut" style={{ fontSize: 14 }}>{pf.tagline}</span>
         </div>
         {form}
       </div></main></div>
@@ -109,13 +115,14 @@ export default function Login() {
     <div dir="ltr" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#F1F1F1' }}>
       <div style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%', maxWidth: 1180, minHeight: 'min(620px, calc(100vh - 48px))' }}>
         <div dir="rtl" className="col" style={{ width: mode === 'up' ? 520 : 420, flex: 'none', transition: 'width .2s', gap: 0, justifyContent: 'center', padding: '44px 0 36px', background: '#fff', border: '1px solid #E4E4E7', borderRadius: 18, boxShadow: '0 10px 40px rgba(0,0,0,.06)' }}>
-          {mode !== 'up' && <div className="col" style={{ alignItems: 'center', gap: 10, padding: '0 28px' }}>
-            <div className="av" style={{ width: 56, height: 56, background: 'var(--brand)', fontSize: 28 }}>ج</div>
-            <b style={{ fontSize: 24 }}>جمعتنا</b>
+          {mode !== 'up' && <div className={pf.logo_layout === 'row' ? 'row' : 'col'} style={{ alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 28px' }}>
+            {pf.logo_layout === 'row' && <b style={{ fontSize: 24 }}>{pf.name}</b>}
+            <div className="av" style={{ width: 56, height: 56, background: 'var(--brand)', fontSize: 28, overflow: 'hidden' }}>{logo}</div>
+            {pf.logo_layout !== 'row' && <b style={{ fontSize: 24 }}>{pf.name}</b>}
           </div>}
           {form}
         </div>
-        <NetworkMap />
+        <NetworkMap logo={logo} title={pf.login_title} sub={pf.login_sub} />
       </div>
     </div>
   )
@@ -132,19 +139,19 @@ const AV = [
 const pos = (a: number, r: number) => ({ x: 50 + (r * Math.cos((a * Math.PI) / 180)) / R * 100, y: 50 + (r * Math.sin((a * Math.PI) / 180)) / R * 100 })
 const glass: React.CSSProperties = { position: 'absolute', background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid #E4E4E7', boxShadow: '0 8px 26px rgba(0,0,0,.10)', borderRadius: 16, color: '#111111', padding: '10px 14px', fontSize: 13, lineHeight: 1.6, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }
 
-function NetworkMap() {
+function NetworkMap({ logo, title, sub }: { logo: React.ReactNode; title: string; sub: string }) {
   return (
     <div dir="rtl" className="jhero">
       <div style={{ textAlign: 'center', color: '#111111', padding: '0 24px 8px' }}>
-        <b style={{ fontSize: 34, lineHeight: 1.4 }}>لمّة أصحابك في مكان واحد</b>
-        <div style={{ opacity: .6, fontSize: 16, marginTop: 6 }}>مجموعات، أصدقاء، ودردشة… كل اللي يخلّيك قريب من ناسك.</div>
+        <b style={{ fontSize: 34, lineHeight: 1.4 }}>{title}</b>
+        <div style={{ opacity: .6, fontSize: 16, marginTop: 6 }}>{sub}</div>
       </div>
       <div className="jstage">
         <svg viewBox={`0 0 ${R} ${R}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
           {[110, 190, 270].map((r) => <circle key={r} cx={R / 2} cy={R / 2} r={r} fill="none" stroke="#D0D0D5" strokeWidth="1.200" strokeDasharray="3 7" />)}
           {AV.map((v, i) => { const p = pos(v.a, v.r); return <line key={i} className="jline" x1={R / 2} y1={R / 2} x2={(p.x / 100) * R} y2={(p.y / 100) * R} stroke="#B4B4BB" strokeWidth="1.400" strokeDasharray="4 8" style={{ animationDelay: `${i * -0.7}s` }} /> })}
         </svg>
-        <div className="jcore"><span>ج</span></div>
+        <div className="jcore" style={{ overflow: 'hidden' }}><span style={{ display: 'contents' }}>{logo}</span></div>
         {AV.map((v, i) => { const p = pos(v.a, v.r); return (
           <div key={i} style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%,-50%)' }}>
             <div className="jfloat" style={{ animationDelay: `${i * -0.9}s`, position: 'relative' }}>

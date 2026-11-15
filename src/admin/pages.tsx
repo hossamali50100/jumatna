@@ -78,7 +78,23 @@ function useUsers() {
 // جدول كل المستخدمين
 export function Users() {
   const nav = useNavigate()
-  const { users, err } = useUsers()
+  const { users, err, load } = useUsers()
+  const { profile: meP } = useAuth()
+  const [aErr, setAErr] = useState('')
+  const act = async (u: UserRow, kind: 'ban' | 'del') => {
+    setAErr('')
+    if (kind === 'ban') {
+      if (!confirm(u.banned ? `فك الحظر عن ${u.name}؟` : `حظر ${u.name}؟ مش هيقدر يدخل المنصة.`)) return
+      const { error } = await supabase.rpc('admin_set_banned', { target: u.id, flag: !u.banned })
+      return error ? setAErr(errMsg(error)) : load()
+    }
+    if (!confirm(`حذف حساب «${u.name}» نهائيًا؟ مفيش رجوع.`)) return
+    if (prompt('للتأكيد اكتب كلمة: حذف') !== 'حذف') return
+    const { error } = await supabase.rpc('admin_delete_user', { target: u.id })
+    if (error) return setAErr(/admin_delete_user|schema cache|function/i.test(error.message) ? 'شغّل تحديث 042 في Supabase (مرة واحدة).' : errMsg(error))
+    load()
+  }
+  const canAct = meP?.role === 'admin'
   const [q, setQ] = useState(''); const [f, setF] = useState<'all' | 'premium' | 'banned' | 'staff'>('all')
   const list = (users ?? []).filter((u) => {
     const k = q.trim().toLowerCase()
@@ -90,12 +106,12 @@ export function Users() {
     <>
       <Head title={`المستخدمين${users ? ` (${users.length})` : ''}`}><input className="adm-in" placeholder="ابحث بالاسم أو الإيميل…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} /></Head>
       <div className="adm-chips">{chips.map(([k, t]) => <button key={k} className={'adm-chip' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{t}</button>)}</div>
-      {err && <Err>{err}</Err>}
+      {(err || aErr) && <Err>{err || aErr}</Err>}
       {users === null && <div className="mut">جاري التحميل…</div>}
       {users && (
         <div className="adm-table" style={{ overflowX: 'auto' }}>
           <table className="adm-tbl">
-            <thead><tr><th>المستخدم</th><th>الدور</th><th>الباقة</th><th>الحالة</th><th>منشورات</th><th>أصدقاء</th><th>مجموعات</th><th>انضم</th></tr></thead>
+            <thead><tr><th>المستخدم</th><th>الدور</th><th>الباقة</th><th>الحالة</th><th>منشورات</th><th>أصدقاء</th><th>مجموعات</th><th>انضم</th>{canAct && <th>إجراءات</th>}</tr></thead>
             <tbody>
               {list.map((u) => (
                 <tr key={u.id} onClick={() => nav('/admin/users/' + u.id)} style={{ cursor: 'pointer' }}>
@@ -105,9 +121,15 @@ export function Users() {
                   <td>{u.banned ? <span className="pill" style={{ color: '#B91C1C', background: '#FEE2E2' }}>محظور</span> : isOnlineTs(u.last_seen) ? <span style={{ color: '#15803D' }}>● متصل</span> : <span className="mut">غير متصل</span>}</td>
                   <td>{u.posts}</td><td>{u.friends}</td><td>{u.groups}</td>
                   <td className="mut" style={{ whiteSpace: 'nowrap' }}>{timeAgo(u.created_at)}</td>
+                  {canAct && <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
+                    {u.role === 'user' && u.id !== meP!.id ? <span className="row" style={{ gap: 6 }}>
+                      <button className="btn sm line" style={{ color: '#B91C1C' }} onClick={() => act(u, 'ban')}>{u.banned ? 'فك الحظر' : 'حظر'}</button>
+                      <button className="btn sm line" style={{ color: '#B91C1C' }} onClick={() => act(u, 'del')}>حذف</button>
+                    </span> : <span className="mut" style={{ fontSize: 12 }}>—</span>}
+                  </td>}
                 </tr>
               ))}
-              {!list.length && <tr><td colSpan={8} className="mut" style={{ textAlign: 'center' }}>لا نتائج</td></tr>}
+              {!list.length && <tr><td colSpan={9} className="mut" style={{ textAlign: 'center' }}>لا نتائج</td></tr>}
             </tbody>
           </table>
         </div>
@@ -186,6 +208,13 @@ export function UserDetail() {
     const { error } = await supabase.rpc(fn, args)
     if (error) setErr(errMsg(error)); else { setOk(msg); load() }
   }
+  const delUser = async () => {
+    if (!confirm(`حذف حساب «${u!.name}» نهائيًا؟ مفيش رجوع.`)) return
+    if (prompt('للتأكيد اكتب كلمة: حذف') !== 'حذف') return
+    const { error } = await supabase.rpc('admin_delete_user', { target: u!.id })
+    if (error) return setErr(/admin_delete_user|schema cache|function/i.test(error.message) ? 'شغّل تحديث 042 في Supabase (مرة واحدة).' : errMsg(error))
+    nav('/admin/users')
+  }
   const delPost = async (pid: string) => {
     if (!confirm('حذف المنشور نهائيًا؟')) return
     const { error } = await supabase.from('posts').delete().eq('id', pid)
@@ -237,6 +266,8 @@ export function UserDetail() {
                 ? <button className="btn line" onClick={() => confirm('إلغاء المميز؟') && rpc('admin_set_plan', { target: u.id, new_plan: 'free', days: 0 }, 'تم إلغاء المميز')}>إلغاء المميز</button>
                 : <button className="btn p" onClick={() => confirm('تفعيل المميز 30 يوم؟') && rpc('admin_set_plan', { target: u.id, new_plan: 'premium', days: 30 }, 'تم تفعيل المميز 30 يوم')}>تفعيل مميز 30 يوم</button>}
               <button className="btn line" style={{ color: '#B91C1C' }} onClick={() => confirm(u.banned ? 'فك الحظر؟' : `حظر ${u.name}؟`) && rpc('admin_set_banned', { target: u.id, flag: !u.banned }, u.banned ? 'تم فك الحظر' : 'تم الحظر')}>{u.banned ? 'فك الحظر' : 'حظر المستخدم'}</button>
+              <button className="btn line" style={{ color: '#B91C1C' }} onClick={delUser}>حذف الحساب نهائيًا</button>
+              <span className="mut" style={{ fontSize: 12 }}>الحذف نهائي ومعاه كل بيانات المستخدم. الحظر بيمنعه من الدخول من غير ما يمسح حاجة.</span>
             </div>
           )}
         </div>
@@ -782,8 +813,9 @@ export function Identity() {
   const { session } = useAuth()
   const pf = usePlatform()
   const [name, setName] = useState(pf.name); const [logo, setLogo] = useState(pf.logo_url); const [brand, setBrand] = useState(pf.brand)
+  const [lt, setLt] = useState(pf.login_title); const [ls, setLs] = useState(pf.login_sub); const [tg, setTg] = useState(pf.tagline); const [lay, setLay] = useState<'row' | 'stack'>(pf.logo_layout)
   const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false)
-  useEffect(() => { setName(pf.name); setLogo(pf.logo_url); setBrand(pf.brand) }, [pf.name, pf.logo_url, pf.brand])
+  useEffect(() => { setName(pf.name); setLogo(pf.logo_url); setBrand(pf.brand); setLt(pf.login_title); setLs(pf.login_sub); setTg(pf.tagline); setLay(pf.logo_layout) }, [pf.name, pf.logo_url, pf.brand, pf.login_title, pf.login_sub, pf.tagline, pf.logo_layout])
   const pick = async (f: File | null) => {
     if (!f) return
     setErr(''); setBusy(true)
@@ -792,7 +824,7 @@ export function Identity() {
   }
   const save = async () => {
     setErr(''); setOk(''); setBusy(true)
-    const { error } = await supabase.from('platform_settings').upsert([{ key: 'name', value: name.trim() || 'جمعتنا' }, { key: 'logo_url', value: logo }, { key: 'brand', value: brand }])
+    const { error } = await supabase.from('platform_settings').upsert([{ key: 'name', value: name.trim() || 'جمعتنا' }, { key: 'logo_url', value: logo }, { key: 'brand', value: brand }, { key: 'login_title', value: lt.trim() }, { key: 'login_sub', value: ls.trim() }, { key: 'tagline', value: tg.trim() }, { key: 'logo_layout', value: lay }])
     setBusy(false)
     if (error) return setErr(errMsg(error) + ' — اتأكد إنك شغّلت تحديث 015 في Supabase.')
     setOk('تم الحفظ'); pf.reload()
@@ -809,6 +841,26 @@ export function Identity() {
             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => pick(e.target.files?.[0] ?? null)} />
             {logo && <button className="btn sm line" onClick={() => setLogo('')}>إزالة</button>}
           </div>
+        </div>
+        <div className="col" style={{ gap: 6 }}>
+          <b>ترتيب الشعار والاسم في صفحة الدخول</b>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            {([['row', 'جنب بعض (الشعار شمال والاسم يمين)'], ['stack', 'فوق بعض']] as const).map(([k, t]) => (
+              <button key={k} className={'btn sm ' + (lay === k ? 'p' : 'line')} onClick={() => setLay(k)}>{t}</button>
+            ))}
+          </div>
+          <div className={lay === 'row' ? 'row' : 'col'} dir="rtl" style={{ alignItems: 'center', justifyContent: 'center', gap: 10, padding: 14, background: '#F7F7F8', borderRadius: 12 }}>
+            {lay === 'row' && <b style={{ fontSize: 20 }}>{name || 'جمعتنا'}</b>}
+            <div className="adm-brand" style={{ border: 0, padding: 0, margin: 0 }}><div className="av">{logo ? <img src={logo} alt="" /> : (name || 'ج').charAt(0)}</div></div>
+            {lay !== 'row' && <b style={{ fontSize: 20 }}>{name || 'جمعتنا'}</b>}
+          </div>
+        </div>
+        <div className="col" style={{ gap: 10 }}>
+          <b>نصوص صفحة الدخول</b>
+          <label className="col" style={{ gap: 4 }}><span className="mut">العنوان الكبير (جنب الرسمة، على الكمبيوتر)</span><input className="adm-in" value={lt} maxLength={60} onChange={(e) => setLt(e.target.value)} /></label>
+          <label className="col" style={{ gap: 4 }}><span className="mut">الجملة اللي تحته</span><input className="adm-in" value={ls} maxLength={120} onChange={(e) => setLs(e.target.value)} /></label>
+          <label className="col" style={{ gap: 4 }}><span className="mut">الجملة تحت الاسم (على الموبايل)</span><input className="adm-in" value={tg} maxLength={80} onChange={(e) => setTg(e.target.value)} /></label>
+          <span className="mut" style={{ fontSize: 13 }}>لو سيبت خانة فاضية بيرجع النص الأصلي.</span>
         </div>
         <div className="col" style={{ gap: 6 }}>
           <b>اللون الأساسي للمنصة</b>

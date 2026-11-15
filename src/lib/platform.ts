@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 // إعدادات المنصة (الاسم/الشعار) من جدول platform_settings. لو تحديث 015 لسه ما اتشغلش نستخدم الافتراضي.
-export type Platform = { name: string; logo_url: string; brand: string }
+export type Platform = { name: string; logo_url: string; brand: string; login_title: string; login_sub: string; tagline: string; logo_layout: 'row' | 'stack' }
+export const DEFAULT_TEXTS = { login_title: 'لمّة أصحابك في مكان واحد', login_sub: 'مجموعات، أصدقاء، ودردشة… كل اللي يخلّيك قريب من ناسك.', tagline: 'مجموعاتك وأصدقاؤك في تطبيق واحد' }
 export const DEFAULT_BRAND = '#0866FF'
-const DEFAULT: Platform = { name: 'جمعتنا', logo_url: '', brand: DEFAULT_BRAND }
+const DEFAULT: Platform = { name: 'جمعتنا', logo_url: '', brand: DEFAULT_BRAND, ...DEFAULT_TEXTS, logo_layout: 'row' }
 const HEX = /^#[0-9a-fA-F]{6}$/
 // درجة أغمق شوية للـ hover
 const darken = (hex: string) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * 0.86).toString(16).padStart(2, '0')).join('')
@@ -23,6 +24,8 @@ export async function loadPlatform(): Promise<Platform> {
     if (r.key === 'name' && r.value.trim()) p.name = r.value
     if (r.key === 'logo_url') p.logo_url = r.value
     if (r.key === 'brand' && HEX.test(r.value)) p.brand = r.value
+    if ((r.key === 'login_title' || r.key === 'login_sub' || r.key === 'tagline') && r.value.trim()) p[r.key] = r.value
+    if (r.key === 'logo_layout' && (r.value === 'row' || r.value === 'stack')) p.logo_layout = r.value
   }
   applyBrand(p.brand)
   cache = p; subs.forEach((f) => f(p))

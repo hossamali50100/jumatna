@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg, type Group } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useFriends } from '../lib/friends'
+import { usePlatform } from '../lib/platform'
 import { Avatar, Err, Icon, Name } from '../lib/ui'
 
 type Person = { id: string; name: string; avatar_url: string | null; bio: string | null; plan: 'free' | 'premium'; plan_until: string | null }
@@ -11,6 +12,7 @@ const esc = (s: string) => s.replace(/[\\%_]/g, '\\$&')
 
 // صفحة البحث: أشخاص + مجموعات، وفلتر على اليمين يحدد البحث في إيه
 export default function Search() {
+  const pf = usePlatform()
   const { session } = useAuth()
   const uid = session!.user.id
   const { rels, request, accept, remove } = useFriends()
@@ -68,7 +70,7 @@ export default function Search() {
       <aside className="card srch-f">
         <b style={{ fontSize: 20 }}>نتائج البحث</b>
         <form onSubmit={(e) => { e.preventDefault(); go(text, kind) }} className="dsearch" style={{ display: 'flex', maxWidth: 'none', width: '100%', boxSizing: 'border-box' }}>
-          <Icon n="search" s={18} /><input value={text} maxLength={60} onChange={(e) => setText(e.target.value)} placeholder="ابحث في جمعتنا" aria-label="بحث" />
+          <Icon n="search" s={18} /><input value={text} maxLength={60} onChange={(e) => setText(e.target.value)} placeholder={`ابحث في ${pf.name}`} aria-label="بحث" />
         </form>
         <div className="hr" />
         <b style={{ fontSize: 15 }}>تصفية حسب</b>

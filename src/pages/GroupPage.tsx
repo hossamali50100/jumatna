@@ -6,12 +6,14 @@ import PostCard from '../components/PostCard'
 import Composer from '../components/Composer'
 import { Avatar, Err, Icon, Name, gcolor, useIsMobile } from '../lib/ui'
 import { POST_SELECT, likedSet } from './Home'
+import { usePlatform } from '../lib/platform'
 import { useFriends } from '../lib/friends'
 
 type Member = { user_id: string; role: string; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 type Pending = { user_id: string; profiles: { name: string; avatar_url: string | null } | null }
 
 export default function GroupPage() {
+  const pf = usePlatform()
   const { id } = useParams()
   const { session, profile } = useAuth()
   const uid = session!.user.id
@@ -146,7 +148,7 @@ export default function GroupPage() {
     try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { window.prompt('انسخ الرابط:', link) }
   }
   const share = async () => {
-    if (navigator.share) { try { await navigator.share({ title: g.name, text: `انضم لمجموعة "${g.name}" على جمعتنا`, url: link }); return } catch { /* المستخدم لغى */ } }
+    if (navigator.share) { try { await navigator.share({ title: g.name, text: `انضم لمجموعة "${g.name}" على ${pf.name}`, url: link }); return } catch { /* المستخدم لغى */ } }
     copy()
   }
   const changeCover = async (f?: File | null) => {

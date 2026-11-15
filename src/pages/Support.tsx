@@ -1,16 +1,18 @@
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import SupportThread from '../components/SupportThread'
+import { usePlatform } from '../lib/platform'
 import { SUPPORT_TOPICS, topicOf } from '../lib/topics'
 
 export default function Support() {
+  const pf = usePlatform()
   const { session } = useAuth()
   const [sp, setSp] = useSearchParams()
   const t = topicOf(sp.get('topic') === 'premium' ? null : sp.get('topic'))
   return (
     <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="crd col">
-        <div className="row"><b className="grow" style={{ fontSize: 20 }}>الدعم · فريق جمعتنا</b></div>
+        <div className="row"><b className="grow" style={{ fontSize: 20 }}>الدعم · فريق {pf.name}</b></div>
         <div className="mut">تتواصل معنا في إيه؟ اختار الموضوع عشان نوصّل رسالتك للشخص المناسب:</div>
         <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
           {SUPPORT_TOPICS.map((x) => (
