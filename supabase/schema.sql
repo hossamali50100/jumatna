@@ -124,7 +124,7 @@ begin
     left(coalesce(nullif(new.raw_user_meta_data->>'full_name',''),
                   nullif(new.raw_user_meta_data->>'name',''),
                   split_part(new.email,'@',1), 'مستخدم'), 60),
-    new.raw_user_meta_data->>'avatar_url'
+    null   -- (043) من غير صورة جوجل: بيرفع صورته بنفسه
   );
   return new;
 end $$;
