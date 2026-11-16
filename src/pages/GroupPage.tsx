@@ -8,6 +8,7 @@ import { Avatar, Err, Icon, Name, gcolor, useIsMobile } from '../lib/ui'
 import { POST_SELECT, likedSet } from './Home'
 import { usePlatform } from '../lib/platform'
 import { useFriends } from '../lib/friends'
+import GroupPromos from '../components/GroupPromos'
 
 type Member = { user_id: string; role: string; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 type Pending = { user_id: string; profiles: { name: string; avatar_url: string | null } | null }
@@ -295,6 +296,7 @@ export default function GroupPage() {
               <span><b>الموافقة على المنشورات</b><br /><span className="mut" style={{ fontSize: 13 }}>{g.require_approval ? 'بوستات الأعضاء بتستنى موافقتك قبل ما تظهر (من تبويب "منشورات للمراجعة").' : 'مقفولة: أي عضو ينشر وبيظهر على طول.'}</span></span>
             </label>
           </div>
+          <GroupPromos gid={g.id} />
         </div>
       )}
       {tab === 'requests' && (

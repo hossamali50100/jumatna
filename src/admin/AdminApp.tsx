@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { usePlatform } from '../lib/platform'
 import { Err, useIsMobile } from '../lib/ui'
-import { Overview, Users, UserDetail, Groups, GroupDetail, Reports, Inbox, Upgrades, Ads, AdNew, AdDetail, Team, Identity, useCounts } from './pages'
+import { Overview, Users, UserDetail, Groups, GroupDetail, Reports, Inbox, Upgrades, Ads, AdNew, AdPromote, AdDetail, Team, Identity, useCounts } from './pages'
 import './admin.css'
 
 type Role = 'admin' | 'mod' | 'support'
@@ -104,6 +104,7 @@ export default function AdminApp() {
           <Route path="/admin/upgrades" element={guard('/admin/upgrades', <Upgrades />)} />
           <Route path="/admin/ads" element={guard('/admin/ads', <Ads />)} />
           <Route path="/admin/ads/new" element={guard('/admin/ads', <AdNew />)} />
+ <Route path="/admin/ads/promote/:postId" element={guard('/admin/ads', <AdPromote />)} />
           <Route path="/admin/ads/:id" element={guard('/admin/ads', <AdDetail />)} />
           <Route path="/admin/team" element={guard('/admin/team', <Team />)} />
           <Route path="/admin/identity" element={guard('/admin/identity', <Identity />)} />

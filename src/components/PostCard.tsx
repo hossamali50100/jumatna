@@ -10,7 +10,7 @@ import { Avatar, Err, Icon, Name, timeAgo, Check } from '../lib/ui'
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u } }
-export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, ad, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; ad?: { name: string; avatar: string | null; link?: string | null }; onDeleted: (id: string) => void }) {
+export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, ad, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; ad?: { name: string; avatar: string | null; link?: string | null; groupId?: string | null }; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
   const me = session!.user.id
   const [rx, setRx] = useState<Rx>(() => ({ mine: liked ? 'like' : null, by: { like: post.likes?.[0]?.count ?? 0 } }))
@@ -169,7 +169,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   return (
     <article className="crd">
       <div className="row">
-        {post.group_id && !hideGroup ? (<>
+        {post.group_id && !hideGroup && !ad ? (<>
           {/* بوست جروب خارج صفحة الجروب (زي فيسبوك): صورة الجروب كبيرة وصورة الكاتب صغيرة على ركنها */}
           <span style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}>
             <Link to={`/g/${post.group_id}`} aria-label="صفحة المجموعة"><Avatar name={gname} url={post.groups?.cover_url} size={46} square /></Link>
@@ -180,9 +180,10 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
             <div className="mut" style={{ fontSize: 13 }}><Link to={`/u/${post.author_id}`}>{post.profiles?.name}</Link> · {timeAgo(post.created_at)}</div>
           </div>
         </>) : ad ? (<>
-          <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined, display: 'inline-flex' }}><Avatar name={ad.name} url={ad.avatar} size={44} /></span>
+          {ad.groupId ? <Link to={`/g/${ad.groupId}`} aria-label="صفحة المجموعة" style={{ display: 'inline-flex' }}><Avatar name={ad.name} url={ad.avatar} size={44} square /></Link>
+            : <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined, display: 'inline-flex' }}><Avatar name={ad.name} url={ad.avatar} size={44} /></span>}
           <div className="grow" style={{ lineHeight: 1.5 }}>
-            <div className="row" style={{ gap: 8 }}><span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined }}><Check /><b style={{ fontSize: 16 }}>{ad.name}</b></span><span className="ad-badge">إعلان</span></div>
+            <div className="row" style={{ gap: 8 }}>{ad.groupId ? <Link to={`/g/${ad.groupId}`}><b style={{ fontSize: 16 }}>{ad.name}</b></Link> : <span onClick={openAd} style={{ cursor: ad.link ? 'pointer' : undefined }}><Check /><b style={{ fontSize: 16 }}>{ad.name}</b></span>}<span className="ad-badge">إعلان</span></div>
           </div>
         </>) : (<>
           <Link to={`/u/${post.author_id}`} aria-label="الصفحة الشخصية"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={44} /></Link>

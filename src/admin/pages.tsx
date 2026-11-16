@@ -285,6 +285,7 @@ export function UserDetail() {
                 <div className="mut" style={{ fontSize: 13, marginTop: 4 }}>{p.groups?.name ? 'في مجموعة «' + p.groups.name + '»' : 'منشور شخصي'} · {timeAgo(p.created_at)} · ❤️ {p.likes?.[0]?.count ?? 0} · 💬 {p.comments?.[0]?.count ?? 0}</div>
               </div>
               <Link className="btn sm line" to={'/post/' + p.id} target="_blank">فتح</Link>
+              {me?.role === 'admin' && <Link className="btn sm p" to={'/admin/ads/promote/' + p.id}>📣 روّج</Link>}
               {me?.role !== 'support' && <button className="btn sm line" style={{ color: '#B91C1C' }} onClick={() => delPost(p.id)}>حذف</button>}
             </div>
           ))}
@@ -573,7 +574,7 @@ export function Upgrades() {
   return (<><Head title="طلبات الترقية ⭐" /><div className="mut">محادثات طلبات الترقية (منفصلة عن الدعم). افتح المحادثة، ولما يتم الدفع دوس «تفعيل مميز 30 يوم».</div><StaffSupport channel="upgrade" /></>)
 }
 
-type AdRow = { id: string; title: string; body: string; image_url: string | null; post_id: string; starts_at: string; ends_at: string; target_viewers: number; status: string; views: number; likes: number; comments: number; advertiser_name: string | null; advertiser_avatar: string | null; link_url?: string | null }
+type AdRow = { id: string; title: string; body: string; image_url: string | null; post_id: string; starts_at: string; ends_at: string; target_viewers: number; status: string; views: number; likes: number; comments: number; advertiser_name: string | null; advertiser_avatar: string | null; link_url?: string | null; src_post?: string | null; group_id?: string | null; group_name?: string | null; target_gender?: string; age_min?: number | null; age_max?: number | null }
 const adState = (a: AdRow) => {
   if (a.status === 'paused') return { t: 'متوقف', c: '#B45309', bg: '#FEF3C7' }
   if (new Date(a.ends_at) < new Date()) return { t: 'انتهى', c: '#52525B', bg: '#F4F4F5' }
@@ -598,9 +599,9 @@ export function Ads() {
   const { rows, err } = useAds()
   return (
     <>
-      <Head title="الإعلانات 📣"><button className="btn p" onClick={() => nav('/admin/ads/new')}>+ إضافة إعلان جديد</button></Head>
+      <Head title="الإعلانات 📣"><button className="btn line" onClick={() => nav('/admin/groups')}>ترويج بوست من مجموعة</button><button className="btn p" onClick={() => nav('/admin/ads/new')}>+ إعلان مستقل</button></Head>
       <div className="card mut" style={{ lineHeight: 1.9 }}>
-        الإعلان بيظهر للمستخدمين في صفحتهم الرئيسية كبوست عادي (عليه علامة «إعلان») ويقدروا يعملوا إعجاب وتعليق، وبيوقف لما تعدّي عدد الأيام أو يظهر للعدد المطلوب، أيهما أول. دوس على أي إعلان لتفاصيله وتعديله.
+        الإعلان بيظهر للمستخدمين في صفحتهم الرئيسية (عليه علامة «إعلان») ويقدروا يعملوا إعجاب وتعليق، وبيوقف لما تعدّي عدد الأيام أو يظهر للعدد المطلوب، أيهما أول. <b>لترويج بوست من مجموعة:</b> افتح المجموعة من صفحة «المجموعات» ← «المنشورات» ← دوس «روّج» جنب البوست. دوس على أي إعلان لتفاصيله وتعديله.
       </div>
       {err && <Err>{err}</Err>}
       {rows === null && <div className="mut" style={{ marginTop: 14 }}>جاري التحميل…</div>}
@@ -614,7 +615,7 @@ export function Ads() {
                 const st = adState(a); const pct = Math.min(100, Math.round((a.views / a.target_viewers) * 100))
                 return (
                   <tr key={a.id} onClick={() => nav('/admin/ads/' + a.id)} style={{ cursor: 'pointer' }}>
-                    <td><div className="row" style={{ gap: 10 }}><Avatar name={a.advertiser_name || a.title} url={a.advertiser_avatar} size={36} /><b>{a.advertiser_name || a.title}</b></div></td>
+                    <td><div className="row" style={{ gap: 10 }}><Avatar name={a.advertiser_name || a.title} url={a.advertiser_avatar} size={36} /><b>{a.advertiser_name || a.title}</b>{a.src_post && <span className="pill" style={{ color: '#0369A1', background: '#E0F2FE' }}>بوست مروَّج</span>}</div></td>
                     <td className="mut" style={{ maxWidth: 260 }}>{a.body.length > 70 ? a.body.slice(0, 70) + '…' : a.body}</td>
                     <td><span className="pill" style={{ color: st.c, background: st.bg }}>{st.t}</span></td>
                     <td style={{ minWidth: 150 }}>
@@ -668,6 +669,84 @@ function AdFields({ f, set, setErr }: { f: AdForm; set: (p: Partial<AdForm>) => 
   )
 }
 
+
+// حقول الاستهداف + المدة (مشتركة بين ترويج جديد وتعديل ترويج)
+type PromoForm = { days: string; viewers: string; gender: string; ageMin: string; ageMax: string; link: string }
+function PromoFields({ f, set, showDays }: { f: PromoForm; set: (p: Partial<PromoForm>) => void; showDays: boolean }) {
+  return (
+    <>
+      {showDays && (
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <label className="col" style={{ gap: 4 }}><b>مدة الظهور (أيام)</b><input className="adm-in" type="number" min={1} max={365} value={f.days} onChange={(e) => set({ days: e.target.value })} style={{ width: 150 }} /></label>
+          <label className="col" style={{ gap: 4 }}><b>عدد المستخدمين</b><input className="adm-in" type="number" min={1} value={f.viewers} onChange={(e) => set({ viewers: e.target.value })} style={{ width: 150 }} /></label>
+        </div>
+      )}
+      <b style={{ fontSize: 14 }}>الجمهور المستهدف</b>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        {([['all', 'الجميع'], ['female', 'سيدات'], ['male', 'رجال']] as const).map(([v, t]) => (
+          <button key={v} type="button" className={'adm-chip' + (f.gender === v ? ' on' : '')} onClick={() => set({ gender: v })}>{t}</button>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+        <label className="col" style={{ gap: 4 }}><b>السن من (اختياري)</b><input className="adm-in" type="number" min={13} max={100} placeholder="مثلًا 18" value={f.ageMin} onChange={(e) => set({ ageMin: e.target.value })} style={{ width: 150 }} /></label>
+        <label className="col" style={{ gap: 4 }}><b>إلى (اختياري)</b><input className="adm-in" type="number" min={13} max={100} placeholder="مثلًا 35" value={f.ageMax} onChange={(e) => set({ ageMax: e.target.value })} style={{ width: 150 }} /></label>
+      </div>
+      <span className="mut" style={{ fontSize: 13, lineHeight: 1.7 }}>الاستهداف حسب النوع وتاريخ الميلاد اللي كتبه المستخدم في حسابه. لو حددت سن، المستخدمين اللي مفيش عندهم تاريخ ميلاد مش هيظهرلهم الإعلان. أعضاء المجموعة نفسها مش بيظهرلهم الإعلان (شايفين البوست أصلًا).</span>
+      <b style={{ fontSize: 14 }}>رابط خارجي (اختياري)</b>
+      <input className="adm-in" dir="ltr" placeholder="https://example.com — لو المستخدم داس على اسم المعلن يتفتحله" maxLength={500} value={f.link} onChange={(e) => set({ link: e.target.value })} />
+    </>
+  )
+}
+const ageVal = (s: string) => (s.trim() ? parseInt(s, 10) : null)
+
+// ترويج بوست مجموعة موجود (الأدمن بيختاره من تبويب منشورات المجموعة)
+export function AdPromote() {
+  const { postId } = useParams(); const nav = useNavigate()
+  const [post, setPost] = useState<{ body: string; image_url: string | null; group_id: string | null; groups: { name: string; cover_url: string | null } | null; profiles: { name: string } | null } | null | undefined>(undefined)
+  const [f, setF] = useState<PromoForm>({ days: '3', viewers: '1000', gender: 'all', ageMin: '', ageMax: '', link: '' })
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    supabase.from('posts').select('body,image_url,group_id,groups(name,cover_url),profiles!author_id(name)').eq('id', postId!).maybeSingle()
+      .then(({ data }) => setPost((data as never) ?? null))
+  }, [postId])
+  const go = async () => {
+    setErr('')
+    const d = parseInt(f.days, 10), v = parseInt(f.viewers, 10), a1 = ageVal(f.ageMin), a2 = ageVal(f.ageMax)
+    if (!(d >= 1 && d <= 365)) return setErr('مدة الإعلان من 1 إلى 365 يوم.')
+    if (!(v >= 1)) return setErr('اكتب عدد المستخدمين (1 على الأقل).')
+    if ((a1 !== null && !(a1 >= 13 && a1 <= 100)) || (a2 !== null && !(a2 >= 13 && a2 <= 100))) return setErr('السن لازم يكون من 13 إلى 100.')
+    if (a1 !== null && a2 !== null && a1 > a2) return setErr('السن الأدنى أكبر من الأقصى.')
+    setBusy(true)
+    const { error } = await supabase.rpc('admin_promote_post', { p_post: postId, p_days: d, p_viewers: v, p_gender: f.gender, p_age_min: a1, p_age_max: a2, ...(f.link.trim() ? { p_link: f.link.trim() } : {}) })
+    setBusy(false)
+    if (error) return setErr(errMsg(error) + ' — لو الرسالة بتقول الدالة مش موجودة، شغّل تحديث 044 في Supabase.')
+    nav('/admin/ads')
+  }
+  const back = <Link className="btn line" to={post?.group_id ? '/admin/groups/' + post.group_id : '/admin/groups'}>← رجوع للمجموعة</Link>
+  if (post === undefined) return <div className="mut">جاري التحميل…</div>
+  if (!post) return <><Head title="ترويج بوست">{back}</Head><div className="card mut">البوست مش موجود.</div></>
+  return (
+    <>
+      <Head title="ترويج بوست 📣">{back}</Head>
+      <div className="row" style={{ gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div className="card col" style={{ gap: 12, flex: '1 1 460px', maxWidth: 640 }}>
+          <PromoFields f={f} set={(p) => setF((x) => ({ ...x, ...p }))} showDays />
+          {err && <Err>{err}</Err>}
+          <button className="btn p" disabled={busy} onClick={go}>{busy ? 'استنى…' : 'بدء الترويج'}</button>
+        </div>
+        <div className="card col" style={{ gap: 8, flex: '0 0 300px' }}>
+          <b>البوست المختار</b>
+          <div className="row" style={{ gap: 10 }}><Avatar name={post.groups?.name ?? '؟'} url={post.groups?.cover_url} size={36} square /><b>{post.groups?.name}</b></div>
+          <div className="mut" style={{ fontSize: 13 }}>كتبه {post.profiles?.name}</div>
+          {post.image_url && <img src={post.image_url} alt="" style={{ width: '100%', borderRadius: 10, maxHeight: 160, objectFit: 'cover' }} />}
+          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{post.body.length > 240 ? post.body.slice(0, 240) + '…' : post.body}</div>
+          <span className="mut" style={{ fontSize: 13, lineHeight: 1.7 }}>الإعلان بيشاور على البوست الأصلي: التعليقات والإعجابات بتفضل عليه وصاحب المجموعة يقدر يرد عليها.</span>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function AdNew() {
   const nav = useNavigate()
   const [f, setF] = useState<AdForm>({ advName: '', advAv: '', title: '', body: '', img: '', link: '' })
@@ -704,6 +783,68 @@ export function AdNew() {
 
 const toDateInput = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
+
+function PromoDetail({ a, st, pct, load }: { a: AdRow; st: { t: string; c: string; bg: string }; pct: number; load: () => void }) {
+  const nav = useNavigate()
+  const [f, setF] = useState<PromoForm>({ days: '', viewers: String(a.target_viewers), gender: a.target_gender ?? 'all', ageMin: a.age_min ? String(a.age_min) : '', ageMax: a.age_max ? String(a.age_max) : '', link: a.link_url ?? '' })
+  const [endDate, setEndDate] = useState(toDateInput(a.ends_at)); const [status, setStatus] = useState(a.status)
+  const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false)
+  const save = async () => {
+    setErr(''); setOk('')
+    const t = parseInt(f.viewers, 10), a1 = ageVal(f.ageMin), a2 = ageVal(f.ageMax)
+    if (!(t >= 1)) return setErr('عدد المستخدمين لازم يكون 1 على الأقل.')
+    if (!endDate) return setErr('اختار تاريخ الانتهاء.')
+    if ((a1 !== null && !(a1 >= 13 && a1 <= 100)) || (a2 !== null && !(a2 >= 13 && a2 <= 100))) return setErr('السن لازم يكون من 13 إلى 100.')
+    if (a1 !== null && a2 !== null && a1 > a2) return setErr('السن الأدنى أكبر من الأقصى.')
+    setBusy(true)
+    const { error } = await supabase.rpc('admin_update_promo', { p_id: a.id, p_ends_at: new Date(endDate + 'T23:59:59').toISOString(), p_target: t, p_status: status, p_gender: f.gender, p_age_min: a1, p_age_max: a2, p_link: f.link.trim() || null })
+    setBusy(false)
+    if (error) return setErr(errMsg(error))
+    setOk('تم حفظ التعديلات'); load()
+  }
+  const del = async () => {
+    if (!confirm('إيقاف الترويج وحذفه؟ (البوست الأصلي في المجموعة مش هيتمسح)')) return
+    const { error } = await supabase.rpc('admin_delete_ad', { p_id: a.id })
+    if (error) setErr(errMsg(error)); else nav('/admin/ads')
+  }
+  return (
+    <>
+      <Head title="تفاصيل الترويج 📣"><Link className="btn line" to="/admin/ads">← رجوع للجدول</Link></Head>
+      <div className="row" style={{ gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div className="card col" style={{ gap: 12, flex: '1 1 460px', maxWidth: 640 }}>
+          <div className="row" style={{ gap: 10 }}><Avatar name={a.group_name ?? '؟'} url={a.advertiser_avatar} size={40} square /><b>{a.group_name}</b></div>
+          <div className="mut" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{a.body.length > 200 ? a.body.slice(0, 200) + '…' : a.body}</div>
+          <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <label className="col" style={{ gap: 4 }}><b>ينتهي في</b><input className="adm-in" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ width: 170 }} /></label>
+            <label className="col" style={{ gap: 4 }}><b>عدد المستخدمين</b><input className="adm-in" type="number" min={1} value={f.viewers} onChange={(e) => setF((x) => ({ ...x, viewers: e.target.value }))} style={{ width: 150 }} /></label>
+            <label className="col" style={{ gap: 4 }}><b>الحالة</b>
+              <select className="adm-in" value={status} onChange={(e) => setStatus(e.target.value)}><option value="active">شغال</option><option value="paused">متوقف مؤقتًا</option></select>
+            </label>
+          </div>
+          <PromoFields f={f} set={(p) => setF((x) => ({ ...x, ...p }))} showDays={false} />
+          <Msg err={err} ok={ok} />
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn p" disabled={busy} onClick={save}>{busy ? 'استنى…' : 'حفظ التعديلات'}</button>
+            <button className="btn line" style={{ color: '#B91C1C' }} onClick={del}>إيقاف وحذف الترويج</button>
+          </div>
+        </div>
+        <div className="card col" style={{ gap: 12, flex: '0 0 260px' }}>
+          <b>الإحصائيات</b>
+          <span className="pill" style={{ color: st.c, background: st.bg, alignSelf: 'flex-start' }}>{st.t}</span>
+          <div>
+            <div style={{ fontSize: 14 }}>ظهر لـ <b>{a.views}</b> من {a.target_viewers} مستخدم</div>
+            <div style={{ height: 8, background: '#E4E4E7', borderRadius: 99, overflow: 'hidden', marginTop: 6 }}><div style={{ width: pct + '%', height: '100%', background: '#0866FF' }} /></div>
+          </div>
+          <div>❤️ {a.likes} إعجاب</div><div>💬 {a.comments} تعليق</div>
+          <div className="mut" style={{ fontSize: 14 }}>بدأ: {dstr(a.starts_at)}<br />ينتهي: {dstr(a.ends_at)} (باقي {dayLeft(a.ends_at)} يوم)</div>
+          <Link className="btn sm line" to={'/post/' + a.post_id}>فتح البوست وتعليقاته</Link>
+          {a.group_id && <Link className="btn sm line" to={'/admin/groups/' + a.group_id}>صفحة المجموعة</Link>}
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function AdDetail() {
   const { id } = useParams(); const nav = useNavigate()
   const { rows, err: loadErr, load } = useAds()
@@ -717,6 +858,7 @@ export function AdDetail() {
   if (rows === null) return <div className="mut">جاري التحميل…</div>
   if (!a || !f) return <><Head title="الإعلان"><Link className="btn line" to="/admin/ads">← رجوع للجدول</Link></Head>{loadErr ? <Err>{loadErr}</Err> : <div className="card mut">الإعلان مش موجود.</div>}</>
   const st = adState(a); const pct = Math.min(100, Math.round((a.views / a.target_viewers) * 100))
+  if (a.src_post) return <PromoDetail a={a} st={st} pct={pct} load={load} />
   const save = async () => {
     setErr(''); setOk('')
     const t = parseInt(target, 10)
