@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase, uploadImage, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Avatar, Err, Icon } from '../lib/ui'
+import EmojiPicker from './EmojiPicker'
 
 type G = { id: string; name: string }
 const PERSONAL = ''
@@ -14,6 +15,7 @@ export default function Composer({ groups, defaultGroup, allowPersonal, onPosted
   const [sel, setSel] = useState<string[] | null>(defaultGroup ? [defaultGroup] : null)
   const [pick, setPick] = useState(false)
   const pref = useRef<HTMLDivElement>(null)
+  const ta = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
     const f = (e: MouseEvent) => { if (pref.current && !pref.current.contains(e.target as Node)) setPick(false) }
     document.addEventListener('mousedown', f); return () => document.removeEventListener('mousedown', f)
@@ -59,6 +61,15 @@ export default function Composer({ groups, defaultGroup, allowPersonal, onPosted
     setBusy(false)
   }
 
+  // بيحط الإيموجي مكان المؤشر في النص
+  const addEmoji = (em: string) => {
+    const el = ta.current
+    const a = el?.selectionStart ?? body.length, z = el?.selectionEnd ?? body.length
+    const nb = (body.slice(0, a) + em + body.slice(z)).slice(0, 5000)
+    setBody(nb)
+    requestAnimationFrame(() => { if (el) { el.focus(); const p = Math.min(a + em.length, nb.length); el.setSelectionRange(p, p) } })
+  }
+
   if (!targets.length) return null
   if (!open) {
     return (<>
@@ -76,12 +87,13 @@ export default function Composer({ groups, defaultGroup, allowPersonal, onPosted
         <Avatar name={profile?.name} url={profile?.avatar_url} size={40} />
         <b className="grow" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{names}</b>
       </div>
-      <textarea className="in" autoFocus placeholder="اكتب شيئًا..." value={body} maxLength={5000} onChange={(e) => setBody(e.target.value)} />
+      <textarea ref={ta} className="in" autoFocus placeholder="اكتب شيئًا..." value={body} maxLength={5000} onChange={(e) => setBody(e.target.value)} />
       {prevs.length > 0 && <div className={'cp-grid n' + prevs.length}>{prevs.map((u, i) => <div key={u} className="cp-prev"><img src={u} alt="معاينة الصورة" /><button type="button" aria-label="إزالة الصورة" onClick={() => setFiles((cur) => cur.filter((_, k) => k !== i))}>✕</button></div>)}</div>}
       <div className="row">
         {files.length < 4 && <label className="btn sm" style={{ cursor: 'pointer' }}><Icon n="image" s={18} />{files.length ? `إضافة صورة (${files.length}/4)` : 'صور'}
           <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} />
         </label>}
+        <EmojiPicker onPick={addEmoji} />
         {targets.length > 1 && (
           <div ref={pref} style={{ position: 'relative' }}>
             <button type="button" className="btn sm" aria-expanded={pick} onClick={() => setPick(!pick)}><Icon n="groups" s={18} />مكان النشر ({chosen.length})</button>

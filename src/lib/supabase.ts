@@ -21,7 +21,7 @@ export type Group = {
   cover_url: string | null; privacy: 'public' | 'private'; created_at: string; require_approval?: boolean
 }
 export type Post = {
-  id: string; group_id: string | null; author_id: string; body: string; image_url: string | null; extra_images?: string[] | null; approval?: 'approved' | 'pending'; created_at: string
+  id: string; group_id: string | null; author_id: string; body: string; image_url: string | null; extra_images?: string[] | null; approval?: 'approved' | 'pending'; edited_at?: string | null; created_at: string
   profiles: Pick<Profile, 'name' | 'avatar_url' | 'plan' | 'plan_until'> | null
   groups: { name: string; cover_url?: string | null } | null
   likes: { count: number }[]; comments: { count: number }[]

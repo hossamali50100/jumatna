@@ -6,6 +6,7 @@ import Lightbox from './Lightbox'
 import { hideFeed } from '../lib/hides'
 import { ReactButton, RxStack, buildRx, applyRx, rxTotal, emptyRx, type Rx } from './Reactions'
 import { Avatar, Err, Icon, Name, timeAgo, Check } from '../lib/ui'
+import EmojiPicker from './EmojiPicker'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
@@ -26,6 +27,12 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [body, setBody] = useState(post.body)
+  const [edited, setEdited] = useState(!!post.edited_at)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+  const eta = useRef<HTMLTextAreaElement>(null)
   const [zoom, setZoom] = useState<number | false>(false)
   const imgs = [post.image_url, ...(post.extra_images ?? [])].filter((x): x is string => !!x)
   const [reported, setReported] = useState(false)
@@ -120,6 +127,23 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     const gone = cms.filter((c) => c.id === id || c.parent_id === id).length
     setCms((l) => l.filter((c) => c.id !== id && c.parent_id !== id)); setCcount((n) => Math.max(0, n - gone))
   }
+  const startEdit = () => { setMenu(false); setDraft(body); setEditing(true) }
+  const saveEdit = async () => {
+    const t = draft.trim()
+    if (!t && !post.image_url) return setErr('اكتب نص للبوست.')
+    setSaving(true); setErr('')
+    const { error } = await supabase.rpc('edit_post', { p_id: post.id, p_body: t })
+    setSaving(false)
+    if (error) return setErr(errMsg(error) + (/edit_post|schema cache|function/i.test(error.message) ? ' — شغّل تحديث 045 في Supabase.' : ''))
+    setBody(t); setEdited(true); setEditing(false)
+  }
+  const addEmoji = (em: string) => {
+    const el = eta.current
+    const a = el?.selectionStart ?? draft.length, z = el?.selectionEnd ?? draft.length
+    const nb = (draft.slice(0, a) + em + draft.slice(z)).slice(0, 5000)
+    setDraft(nb)
+    requestAnimationFrame(() => { if (el) { el.focus(); const p = Math.min(a + em.length, nb.length); el.setSelectionRange(p, p) } })
+  }
   const delPost = async () => {
     setMenu(false)
     if (!confirm('حذف البوست نهائيًا؟')) return
@@ -200,6 +224,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
               {reported && <span className="mut" style={{ padding: 10, display: 'block' }}>تم الإبلاغ</span>}
               {!ad && post.author_id !== me && <button onClick={() => hide('user', post.author_id, post.profiles?.name ?? 'الشخص ده')}>إخفاء منشورات {post.profiles?.name ?? 'الشخص ده'}</button>}
               {!ad && post.group_id && <button onClick={() => hide('group', post.group_id!, post.groups?.name ?? 'المجموعة دي')}>إخفاء منشورات {post.groups?.name ?? 'المجموعة دي'}</button>}
+              {post.author_id === me && !ad && <button onClick={startEdit}>تعديل البوست</button>}
               {canDelete && <button onClick={delPost} style={{ color: '#C0392B' }}>حذف البوست</button>}
               {post.author_id === me && !canDelete && null}
             </div>
@@ -208,14 +233,26 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
       </div>
       {post.approval === 'pending' && <div className="pend-note">⏳ بانتظار موافقة مشرف المجموعة — لسه ما ظهرش للأعضاء</div>}
       {hidNote && <div className="pend-note" style={{ background: '#EAF3FF', color: '#0B4FAE' }}>{hidNote}</div>}
-      <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{post.body}</p>
+      {editing ? (
+        <div className="col" style={{ gap: 8, margin: '10px 0' }}>
+          <textarea ref={eta} className="in" autoFocus value={draft} maxLength={5000} onChange={(e) => setDraft(e.target.value)} style={{ minHeight: 90 }} />
+          <div className="row">
+            <EmojiPicker onPick={addEmoji} />
+            <span className="grow" />
+            <button className="btn sm" onClick={() => { setEditing(false); setErr('') }}>إلغاء</button>
+            <button className="btn p sm" disabled={saving} onClick={saveEdit}>{saving ? 'جاري الحفظ…' : 'حفظ'}</button>
+          </div>
+        </div>
+      ) : (
+        <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{body}{edited && <span className="mut" style={{ fontSize: 12, marginInlineStart: 8 }}>(تم التعديل)</span>}</p>
+      )}
       {imgs.length === 1 && <img className="post-img" src={imgs[0]} alt="" loading="lazy" style={ad?.link ? { cursor: 'pointer' } : undefined} onClick={() => ad ? (ad.link ? openAd() : setZoom(0)) : setZoom(0)} />}
       {imgs.length > 1 && <div className={'pg n' + imgs.length}>{imgs.map((u, k) => <img key={u} src={u} alt="" loading="lazy" onClick={() => ad?.link ? openAd() : setZoom(k)} />)}</div>}
       {ad?.link && <a className="ad-link" href={ad.link} target="_blank" rel="noopener noreferrer nofollow">{hostOf(ad.link)} ↗</a>}
       {zoom !== false && imgs.length > 0 && (
         <Lightbox srcs={imgs} start={zoom} onClose={() => setZoom(false)} side={<>
           <div className="row"><Avatar name={post.profiles?.name} url={post.profiles?.avatar_url} size={40} /><b><Name p={post.profiles} /></b></div>
-          {post.body && <div className="body">{post.body}</div>}
+          {body && <div className="body">{body}</div>}
           <div className="mut">{likes > 0 && <><RxStack by={rx.by} /> {likes} · </>}{ccount} تعليق</div>
           <button className="btn p" onClick={() => { setZoom(false); if (!open) toggleComments() }}>عرض التعليقات</button>
         </>} />
