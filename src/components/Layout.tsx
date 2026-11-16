@@ -31,7 +31,6 @@ function Desktop() {
   const nf = useNotifs(40)
   const ref = useRef<HTMLDivElement>(null)
   const dref = useRef<HTMLDivElement>(null)
-  useHeartbeat()
   useEffect(() => { setMenu(false); setDms(false); setNots(false) }, [loc.pathname])
   useEffect(() => {
     const f = (e: MouseEvent) => {
@@ -170,6 +169,7 @@ function Mobile() {
 
 export default function Layout() {
   const mobile = useIsMobile()
+  useHeartbeat() // لازم يشتغل على الموبايل والكمبيوتر (كان في نسخة الكمبيوتر بس)
   useMessageSound()
   return <ChatDockProvider enabled={!mobile}>{mobile ? <Mobile /> : <Desktop />}</ChatDockProvider>
 }

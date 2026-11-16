@@ -7,6 +7,7 @@ import { hideFeed } from '../lib/hides'
 import { ReactButton, RxStack, buildRx, applyRx, rxTotal, emptyRx, type Rx } from './Reactions'
 import { Avatar, Err, Icon, Name, timeAgo, Check } from '../lib/ui'
 import EmojiPicker from './EmojiPicker'
+import SquareImage from './SquareImage'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
@@ -64,7 +65,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     const { error } = k === null ? await q.delete().eq('post_id', post.id).eq('user_id', me)
       : prev.mine ? await q.update({ reaction: k }).eq('post_id', post.id).eq('user_id', me)
       : await q.insert(k === 'like' ? { post_id: post.id, user_id: me } : { post_id: post.id, user_id: me, reaction: k })
-    if (error) { setRx(prev); setErr(/reaction|schema cache|permission|policy/i.test(error.message) ? 'ردود الفعل محتاجة تحديث 028 في Supabase (مرة واحدة).' : errMsg(error)) }
+    if (error) { setRx(prev); setErr(/reaction|schema cache|permission|policy/i.test(error.message) ? `ما اتحفظش الإعجاب. السبب: ${error.message}` : errMsg(error)) }
   }
   const loadComments = async () => {
     let { data, error } = (await supabase.from('comments')
@@ -94,7 +95,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     const { error } = k === null ? await q.delete().eq('comment_id', id).eq('user_id', me)
       : prev.mine ? await q.update({ reaction: k }).eq('comment_id', id).eq('user_id', me)
       : await q.insert(k === 'like' ? { comment_id: id, user_id: me } : { comment_id: id, user_id: me, reaction: k })
-    if (error) { setCRx((m) => ({ ...m, [id]: prev })); setErr(/reaction|schema cache|permission|policy/i.test(error.message) ? 'ردود الفعل محتاجة تحديث 028 في Supabase (مرة واحدة).' : errMsg(error)) }
+    if (error) { setCRx((m) => ({ ...m, [id]: prev })); setErr(/reaction|schema cache|permission|policy/i.test(error.message) ? `ما اتحفظش الإعجاب. السبب: ${error.message}` : errMsg(error)) }
   }
   const sendReply = async () => {
     const body = rtext.trim()
@@ -246,7 +247,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
       ) : (
         <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{body}{edited && <span className="mut" style={{ fontSize: 12, marginInlineStart: 8 }}>(تم التعديل)</span>}</p>
       )}
-      {imgs.length === 1 && <img className="post-img" src={imgs[0]} alt="" loading="lazy" style={ad?.link ? { cursor: 'pointer' } : undefined} onClick={() => ad ? (ad.link ? openAd() : setZoom(0)) : setZoom(0)} />}
+      {imgs.length === 1 && <SquareImage src={imgs[0]} onClick={() => (ad?.link ? openAd() : setZoom(0))} />}
       {imgs.length > 1 && <div className={'pg n' + imgs.length}>{imgs.map((u, k) => <img key={u} src={u} alt="" loading="lazy" onClick={() => ad?.link ? openAd() : setZoom(k)} />)}</div>}
       {ad?.link && <a className="ad-link" href={ad.link} target="_blank" rel="noopener noreferrer nofollow">{hostOf(ad.link)} ↗</a>}
       {zoom !== false && imgs.length > 0 && (

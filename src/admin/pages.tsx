@@ -71,7 +71,8 @@ function useUsers() {
     const { data, error } = await supabase.rpc('admin_users')
     if (error) { setErr(errMsg(error) + ' — اتأكد إنك شغّلت تحديث 024 في Supabase.'); setUsers([]) } else { setErr(''); setUsers((data ?? []) as UserRow[]) }
   }, [])
-  useEffect(() => { load() }, [load])
+  // تحديث تلقائي كل 30 ثانية عشان حالة الاتصال تفضل مظبوطة
+  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load])
   return { users, err, load }
 }
 
@@ -95,13 +96,14 @@ export function Users() {
     load()
   }
   const canAct = meP?.role === 'admin'
-  const [q, setQ] = useState(''); const [f, setF] = useState<'all' | 'premium' | 'banned' | 'staff'>('all')
+  const [q, setQ] = useState(''); const [f, setF] = useState<'all' | 'online' | 'offline' | 'premium' | 'banned' | 'staff'>('all')
   const list = (users ?? []).filter((u) => {
     const k = q.trim().toLowerCase()
     return (!k || u.name.toLowerCase().includes(k) || (u.email ?? '').toLowerCase().includes(k))
-      && (f === 'all' || (f === 'premium' && isPremium(u)) || (f === 'banned' && u.banned) || (f === 'staff' && u.role !== 'user'))
+      && (f === 'all' || (f === 'online' && isOnlineTs(u.last_seen)) || (f === 'offline' && !isOnlineTs(u.last_seen)) || (f === 'premium' && isPremium(u)) || (f === 'banned' && u.banned) || (f === 'staff' && u.role !== 'user'))
   })
-  const chips: ['all' | 'premium' | 'banned' | 'staff', string][] = [['all', 'الكل'], ['premium', 'المميزين ⭐'], ['banned', 'المحظورين'], ['staff', 'الفريق']]
+  const onCount = (users ?? []).filter((u) => isOnlineTs(u.last_seen)).length
+  const chips: ['all' | 'online' | 'offline' | 'premium' | 'banned' | 'staff', string][] = [['all', 'الكل'], ['online', `🟢 متصل الآن (${onCount})`], ['offline', `غير متصل (${(users ?? []).length - onCount})`], ['premium', 'المميزين ⭐'], ['banned', 'المحظورين'], ['staff', 'الفريق']]
   return (
     <>
       <Head title={`المستخدمين${users ? ` (${users.length})` : ''}`}><input className="adm-in" placeholder="ابحث بالاسم أو الإيميل…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} /></Head>
@@ -117,8 +119,8 @@ export function Users() {
                 <tr key={u.id} onClick={() => nav('/admin/users/' + u.id)} style={{ cursor: 'pointer' }}>
                   <td><div className="row" style={{ gap: 10 }}><Avatar name={u.name} url={u.avatar_url} size={36} /><div><b>{u.name}</b><div className="mut" style={{ fontSize: 12 }}>{u.email ?? '—'}</div></div></div></td>
                   <td>{ROLE[u.role]}</td>
-                  <td>{isPremium(u) ? <span className="pill" style={{ color: '#15803D', background: '#DCFCE7' }}>مميز ✅</span> : <span className="mut">مجاني</span>}</td>
-                  <td>{u.banned ? <span className="pill" style={{ color: '#B91C1C', background: '#FEE2E2' }}>محظور</span> : isOnlineTs(u.last_seen) ? <span style={{ color: '#15803D' }}>● متصل</span> : <span className="mut">غير متصل</span>}</td>
+                  <td>{isPremium(u) ? <span className="pill" style={{ color: '#15803D', background: '#DCFCE7', whiteSpace: 'nowrap' }}>مميز ✅</span> : <span className="mut">مجاني</span>}</td>
+                  <td>{u.banned ? <span className="pill" style={{ color: '#B91C1C', background: '#FEE2E2' }}>محظور</span> : isOnlineTs(u.last_seen) ? <span style={{ color: '#15803D', fontWeight: 700 }}>● متصل الآن</span> : <span className="mut" style={{ whiteSpace: 'nowrap' }}>{u.last_seen ? 'آخر ظهور ' + timeAgo(u.last_seen) : 'لم يظهر بعد'}</span>}</td>
                   <td>{u.posts}</td><td>{u.friends}</td><td>{u.groups}</td>
                   <td className="mut" style={{ whiteSpace: 'nowrap' }}>{timeAgo(u.created_at)}</td>
                   {canAct && <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
