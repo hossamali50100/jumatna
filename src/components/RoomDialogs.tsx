@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
+import { useCrop } from './CropModal'
 import { supabase, uploadImage, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useFriends } from '../lib/friends'
@@ -38,12 +39,14 @@ function Picker({ exclude, sel, setSel }: { exclude?: Set<string>; sel: Set<stri
 
 function AvatarPick({ file, setFile, current, name }: { file: File | null; setFile: (f: File | null) => void; current?: string | null; name: string }) {
   const inp = useRef<HTMLInputElement>(null)
+  const { ask, modal } = useCrop()
   const url = file ? URL.createObjectURL(file) : current
   return (
     <div className="row" style={{ gap: 12 }}>
       <button type="button" onClick={() => inp.current?.click()} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0 }} aria-label="اختيار صورة"><Avatar name={name || 'م'} url={url} size={64} /></button>
       <button type="button" className="btn sm" onClick={() => inp.current?.click()}>{url ? 'تغيير الصورة' : 'إضافة صورة'}</button>
-      <input ref={inp} type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <input ref={inp} type="file" accept="image/*" hidden onChange={(e) => { ask(e.target.files?.[0], 'avatar', setFile); e.target.value = '' }} />
+      {modal}
     </div>
   )
 }

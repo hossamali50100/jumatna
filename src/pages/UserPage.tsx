@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase, errMsg, isPremium, uploadImage, type Group, type Post, type Profile } from '../lib/supabase'
+import { useCrop } from '../components/CropModal'
 import { useAuth } from '../lib/auth'
 import { useFriends, type PubProfile } from '../lib/friends'
 import PostCard from '../components/PostCard'
@@ -59,6 +60,7 @@ export default function UserPage() {
       .then(({ data }) => setGroups(((data ?? []) as unknown as GM[]).map((x) => x.groups).filter((g) => g && (g.privacy === 'public' || mine))))
   }, [pid, mine])
 
+  const { ask, modal: cropModal } = useCrop()
   if (missing) return <div className="crd">الصفحة دي غير موجودة.</div>
   if (!p) return <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>
   const prem = isPremium(p)
@@ -78,18 +80,20 @@ export default function UserPage() {
     await save({ is_locked: next })
     setLockMsg(next ? 'تم قفل حسابك: الغرباء مش هيشوفوا أصدقاءك ولا مجموعاتك ولا منشوراتك.' : 'تم فتح حسابك.')
   }
-  const pickImg = async (f: File | null | undefined, key: 'avatar_url' | 'cover_url') => {
-    if (!f) return
-    try { await save({ [key]: await uploadImage(f, uid) }) } catch (e) { setErr(errMsg(e)) }
+  const pickImg = (f: File | null | undefined, key: 'avatar_url' | 'cover_url') => {
+    ask(f, key === 'avatar_url' ? 'avatar' : 'cover', async (cf) => {
+      try { await save({ [key]: await uploadImage(cf, uid) }) } catch (e) { setErr(errMsg(e)) }
+    })
   }
 
   return (
     <>
+      {cropModal}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ height: mobile ? 170 : 330, position: 'relative', background: p.cover_url ? `center/cover url("${p.cover_url}")` : `linear-gradient(135deg, ${gcolor(p.name)}, #111111)` }}>
           {mine && (
             <label className="btn sm" style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الغلاف
-              <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => pickImg(e.target.files?.[0], 'cover_url')} />
+              <input type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={(e) => { pickImg(e.target.files?.[0], 'cover_url'); e.target.value = '' }} />
             </label>
           )}
         </div>
@@ -99,7 +103,7 @@ export default function UserPage() {
               <Avatar name={p.name} url={p.avatar_url} size={mobile ? 100 : 168} />
               {mine && (
                 <label aria-label="تغيير الصورة" style={{ position: 'absolute', insetInlineEnd: 0, bottom: 4, width: 36, height: 36, borderRadius: '50%', background: '#EFEFF1', border: '2px solid #fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Icon n="image" s={18} />
-                  <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => pickImg(e.target.files?.[0], 'avatar_url')} />
+                  <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => { pickImg(e.target.files?.[0], 'avatar_url'); e.target.value = '' }} />
                 </label>
               )}
             </div>

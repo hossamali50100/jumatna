@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useCrop } from '../components/CropModal'
 import { supabase, errMsg, isPremium, uploadImage } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Err } from '../lib/ui'
@@ -11,6 +12,7 @@ export default function CreateGroup() {
   const [description, setDescription] = useState('')
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public')
   const [cover, setCover] = useState<File | null>(null)
+  const { ask, modal: cropModal } = useCrop()
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -38,10 +40,11 @@ export default function CreateGroup() {
         <option value="public">عامة — أي حد ينضم ويشوف البوستات</option>
         <option value="private">خاصة — الانضمام بموافقتك</option>
       </select>
-      <label className="btn" style={{ cursor: 'pointer' }}>{cover ? cover.name : '📷 صورة الغلاف (اختياري)'}
-        <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setCover(e.target.files?.[0] ?? null)} />
+      <label className="btn" style={{ cursor: 'pointer' }}>{cover ? '✓ تم اختيار الغلاف (دوس لتغييره)' : '📷 صورة الغلاف (اختياري)'}
+        <input type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={(e) => { ask(e.target.files?.[0], 'cover', setCover); e.target.value = '' }} />
       </label>
       <Err>{err}</Err>
+      {cropModal}
       <button className="btn p" disabled={busy}>{busy ? '…' : 'إنشاء المجموعة'}</button>
     </form>
   )

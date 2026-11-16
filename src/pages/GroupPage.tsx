@@ -8,6 +8,7 @@ import { Avatar, Err, Icon, Name, gcolor, useIsMobile } from '../lib/ui'
 import { POST_SELECT, likedSet } from './Home'
 import { usePlatform } from '../lib/platform'
 import { useFriends } from '../lib/friends'
+import { useCrop } from '../components/CropModal'
 import GroupPromos from '../components/GroupPromos'
 
 type Member = { user_id: string; role: string; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
@@ -85,6 +86,7 @@ export default function GroupPage() {
     }
   }, [tab, g?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { ask, modal: cropModal } = useCrop()
   if (missing) return <div className="crd">المجموعة غير موجودة أو مش مسموح لك تشوفها.</div>
   if (!g) return <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>
 
@@ -152,14 +154,15 @@ export default function GroupPage() {
     if (navigator.share) { try { await navigator.share({ title: g.name, text: `انضم لمجموعة "${g.name}" على ${pf.name}`, url: link }); return } catch { /* المستخدم لغى */ } }
     copy()
   }
-  const changeCover = async (f?: File | null) => {
-    if (!f) return
-    try {
-      const url = await uploadImage(f, uid)
-      const { error } = await supabase.from('groups').update({ cover_url: url }).eq('id', g.id)
-      if (error) throw error
-      setG({ ...g, cover_url: url })
-    } catch (e) { setErr(errMsg(e)) }
+  const changeCover = (f?: File | null) => {
+    ask(f, 'cover', async (cf) => {
+      try {
+        const url = await uploadImage(cf, uid)
+        const { error } = await supabase.from('groups').update({ cover_url: url }).eq('id', g.id)
+        if (error) throw error
+        setG({ ...g, cover_url: url })
+      } catch (e) { setErr(errMsg(e)) }
+    })
   }
   const setRole = async (u: string, role: 'admin' | 'member') => {
     const { error } = await supabase.from('group_members').update({ role }).eq('group_id', g.id).eq('user_id', u)
@@ -178,11 +181,12 @@ export default function GroupPage() {
 
   return (
     <>
+      {cropModal}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ height: mobile ? 170 : 330, position: 'relative', background: g.cover_url ? `center/cover url("${g.cover_url}")` : gcolor(g.name) }}>
           {isAdmin && (
             <label className="btn sm" style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الغلاف
-              <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => changeCover(e.target.files?.[0])} />
+              <input type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={(e) => { changeCover(e.target.files?.[0]); e.target.value = '' }} />
             </label>
           )}
         </div>
