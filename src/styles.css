@@ -280,3 +280,8 @@ textarea.in{resize:vertical;min-height:90px}
 @keyframes recp{50%{opacity:.25}}
 @media (prefers-reduced-motion: reduce){.rec-dot{animation:none}}
 .cm-mic{color:var(--brand)!important}.cm-mic:hover{background:#E7F0FF!important}
+.fw-r{border-radius:12px}
+.fw-r:hover{background:#F2F3F5}
+.fw-r.on{background:#E7F0FF}
+.fw-ck{width:20px;height:20px;accent-color:var(--brand);cursor:pointer;flex:none}
+.fw-f{border-top:1px solid #E4E6EB;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
