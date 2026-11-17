@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, errMsg, type Post } from '../lib/supabase'
+import { supabase, errMsg, uploadImage, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import Lightbox from './Lightbox'
 import { hideFeed } from '../lib/hides'
@@ -12,6 +12,17 @@ import SquareImage from './SquareImage'
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
 
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u } }
+// صورة مصغّرة في وضع التعديل (رابط قديم أو ملف جديد لسه ما اترفعش)
+function EditThumb({ src }: { src: string | File }) {
+  const [url, setUrl] = useState(typeof src === 'string' ? src : '')
+  useEffect(() => {
+    if (typeof src === 'string') { setUrl(src); return }
+    const u = URL.createObjectURL(src); setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [src])
+  return url ? <img src={url} alt="" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 10, display: 'block' }} /> : null
+}
+
 export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen, ad, onDeleted }: { post: Post; liked: boolean; canModerate?: boolean; hideGroup?: boolean; autoOpen?: boolean; ad?: { name: string; avatar: string | null; link?: string | null; groupId?: string | null }; onDeleted: (id: string) => void }) {
   const { session, profile } = useAuth()
   const me = session!.user.id
@@ -35,7 +46,8 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   const [saving, setSaving] = useState(false)
   const eta = useRef<HTMLTextAreaElement>(null)
   const [zoom, setZoom] = useState<number | false>(false)
-  const imgs = [post.image_url, ...(post.extra_images ?? [])].filter((x): x is string => !!x)
+  const [imgs, setImgs] = useState<string[]>(() => [post.image_url, ...(post.extra_images ?? [])].filter((x): x is string => !!x))
+  const [dImgs, setDImgs] = useState<(string | File)[]>([]) // صور البوست أثناء التعديل: روابط قديمة أو ملفات جديدة
   const [reported, setReported] = useState(false)
   const [hidNote, setHidNote] = useState('')
   const mref = useRef<HTMLDivElement>(null)
@@ -128,15 +140,29 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
     const gone = cms.filter((c) => c.id === id || c.parent_id === id).length
     setCms((l) => l.filter((c) => c.id !== id && c.parent_id !== id)); setCcount((n) => Math.max(0, n - gone))
   }
-  const startEdit = () => { setMenu(false); setDraft(body); setEditing(true) }
+  const startEdit = () => { setMenu(false); setDraft(body); setDImgs(imgs); setEditing(true) }
   const saveEdit = async () => {
     const t = draft.trim()
-    if (!t && !post.image_url) return setErr('اكتب نص للبوست.')
+    if (!t) return setErr('اكتب نص للبوست.')
     setSaving(true); setErr('')
-    const { error } = await supabase.rpc('edit_post', { p_id: post.id, p_body: t })
+    try {
+      const changed = dImgs.length !== imgs.length || dImgs.some((x, k) => x !== imgs[k])
+      const urls = await Promise.all(dImgs.map((x) => (typeof x === 'string' ? x : uploadImage(x, me))))
+      let { error } = await supabase.rpc('edit_post_full', { p_id: post.id, p_body: t, p_images: urls })
+      if (error && /edit_post_full|schema cache|function/i.test(error.message)) {
+        // تحديث 047 لسه ما اتشغّلش: نعدّل النص بس لو الصور ما اتغيرتش
+        if (changed) throw new Error('تعديل الصور محتاج تحديث 047 في Supabase (مرة واحدة).')
+        ;({ error } = await supabase.rpc('edit_post', { p_id: post.id, p_body: t }))
+      }
+      if (error) throw new Error(errMsg(error) + (/edit_post|schema cache|function/i.test(error.message) ? ' — شغّل تحديث 045 في Supabase.' : ''))
+      setBody(t); setImgs(urls); setEdited(true); setEditing(false)
+    } catch (e) { setErr(errMsg(e)) }
     setSaving(false)
-    if (error) return setErr(errMsg(error) + (/edit_post|schema cache|function/i.test(error.message) ? ' — شغّل تحديث 045 في Supabase.' : ''))
-    setBody(t); setEdited(true); setEditing(false)
+  }
+  const addEditFiles = (fl: FileList | null) => {
+    if (!fl) return
+    const picked = Array.from(fl) // لازم ننسخها دلوقتي: القايمة بتفضى لما خانة الملف تتصفّر
+    setDImgs((l) => [...l, ...picked.slice(0, Math.max(0, 4 - l.length))])
   }
   const addEmoji = (em: string) => {
     const el = eta.current
@@ -237,8 +263,21 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
       {editing ? (
         <div className="col" style={{ gap: 8, margin: '10px 0' }}>
           <textarea ref={eta} className="in" autoFocus value={draft} maxLength={5000} onChange={(e) => setDraft(e.target.value)} style={{ minHeight: 90 }} />
-          <div className="row">
+          {dImgs.length > 0 && (
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              {dImgs.map((x, k) => (
+                <div key={k} style={{ position: 'relative', width: 96, height: 96 }}>
+                  <EditThumb src={x} />
+                  <button type="button" aria-label="حذف الصورة" title="حذف الصورة" onClick={() => setDImgs((l) => l.filter((_, n) => n !== k))} style={{ position: 'absolute', top: 4, insetInlineEnd: 4, width: 26, height: 26, borderRadius: '50%', border: 0, background: 'rgba(0,0,0,.7)', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <EmojiPicker onPick={addEmoji} />
+            {dImgs.length < 4 && <label className="btn sm" style={{ cursor: 'pointer' }}><Icon n="image" s={18} />{dImgs.length ? `إضافة صورة (${dImgs.length}/4)` : 'إضافة صورة'}
+              <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(e) => { addEditFiles(e.target.files); e.target.value = '' }} />
+            </label>}
             <span className="grow" />
             <button className="btn sm" onClick={() => { setEditing(false); setErr('') }}>إلغاء</button>
             <button className="btn p sm" disabled={saving} onClick={saveEdit}>{saving ? 'جاري الحفظ…' : 'حفظ'}</button>
@@ -247,8 +286,8 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
       ) : (
         <p className="body" style={{ margin: '10px 0', cursor: ad?.link ? 'pointer' : undefined }} onClick={ad ? openAd : undefined}>{body}{edited && <span className="mut" style={{ fontSize: 12, marginInlineStart: 8 }}>(تم التعديل)</span>}</p>
       )}
-      {imgs.length === 1 && <SquareImage src={imgs[0]} onClick={() => (ad?.link ? openAd() : setZoom(0))} />}
-      {imgs.length > 1 && <div className={'pg n' + imgs.length}>{imgs.map((u, k) => <img key={u} src={u} alt="" loading="lazy" onClick={() => ad?.link ? openAd() : setZoom(k)} />)}</div>}
+      {!editing && imgs.length === 1 && <SquareImage src={imgs[0]} onClick={() => (ad?.link ? openAd() : setZoom(0))} />}
+      {!editing && imgs.length > 1 && <div className={'pg n' + imgs.length}>{imgs.map((u, k) => <img key={u} src={u} alt="" loading="lazy" onClick={() => ad?.link ? openAd() : setZoom(k)} />)}</div>}
       {ad?.link && <a className="ad-link" href={ad.link} target="_blank" rel="noopener noreferrer nofollow">{hostOf(ad.link)} ↗</a>}
       {zoom !== false && imgs.length > 0 && (
         <Lightbox srcs={imgs} start={zoom} onClose={() => setZoom(false)} side={<>

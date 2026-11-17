@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase, uploadImage, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import ChatBox, { type ChatMsg } from './ChatBox'
+import { VOICE_BODY, uploadVoice, voiceErr } from '../lib/voice'
 import { useTyping } from '../lib/typing'
 
-type Msg = { id: string; sender_id: string; body: string; image_url: string | null; created_at: string; profiles: { name: string; avatar_url: string | null } | null }
+type Msg = { id: string; sender_id: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; profiles: { name: string; avatar_url: string | null } | null }
 
 // محادثة مجموعة شات
 export default function RoomThread({ roomId, height, fill }: { roomId: string; height?: number; fill?: boolean }) {
@@ -17,7 +18,9 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
   const marked = useRef('')
   const markRead = useCallback(() => { supabase.from('chat_room_members').update({ last_read_at: new Date().toISOString() }).eq('room_id', roomId).eq('user_id', uid).then(() => {}) }, [roomId, uid])
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('chat_room_messages').select('id,sender_id,body,image_url,created_at,profiles!sender_id(name,avatar_url)').eq('room_id', roomId).order('created_at', { ascending: true }).limit(200)
+    const q = (cols: string) => supabase.from('chat_room_messages').select(cols).eq('room_id', roomId).order('created_at', { ascending: true }).limit(200)
+    let { data, error } = await q('id,sender_id,body,image_url,audio_url,audio_secs,created_at,profiles!sender_id(name,avatar_url)')
+    if (error && /audio_/i.test(error.message)) ({ data, error } = await q('id,sender_id,body,image_url,created_at,profiles!sender_id(name,avatar_url)'))
     if (error) return setErr(/chat_room|schema cache|relation/i.test(error.message) ? 'مجموعات الشات محتاجة تحديث 031 في Supabase (مرة واحدة).' : errMsg(error))
     setErr('')
     const list = (data ?? []) as unknown as Msg[]
@@ -43,6 +46,12 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     if (error) { setMsgs((l) => l.filter((m) => m.id !== tmp.id)); throw error }
     load()
   }
+  const onSendVoice = async (blob: Blob, secs: number) => {
+    const audio_url = await uploadVoice(blob, uid)
+    const { error } = await supabase.from('chat_room_messages').insert({ room_id: roomId, sender_id: uid, body: VOICE_BODY, audio_url, audio_secs: secs })
+    if (error) throw voiceErr(error)
+    load()
+  }
   const onDelete = async (id: string) => {
     const { error } = await supabase.from('chat_room_messages').delete().eq('id', id)
     if (error) throw new Error(error.message)
@@ -51,6 +60,6 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
   const lastMineM = [...msgs].reverse().find((m) => m.sender_id === uid)
   const lastMine = lastMineM?.id
   const seenN = lastMineM ? reads.filter((r) => r.user_id !== uid && r.last_read_at >= lastMineM.created_at).length : 0
-  const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, created_at: m.created_at }))
-  return <ChatBox typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
+  const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at }))
+  return <ChatBox onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
 }

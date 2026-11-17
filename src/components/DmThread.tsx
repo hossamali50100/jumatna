@@ -3,11 +3,12 @@ import { errMsg } from '../lib/supabase'
 import { supabase, uploadImage } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import ChatBox, { type ChatMsg } from './ChatBox'
+import { VOICE_BODY, uploadVoice, voiceErr } from '../lib/voice'
 import ForwardModal from './ForwardModal'
 import { useChatPrefs } from '../lib/chatprefs'
 import { useTyping } from '../lib/typing'
 
-type Msg = { id: string; sender_id: string; body: string; image_url: string | null; created_at: string; read_at: string | null; delivered_at?: string | null }
+type Msg = { id: string; sender_id: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; read_at: string | null; delivered_at?: string | null }
 
 export default function DmThread({ otherId, height, fill }: { otherId: string; height?: number; fill?: boolean }) {
   const { session, profile } = useAuth()
@@ -25,7 +26,9 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     const q = (cols: string) => supabase.from('dm_messages').select(cols)
       .or(`and(sender_id.eq.${uid},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${uid})`)
       .order('created_at', { ascending: true }).limit(200)
-    let { data, error } = await q('id,sender_id,body,image_url,created_at,read_at,delivered_at')
+    let { data, error } = await q('id,sender_id,body,image_url,audio_url,audio_secs,created_at,read_at,delivered_at')
+    // لو تحديث 046 (الصوت) لسه ما اتشغّلش نقرأ من غير أعمدة الصوت
+    if (error) ({ data, error } = await q('id,sender_id,body,image_url,created_at,read_at,delivered_at'))
     if (error) ({ data, error } = await q('id,sender_id,body,image_url,created_at,read_at'))
     // لو عمود read_at لسه متضافش (مهاجرة 008 ما اتشغلتش) نقرأ من غيره بدل ما المحادثة تختفي
     if (error) ({ data, error } = await q('id,sender_id,body,image_url,created_at'))
@@ -56,6 +59,12 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     if (error) { setMsgs((l) => l.filter((m) => m.id !== tmp.id)); throw /row-level|policy/i.test(error.message) ? new Error('مش تقدر تبعت رسالة للشخص ده (حظر).') : error }
     load()
   }
+  const onSendVoice = async (blob: Blob, secs: number) => {
+    const audio_url = await uploadVoice(blob, uid)
+    const { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: VOICE_BODY, audio_url, audio_secs: secs })
+    if (error) throw /row-level|policy/i.test(error.message) ? new Error('مش تقدر تبعت رسالة للشخص ده (حظر).') : voiceErr(error)
+    load()
+  }
   const onDelete = async (id: string) => {
     const { error } = await supabase.from('dm_messages').delete().eq('id', id)
     if (error) throw new Error(/permission|policy|denied/i.test(error.message) ? 'شغّل تحديث 027 في Supabase الأول.' : error.message)
@@ -78,7 +87,7 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
   const list: ChatMsg[] = msgs.map((m) => {
     const rs = reacts.filter((r) => r.message_id === m.id)
     const rx: Record<string, number> = {}; for (const r of rs) rx[r.emoji] = (rx[r.emoji] ?? 0) + 1
-    return { id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : undefined, body: m.body, image_url: m.image_url, created_at: m.created_at, rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
+    return { id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : undefined, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
   })
-  return <>{isBlocked && <div className="mut" style={{ textAlign: 'center', fontSize: 13, padding: '4px 0' }}>أنت حاظر الشخص ده. ممكن تلغي الحظر من السهم ⌄ فوق.</div>}<ChatBox typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} readOnly={isBlocked} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr || rxErr} fill={fill} onDelete={onDelete} onReact={onReact} onForward={(m) => setFwd(m)} />{fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url }} onClose={() => setFwd(null)} />}</>
+  return <>{isBlocked && <div className="mut" style={{ textAlign: 'center', fontSize: 13, padding: '4px 0' }}>أنت حاظر الشخص ده. ممكن تلغي الحظر من السهم ⌄ فوق.</div>}<ChatBox onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} readOnly={isBlocked} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr || rxErr} fill={fill} onDelete={onDelete} onReact={onReact} onForward={(m) => setFwd(m)} />{fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}</>
 }

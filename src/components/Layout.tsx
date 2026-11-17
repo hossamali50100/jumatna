@@ -70,7 +70,7 @@ function Desktop() {
             {dms && <MessagesMenu onClose={() => setDms(false)} />}
           </div>
           <div ref={nref} style={{ position: 'relative' }}>
-            <button className="ibtn" aria-label="الإشعارات" aria-expanded={nots} title="الإشعارات" onClick={() => { setNots(!nots); setDms(false); setMenu(false) }}><Badged n={nf.unread}><Icon n="bell" on={nots || loc.pathname.startsWith('/notifications')} /></Badged></button>
+            <button className="ibtn" aria-label="الإشعارات" aria-expanded={nots} title="الإشعارات" onClick={() => { if (!nots && nf.unread > 0) nf.seeAll(); setNots(!nots); setDms(false); setMenu(false) }}><Badged n={nf.unread}><Icon n="bell" on={nots || loc.pathname.startsWith('/notifications')} /></Badged></button>
             {nots && <NotificationsMenu items={nf.items} markMany={nf.markMany} markAll={nf.markAll} missing={nf.missing} onClose={() => setNots(false)} />}
           </div>
           <div ref={ref} style={{ position: 'relative' }}>

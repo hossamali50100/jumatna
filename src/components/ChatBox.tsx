@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { errMsg } from '../lib/supabase'
 import { Avatar, Err, Icon, timeAgo } from '../lib/ui'
+import { VOICE_MAX, canRecord, pickType } from '../lib/voice'
 
-export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; created_at: string; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
+export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
 // علامات الرسالة (زي واتساب): ✓ اتبعتت — ✓✓ وصلت — ✓✓ خضرا اتقرت
 function Ticks({ t }: { t: 'sending' | 'sent' | 'delivered' | 'read' }) {
   const col = t === 'read' ? '#16A34A' : '#8A8D91'
@@ -19,7 +20,9 @@ const QUICK = ['👍', '❤️', '😂', '😮', '😢', '😡']
 const EMOJIS = ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','😉','😁','😅','🙂','🤔','😢','😭','😡','😴','🙏','👍','👎','👏','🙌','💪','👌','✌️','🤝','❤️','💔','🔥','🎉','✨','💯','🌹','☕','🎁','😇','🤗','😱','🥳']
 
 // واجهة شات مشتركة (دعم + رسائل مباشرة) على شكل شات فيسبوك: فقاعات + إيموجي + لايك + صورة
-export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
+const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`
+
+export default function ChatBox({ onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
@@ -31,6 +34,44 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
     setPop({ m, kind, x: Math.min(Math.max(8, r.left - 70), window.innerWidth - 200), y: Math.min(r.bottom + 6, window.innerHeight - 190) })
   }
   const box = useRef<HTMLDivElement>(null)
+  // ---- تسجيل رسالة صوتية ----
+  const [rec, setRec] = useState(false)
+  const [secs, setSecs] = useState(0)
+  const mr = useRef<MediaRecorder | null>(null)
+  const chunks = useRef<Blob[]>([])
+  const keep = useRef(false)
+  const t0 = useRef(0)
+  const tick = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const stopRec = (send: boolean) => { keep.current = send; clearInterval(tick.current); try { mr.current?.stop() } catch { /* ignore */ } setRec(false) }
+  const startRec = async () => {
+    setErr('')
+    let stream: MediaStream
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) }
+    catch { return setErr('مش قادر أوصل للميكروفون. اسمح للموقع باستخدام الميكروفون من إعدادات المتصفح وجرّب تاني.') }
+    try {
+      const type = pickType()
+      const r = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined)
+      chunks.current = []; keep.current = false
+      r.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data) }
+      r.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const dur = Math.min(VOICE_MAX, Math.max(1, Math.round((Date.now() - t0.current) / 1000)))
+        if (!keep.current || !onSendVoice) return
+        const blob = new Blob(chunks.current, { type: r.mimeType || type || 'audio/webm' })
+        if (!blob.size) return setErr('التسجيل طلع فاضي، جرّب تاني.')
+        setBusy(true)
+        try { await onSendVoice(blob, dur) } catch (e) { setErr(errMsg(e)) }
+        setBusy(false)
+      }
+      mr.current = r; t0.current = Date.now(); setSecs(0); setRec(true); r.start()
+      tick.current = setInterval(() => {
+        const n = Math.round((Date.now() - t0.current) / 1000)
+        setSecs(n); if (n >= VOICE_MAX) stopRec(true)
+      }, 500)
+    } catch { stream.getTracks().forEach((t) => t.stop()); setErr('التسجيل الصوتي مش مدعوم على المتصفح ده.') }
+  }
+  // لو الشات اتقفل والتسجيل شغال: نوقفه من غير إرسال
+  useEffect(() => () => { keep.current = false; clearInterval(tick.current); try { mr.current?.state === 'recording' && mr.current.stop() } catch { /* ignore */ } }, [])
   const inp = useRef<HTMLInputElement>(null)
   useEffect(() => { const b = box.current; if (b) b.scrollTop = b.scrollHeight }, [msgs.length, typing])
 
@@ -70,7 +111,8 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
               <div style={{ minWidth: 0, position: 'relative', marginBottom: m.rx && Object.keys(m.rx).length ? 10 : 0 }}>
                 {m.label && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.label}</div>}
                 {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener" style={{ display: 'block' }}><img src={m.image_url} alt="" style={{ width: 'min(240px,100%)', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></a>}
-                {m.body && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
+                {m.audio_url && <div className={'cm-voice' + (m.mine ? ' mine' : '')}><audio controls preload="metadata" src={m.audio_url} /></div>}
+                {m.body && !m.audio_url && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
                   : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '8px 14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
                 {m.rx && Object.keys(m.rx).length > 0 && (
@@ -95,7 +137,7 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
           : <div className="cm-pop" style={{ left: pop.x, top: pop.y }}>
               {pop.m.mine && onDelete && <button type="button" onClick={() => doDelete(pop.m)}>إلغاء الإرسال</button>}
               {onForward && <button type="button" onClick={() => { onForward(pop.m); setPop(null) }}>إعادة توجيه</button>}
-              {pop.m.body && <button type="button" onClick={() => { try { navigator.clipboard.writeText(pop.m.body) } catch { /* ignore */ } setPop(null) }}>نسخ النص</button>}
+              {pop.m.body && !pop.m.audio_url && <button type="button" onClick={() => { try { navigator.clipboard.writeText(pop.m.body) } catch { /* ignore */ } setPop(null) }}>نسخ النص</button>}
             </div>}
       </>)}
       <Err>{error || err}</Err>
@@ -106,6 +148,17 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
           {EMOJIS.map((e) => <button key={e} type="button" onClick={() => addEmoji(e)} style={{ ...ib, width: '100%', fontSize: 20 }}>{e}</button>)}
         </div>
       )}
+      {rec ? (
+        <div className="row" style={{ gap: 8, padding: '0 2px 6px' }} role="group" aria-label="تسجيل رسالة صوتية">
+          <button type="button" style={{ ...ib, color: '#B91C1C', fontSize: 18 }} aria-label="إلغاء التسجيل" title="إلغاء" onClick={() => stopRec(false)}>✕</button>
+          <div className="grow row" style={{ gap: 8, background: '#FEE2E2', borderRadius: 22, minHeight: 40, padding: '8px 16px' }}>
+            <span className="rec-dot" aria-hidden />
+            <b style={{ direction: 'ltr' }}>{mmss(secs)}</b>
+            <span className="mut" style={{ fontSize: 13 }}>جاري التسجيل… (أقصى مدة {VOICE_MAX / 60} دقيقة)</span>
+          </div>
+          <button type="button" style={ib} aria-label="إرسال التسجيل" title="إرسال" onClick={() => stopRec(true)}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
+        </div>
+      ) : (
       <div className="row" style={{ gap: 4, padding: '0 2px 6px' }}>
         <label style={ib} aria-label="إرفاق صورة" title="صورة"><Icon n="image" s={22} />
           <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -114,8 +167,12 @@ export default function ChatBox({ msgs, onSend, empty, height = 420, error, fill
         <input ref={inp} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
         {body.trim() || file
           ? <button type="button" style={ib} aria-label="إرسال" title="إرسال" disabled={busy} onClick={() => send()}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
-          : <button type="button" style={ib} aria-label="لايك" title="لايك" disabled={busy} onClick={() => send('👍', null)}>👍</button>}
+          : <>
+              {onSendVoice && canRecord() && <button type="button" style={ib} aria-label="تسجيل رسالة صوتية" title="رسالة صوتية" disabled={busy} onClick={startRec} className="cm-mic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" stroke="none" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v4" /><path d="M8.5 22h7" /></svg></button>}
+              <button type="button" style={ib} aria-label="لايك" title="لايك" disabled={busy} onClick={() => send('👍', null)}>👍</button>
+            </>}
       </div>
+      )}
       </>)}
     </div>
   )

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// لون الخلفية = اللون السائد (متوسط ألوان الصورة). بنحسبه مرة واحدة لكل صورة ونحفظه.
+// لون الخلفية = اللون السائد (أكتر لون متكرر في الصورة). بنحسبه مرة واحدة لكل صورة ونحفظه.
 const cache = new Map<string, string>()
 function avgColor(url: string): Promise<string | null> {
   return new Promise((res) => {
@@ -8,12 +8,20 @@ function avgColor(url: string): Promise<string | null> {
     im.crossOrigin = 'anonymous'
     im.onload = () => {
       try {
-        const c = document.createElement('canvas'); c.width = 16; c.height = 16
-        const x = c.getContext('2d')!; x.drawImage(im, 0, 0, 16, 16)
-        const d = x.getImageData(0, 0, 16, 16).data
-        let r = 0, g = 0, b = 0, n = 0
-        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) continue; r += d[i]; g += d[i + 1]; b += d[i + 2]; n++ }
-        res(n ? `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})` : null)
+        const c = document.createElement('canvas'); c.width = 32; c.height = 32
+        const x = c.getContext('2d')!; x.drawImage(im, 0, 0, 32, 32)
+        const d = x.getImageData(0, 0, 32, 32).data
+        // اللون السائد: بنقسّم الألوان لمجموعات متقاربة وناخد متوسط أكبر مجموعة
+        const m = new Map<number, [number, number, number, number]>()
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 128) continue
+          const k = ((d[i] >> 5) << 6) | ((d[i + 1] >> 5) << 3) | (d[i + 2] >> 5)
+          const b = m.get(k) ?? [0, 0, 0, 0]
+          b[0] += d[i]; b[1] += d[i + 1]; b[2] += d[i + 2]; b[3]++; m.set(k, b)
+        }
+        let best: [number, number, number, number] | null = null
+        for (const b of m.values()) if (!best || b[3] > best[3]) best = b
+        res(best ? `rgb(${Math.round(best[0] / best[3])},${Math.round(best[1] / best[3])},${Math.round(best[2] / best[3])})` : null)
       } catch { res(null) }
     }
     im.onerror = () => res(null)

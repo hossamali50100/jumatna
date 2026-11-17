@@ -28,7 +28,7 @@ function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; inde
   useEffect(() => { if (isR) return; supabase.from('profiles').select('name,avatar_url,plan,plan_until').eq('id', id).maybeSingle().then(({ data }) => setP((data as P) ?? null)) }, [id, isR])
   return (
     <div role="dialog" aria-label="محادثة" className="cw" style={{ position: 'fixed', bottom: 0, left: base + index * 352, width: 340, zIndex: 60, background: '#fff', borderRadius: '14px 14px 0 0', boxShadow: '0 0 12px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column' }}>
-      <div className="row" onClick={onMin} style={{ padding: '8px 12px', borderBottom: min ? 0 : '1px solid #E4E4E7', gap: 8, cursor: 'pointer' }}>
+      <div className="row" onClick={onMin} title={min ? 'دوس لفتح المحادثة' : 'دوس لتصغير المحادثة'} style={{ padding: '8px 12px', borderBottom: min ? 0 : '1px solid #E4E4E7', gap: 8, cursor: 'pointer' }}>
         {isR ? (<>
           <Avatar name={room?.name} url={room?.avatar_url} size={32} />
           {room && <RoomMenu room={room} onLeft={onClose} wrap={<span className="cw-nm"><b>{room.name}</b><span>{`${room.members.length} أعضاء`}</span></span>} />}
@@ -43,8 +43,7 @@ function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; inde
             </span>} />
         </>)}
         <span className="grow" />
-        <Link to={`/messages/${id}`} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="فتح في صفحة الرسائل" title="فتح في صفحة الرسائل" style={{ display: 'grid', placeItems: 'center', width: 28, height: 28 }}><Icon n="msg" s={20} /></Link>
-        <button onClick={(e) => { e.stopPropagation(); onMin() }} aria-label={min ? 'تكبير' : 'تصغير'} style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>{min ? '▢' : '–'}</button>
+        <Link to={`/messages/${id}`} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="تكبير (فتح في صفحة الرسائل)" title="تكبير (فتح في صفحة الرسائل)" style={{ display: 'grid', placeItems: 'center', width: 28, height: 28 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg></Link>
         <button onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="إغلاق" style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>✕</button>
       </div>
       {!min && <div style={{ padding: 8 }}><Thread id={id} height={300} /></div>}

@@ -130,5 +130,12 @@ export function useNotifs(limit = 40) {
     setUnread((u) => Math.max(0, u - fresh))
     await supabase.from('notifications').update({ read_at: now }).in('id', ids).is('read_at', null)
   }
-  return { items, unread, missing, reload: load, markRead, markAll, markMany }
+  // لما المستخدم يفتح قايمة الإشعارات: العدّاد يتصفّر وكلها تتسجّل مقروءة على السيرفر،
+  // بس الجديدة تفضل متعلّمة قدامه لحد التحديث الجاي عشان يعرف إيه الجديد
+  const seeAll = async () => {
+    if (!uid) return
+    setUnread(0)
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null)
+  }
+  return { items, unread, missing, reload: load, markRead, markAll, markMany, seeAll }
 }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNotifs } from '../lib/notifs'
 import { useState } from 'react'
 import NotifList from '../components/NotifList'
@@ -5,7 +6,9 @@ import NotifSettings from '../components/NotifSettings'
 
 // صفحة كل الإشعارات (للموبايل ولـ "عرض كل الإشعارات")
 export default function Notifications() {
-  const { items, markMany, markAll, missing, unread } = useNotifs(100)
+  const { items, markMany, markAll, missing, unread, seeAll } = useNotifs(100)
+  // فتح الصفحة = قراءة الإشعارات كلها
+  useEffect(() => { if (unread > 0) seeAll() }, [unread]) // eslint-disable-line react-hooks/exhaustive-deps
   const [cfg, setCfg] = useState(false)
   return (
     <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>

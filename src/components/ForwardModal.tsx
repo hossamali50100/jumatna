@@ -6,7 +6,7 @@ import { useFriends } from '../lib/friends'
 import { Avatar, Err, Name } from '../lib/ui'
 
 // نافذة اختيار صديق لإعادة توجيه رسالة له
-export default function ForwardModal({ msg, onClose }: { msg: { body: string; image_url: string | null }; onClose: () => void }) {
+export default function ForwardModal({ msg, onClose }: { msg: { body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null }; onClose: () => void }) {
   const { session } = useAuth()
   const uid = session!.user.id
   const { rels } = useFriends()
@@ -14,7 +14,7 @@ export default function ForwardModal({ msg, onClose }: { msg: { body: string; im
   const list = rels.filter((r) => r.status === 'accepted' && (!q.trim() || (r.profile?.name ?? '').toLowerCase().includes(q.trim().toLowerCase())))
   const send = async (to: string) => {
     setBusy(to); setErr('')
-    const { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: to, body: msg.body, image_url: msg.image_url })
+    const { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: to, body: msg.body, image_url: msg.image_url, ...(msg.audio_url ? { audio_url: msg.audio_url, audio_secs: msg.audio_secs } : {}) })
     setBusy('')
     if (error) return setErr(errMsg(error))
     setSent((s) => new Set(s).add(to))
