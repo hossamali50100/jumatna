@@ -22,6 +22,13 @@ const EMOJIS = ['😀','😂','🤣','😊','😍','🥰','😘','😎','🤩','
 // واجهة شات مشتركة (دعم + رسائل مباشرة) على شكل شات فيسبوك: فقاعات + إيموجي + لايك + صورة
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`
 
+// أيقونات قايمة الرسالة
+const MI = ({ d }: { d: React.ReactNode }) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}>{d}</svg>
+const IcEdit = () => <MI d={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>} />
+const IcUnsend = () => <MI d={<><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /></>} />
+const IcFwd = () => <span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><MI d={<><path d="M15 5l6 6-6 6" /><path d="M21 11H10a6 6 0 0 0-6 6v2" /></>} /></span>
+const IcCopy = () => <MI d={<><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>} />
+
 export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { onEdit?: (id: string, body: string) => Promise<void>; onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -149,10 +156,12 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
         {pop.kind === 'rx'
           ? <div className="cm-pop rx" style={{ left: pop.x, top: pop.y }}>{QUICK.map((e) => <button key={e} type="button" onClick={() => { onReact?.(pop.m.id, pop.m.myRx === e ? null : e); setPop(null) }}>{e}</button>)}</div>
           : <div className="cm-pop" style={{ left: pop.x, top: pop.y }}>
-              {pop.m.mine && onEdit && pop.m.body && !pop.m.audio_url && Date.now() - new Date(pop.m.created_at).getTime() < 15 * 60e3 && <button type="button" onClick={() => startEdit(pop.m)}>تعديل الرسالة</button>}
-              {pop.m.mine && onDelete && <button type="button" onClick={() => doDelete(pop.m)}>إلغاء الإرسال</button>}
-              {onForward && <button type="button" onClick={() => { onForward(pop.m); setPop(null) }}>إعادة توجيه</button>}
-              {pop.m.body && !pop.m.audio_url && <button type="button" onClick={() => { try { navigator.clipboard.writeText(pop.m.body) } catch { /* ignore */ } setPop(null) }}>نسخ النص</button>}
+              {pop.m.mine && onEdit && pop.m.body && !pop.m.audio_url && (Date.now() - new Date(pop.m.created_at).getTime() < 15 * 60e3
+                ? <button type="button" onClick={() => startEdit(pop.m)}><IcEdit />تعديل الرسالة</button>
+                : <button type="button" disabled style={{ opacity: 0.55, cursor: 'not-allowed' }}><IcEdit />تعديل الرسالة</button>)}
+              {pop.m.mine && onDelete && <button type="button" onClick={() => doDelete(pop.m)}><IcUnsend />إلغاء الإرسال</button>}
+              {onForward && <button type="button" onClick={() => { onForward(pop.m); setPop(null) }}><IcFwd />إعادة توجيه</button>}
+              {pop.m.body && !pop.m.audio_url && <button type="button" onClick={() => { try { navigator.clipboard.writeText(pop.m.body) } catch { /* ignore */ } setPop(null) }}><IcCopy />نسخ النص</button>}
             </div>}
       </>)}
       <Err>{error || err}</Err>
