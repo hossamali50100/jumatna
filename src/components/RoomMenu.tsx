@@ -26,7 +26,7 @@ export default function RoomMenu({ room, onLeft, wrap }: { room: RoomInfo; onLef
   const open = (d: 'members' | 'edit' | 'add') => { setPos(null); setDlg(d) }
   return (
     <>
-      <button type="button" aria-label="خيارات الشات الجماعي" title="خيارات الشات الجماعي" className="cm-tb cm-chev"         onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 220) }) }}>{wrap}<Chev /></button>
+      <button type="button" aria-label="خيارات الشات الجماعي" title="خيارات الشات الجماعي" className={wrap ? 'cm-hd' : 'cm-tb cm-chev'} onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setPos({ x: Math.min(Math.max(8, r.left - 60), window.innerWidth - 210), y: Math.min(r.bottom + 6, window.innerHeight - 220) }) }}>{wrap}<Chev /></button>
       {pos && (<>
         <div className="cm-ov" onClick={(e) => { e.stopPropagation(); setPos(null) }} />
         <div className="cm-pop" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
