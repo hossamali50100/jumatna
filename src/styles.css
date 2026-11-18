@@ -289,3 +289,19 @@ textarea.in{resize:vertical;min-height:90px}
 /* أيقونات الرسالة (تفاعل / المزيد) بتطلع جنب الفقاعة في المساحة الفاضية، من غير ما تاخد من عرض الفقاعة */
 .cm-wrap .cm-tools{position:absolute;top:50%;transform:translateY(-50%);right:calc(100% + 2px);left:auto}
 .cm-wrap .cm-tools.mine{right:auto;left:calc(100% + 2px)}
+/* نافذة تأكيد جوه الموقع (زي فيسبوك) */
+.dlg-ov{position:fixed;inset:0;z-index:2000;background:rgba(244,244,245,.75);display:grid;place-items:center;padding:16px}
+.dlg{background:#fff;border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.1);width:min(548px,100%);max-height:90vh;display:flex;flex-direction:column;animation:dlgIn .14s ease-out}
+@keyframes dlgIn{from{opacity:0;transform:scale(.96)}}
+@media (prefers-reduced-motion: reduce){.dlg{animation:none}}
+.dlg-h{position:relative;padding:16px 56px;text-align:center;border-bottom:1px solid #E4E6EB;font-size:20px}
+.dlg-x{position:absolute;top:50%;transform:translateY(-50%);inset-inline-end:14px;width:36px;height:36px;border-radius:50%;border:0;background:#E4E6EB;cursor:pointer;font-size:16px;color:#050505}
+.dlg-x:hover{background:#D8DADF}
+.dlg-b{padding:16px 18px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.dlg-ch{display:flex;align-items:flex-start;gap:12px;cursor:pointer}
+.dlg-ch input{width:22px;height:22px;accent-color:var(--brand);margin-top:2px;flex:none;cursor:pointer}
+.dlg-f{display:flex;justify-content:flex-start;flex-direction:row-reverse;gap:8px;padding:4px 18px 16px;align-items:center}
+.dlg-c{border:0;background:none;color:var(--brand);font:inherit;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer}
+.dlg-c:hover{background:#F2F3F5}
+.dlg-danger{background:#E41E3F!important;border-color:#E41E3F!important}
+.dlg-h+.dlg-f{padding-top:16px}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { askText } from '../lib/dialog'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg, uploadImage, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -173,7 +174,6 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   }
   const delPost = async () => {
     setMenu(false)
-    if (!confirm('حذف البوست نهائيًا؟')) return
     const { error } = await supabase.from('posts').delete().eq('id', post.id)
     if (error) return setErr(errMsg(error))
     onDeleted(post.id)
@@ -185,7 +185,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
   }
   const report = async () => {
     setMenu(false)
-    const reason = prompt('سبب البلاغ؟')?.trim()
+    const reason = (await askText('الإبلاغ عن المنشور', { body: 'اكتب سبب البلاغ وفريق الإدارة هيراجعه.', placeholder: 'مثلًا: محتوى مسيء أو مزعج', ok: 'إرسال البلاغ' }))?.trim()
     if (!reason || reason.length < 2) return
     const { error } = await supabase.from('reports').insert({ reporter_id: me, post_id: post.id, reason: reason.slice(0, 500) })
     if (error) setErr(errMsg(error)); else setReported(true)

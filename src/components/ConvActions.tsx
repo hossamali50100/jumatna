@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { askConfirm, tell } from '../lib/dialog'
 import { useNavigate } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useChatPrefs, refreshChatPrefs, setMute } from '../lib/chatprefs'
@@ -34,23 +35,23 @@ export default function ConvActions({ item, at, sheet, onClose }: { item: ActIte
   const isMuted = muted.has(key), isBlocked = blocked.has(item.other), isPinned = pins.has(key)
   const hint = (e: { message: string }) => /block_user|clear_chat|schema cache|function/i.test(e.message) ? 'محتاج تحديث 030 في Supabase (مرة واحدة).' : errMsg(e)
   const go = (f: () => void | Promise<void>) => () => { onClose(); void f() }
-  const mute = go(async () => { const e = await setMute(session!.user.id, key, !isMuted); if (e) alert(e) })
+  const mute = go(async () => { const e = await setMute(session!.user.id, key, !isMuted); if (e) void tell(e) })
   const pin = go(() => togglePin(key))
   const profile = go(() => nav(`/u/${item.other}`))
   const block = go(async () => {
-    if (!isBlocked && !confirm(`تحظر ${item.name}؟ مش هيقدر يبعتلك رسايل ولا طلبات صداقة، والصداقة هتتلغي.`)) return
+    if (!isBlocked && !(await askConfirm(`تحظر ${item.name}؟ مش هيقدر يبعتلك رسايل ولا طلبات صداقة، والصداقة هتتلغي.`, { ok: 'حظر', danger: true }))) return
     const { error } = isBlocked ? await supabase.rpc('unblock_user', { target: item.other }) : await supabase.rpc('block_user', { target: item.other })
-    if (error) return alert(hint(error)); refreshChatPrefs()
+    if (error) return void tell(hint(error)); refreshChatPrefs()
   })
   const clear = go(async () => {
-    if (!confirm('تحذف الدردشة دي من عندك؟ الرسايل هتختفي عندك بس، والطرف التاني هيفضل شايفها.')) return
+    if (!(await askConfirm('تحذف الدردشة دي من عندك؟ الرسايل هتختفي عندك بس، والطرف التاني هيفضل شايفها.', { ok: 'حذف', danger: true }))) return
     const { error } = await supabase.rpc('clear_chat', { other: item.other })
-    if (error) return alert(hint(error)); refreshChatPrefs()
+    if (error) return void tell(hint(error)); refreshChatPrefs()
   })
   const leave = go(async () => {
-    if (!confirm(`تغادر الشات الجماعي «${item.name}»؟`)) return
+    if (!(await askConfirm(`تغادر الشات الجماعي «${item.name}»؟`, { ok: 'مغادرة', danger: true }))) return
     const { error } = await supabase.rpc('leave_chat_room', { p_room: item.other.slice(5) })
-    if (error) return alert(errMsg(error)); refreshRooms()
+    if (error) return void tell(errMsg(error)); refreshRooms()
   })
   const btns = (<>
     <button type="button" onClick={pin}><MI n="pin" />{isPinned ? 'إلغاء التثبيت' : 'تثبيت'}</button>

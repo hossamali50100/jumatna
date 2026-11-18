@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { askConfirm } from '../lib/dialog'
 import { Link, useParams } from 'react-router-dom'
 import { supabase, errMsg, isPremium, uploadImage, type Group, type Post, type Profile } from '../lib/supabase'
 import { useCrop } from '../components/CropModal'
@@ -122,7 +123,7 @@ export default function UserPage() {
                   ? <Link className="btn" to={`/messages/${pid}`}><Icon n="msg" s={18} />إرسال رسالة</Link>
                   : <button className="btn" onClick={() => openChat(pid)}><Icon n="msg" s={18} />إرسال رسالة</button>}
                 {!rel && <button className="btn p" onClick={() => request(pid)}><Icon n="friends" s={18} />إضافة صديق</button>}
-                {rel?.status === 'accepted' && <button className="btn" onClick={() => confirm('إلغاء الصداقة؟') && remove(pid)}>إلغاء الصداقة</button>}
+                {rel?.status === 'accepted' && <button className="btn" onClick={() => { void askConfirm('إلغاء الصداقة؟', { ok: 'إلغاء الصداقة', danger: true }).then((ok) => { if (ok) remove(pid) }) }}>إلغاء الصداقة</button>}
                 {rel?.status === 'pending' && !rel.incoming && <button className="btn" onClick={() => remove(pid)}>إلغاء طلب الصداقة</button>}
                 {rel?.status === 'pending' && rel.incoming && <button className="btn p" onClick={() => accept(pid)}>قبول طلب الصداقة</button>}
               </>)}

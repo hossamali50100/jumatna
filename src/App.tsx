@@ -1,3 +1,4 @@
+import { DialogHost } from './lib/dialog'
 import { useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { configured } from './lib/supabase'
@@ -48,6 +49,8 @@ export default function App() {
   // أول دخول: يكمّل الاسم + تاريخ الميلاد + الجنس (الحسابات القديمة وقبل تحديث 016 بتعدي)
   if (profile.onboarded === false) return <Onboarding />
   return (
+    <>
+    <DialogHost />
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
@@ -74,5 +77,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </>
   )
 }

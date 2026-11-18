@@ -1,4 +1,5 @@
 import { MI } from '../components/MenuIcons'
+import { askConfirm } from '../lib/dialog'
 import { useState } from 'react'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -30,7 +31,7 @@ export default function EditProfile() {
     await refresh(); setOk(msg)
   }
   const save = async () => {
-    if (nameChanged && !confirm(`تغيير الاسم إلى «${name.trim()}»؟ مش هتقدر تغيّره تاني قبل 30 يوم.`)) return
+    if (nameChanged && !(await askConfirm(`تغيير الاسم إلى «${name.trim()}»؟ مش هتقدر تغيّره تاني قبل 30 يوم.`, { ok: 'تأكيد' }))) return
     setBusy(true)
     const p: Record<string, unknown> = { bio: bio.trim() }
     if (nameChanged) p.name = name.trim()

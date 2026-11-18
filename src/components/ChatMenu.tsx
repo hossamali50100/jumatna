@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { askConfirm, tell } from '../lib/dialog'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useChatPrefs, refreshChatPrefs, setMute } from '../lib/chatprefs'
@@ -12,22 +13,22 @@ export default function ChatMenu({ otherId, name, onRoom, wrap }: { otherId: str
   const { session } = useAuth()
   const { blocked, muted } = useChatPrefs()
   const isMuted = muted.has(otherId)
-  const doMute = async () => { setPos(null); const e = await setMute(session!.user.id, otherId, !isMuted); if (e) alert(e) }
+  const doMute = async () => { setPos(null); const e = await setMute(session!.user.id, otherId, !isMuted); if (e) void tell(e) }
   const isBlocked = blocked.has(otherId)
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const hint = (e: { message: string }) => /block_user|clear_chat|schema cache|function/i.test(e.message) ? 'محتاج تحديث 030 في Supabase (مرة واحدة).' : errMsg(e)
   const doBlock = async () => {
     setPos(null)
-    if (!isBlocked && !confirm(`تحظر ${name ?? 'الشخص ده'}؟ مش هيقدر يبعتلك رسايل ولا طلبات صداقة، والصداقة هتتلغي.`)) return
+    if (!isBlocked && !(await askConfirm(`تحظر ${name ?? 'الشخص ده'}؟ مش هيقدر يبعتلك رسايل ولا طلبات صداقة، والصداقة هتتلغي.`, { ok: 'حظر', danger: true }))) return
     const { error } = isBlocked ? await supabase.rpc('unblock_user', { target: otherId }) : await supabase.rpc('block_user', { target: otherId })
-    if (error) return alert(hint(error))
+    if (error) return void tell(hint(error))
     refreshChatPrefs()
   }
   const doClear = async () => {
     setPos(null)
-    if (!confirm('تحذف الدردشة دي من عندك؟ الرسايل هتختفي عندك بس، والطرف التاني هيفضل شايفها.')) return
+    if (!(await askConfirm('تحذف الدردشة دي من عندك؟ الرسايل هتختفي عندك بس، والطرف التاني هيفضل شايفها.', { ok: 'حذف', danger: true }))) return
     const { error } = await supabase.rpc('clear_chat', { other: otherId })
-    if (error) return alert(hint(error))
+    if (error) return void tell(hint(error))
     refreshChatPrefs()
   }
   return (

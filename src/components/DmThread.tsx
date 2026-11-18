@@ -36,7 +36,10 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     if (error) ({ data, error } = await q('id,sender_id,body,image_url,created_at'))
     if (error) { setLoadErr(errMsg(error)); return }
     setLoadErr('')
-    const list = ((data ?? []) as unknown as Msg[]).map((m) => ({ ...m, read_at: m.read_at ?? null })).filter((m) => !clearedAt || m.created_at > clearedAt)
+    let list = ((data ?? []) as unknown as Msg[]).map((m) => ({ ...m, read_at: m.read_at ?? null })).filter((m) => !clearedAt || m.created_at > clearedAt)
+    // الرسايل اللي المستخدم شالها من عنده (تحديث 052)
+    const allIds = list.map((m) => m.id)
+    if (allIds.length) { const h = await supabase.from('message_hides').select('msg_id').in('msg_id', allIds); if (!h.error && h.data?.length) { const hid = new Set(h.data.map((x) => x.msg_id as string)); list = list.filter((m) => !hid.has(m.id)) } }
     setMsgs((old) => { const keep = old.filter((o) => o.id.startsWith('tmp-') && !list.some((m) => m.sender_id === o.sender_id && m.body === o.body)); return [...list, ...keep] })
     // تفاعلات الرسائل (لو تحديث 029 متشغّل)
     const ids = list.map((m) => m.id).filter((i) => !i.startsWith('tmp-'))
@@ -73,6 +76,11 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     setMsgs((l) => l.map((m) => (m.id === id ? { ...m, body, edited_at: new Date().toISOString() } : m)))
     load()
   }
+  const onHide = async (id: string) => {
+    const { error } = await supabase.from('message_hides').insert({ msg_id: id })
+    if (error && !/duplicate/i.test(error.message)) throw new Error(/message_hides|schema cache|relation/i.test(error.message) ? 'الإزالة لديك محتاجة تحديث 052 في Supabase (مرة واحدة).' : errMsg(error))
+    setMsgs((l) => l.filter((m) => m.id !== id))
+  }
   const onDelete = async (id: string) => {
     const { error } = await supabase.from('dm_messages').delete().eq('id', id)
     if (error) throw new Error(/permission|policy|denied/i.test(error.message) ? 'شغّل تحديث 027 في Supabase الأول.' : error.message)
@@ -97,5 +105,5 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     const rx: Record<string, number> = {}; for (const r of rs) rx[r.emoji] = (rx[r.emoji] ?? 0) + 1
     return { id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : undefined, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at, rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
   })
-  return <>{isBlocked && <div className="mut" style={{ textAlign: 'center', fontSize: 13, padding: '4px 0' }}>أنت حاظر الشخص ده. ممكن تلغي الحظر من السهم ⌄ فوق.</div>}<ChatBox onEdit={onEdit} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} readOnly={isBlocked} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr || rxErr} fill={fill} onDelete={onDelete} onReact={onReact} onForward={(m) => setFwd(m)} />{fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}</>
+  return <>{isBlocked && <div className="mut" style={{ textAlign: 'center', fontSize: 13, padding: '4px 0' }}>أنت حاظر الشخص ده. ممكن تلغي الحظر من السهم ⌄ فوق.</div>}<ChatBox onHide={onHide} onEdit={onEdit} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} readOnly={isBlocked} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr || rxErr} fill={fill} onDelete={onDelete} onReact={onReact} onForward={(m) => setFwd(m)} />{fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}</>
 }

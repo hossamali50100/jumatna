@@ -25,7 +25,10 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     if (error && /audio_/i.test(error.message)) ({ data, error } = await q('id,sender_id,body,image_url,created_at,profiles!sender_id(name,avatar_url)'))
     if (error) return setErr(/chat_room|schema cache|relation/i.test(error.message) ? 'مجموعات الشات محتاجة تحديث 031 في Supabase (مرة واحدة).' : errMsg(error))
     setErr('')
-    const list = (data ?? []) as unknown as Msg[]
+    let list = (data ?? []) as unknown as Msg[]
+    // الرسايل اللي المستخدم شالها من عنده (تحديث 052)
+    const allIds = list.map((m) => m.id)
+    if (allIds.length) { const h = await supabase.from('message_hides').select('msg_id').in('msg_id', allIds); if (!h.error && h.data?.length) { const hid = new Set(h.data.map((x) => x.msg_id as string)); list = list.filter((m) => !hid.has(m.id)) } }
     setMsgs((old) => { const keep = old.filter((o) => o.id.startsWith('tmp-') && !list.some((m) => m.sender_id === o.sender_id && m.body === o.body)); return [...list, ...keep] })
     const rd = await supabase.from('chat_room_members').select('user_id,last_read_at').eq('room_id', roomId)
     if (!rd.error) setReads((rd.data ?? []) as { user_id: string; last_read_at: string }[])
@@ -61,6 +64,11 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     load()
   }
   const [fwd, setFwd] = useState<ChatMsg | null>(null)
+  const onHide = async (id: string) => {
+    const { error } = await supabase.from('message_hides').insert({ msg_id: id })
+    if (error && !/duplicate/i.test(error.message)) throw new Error(/message_hides|schema cache|relation/i.test(error.message) ? 'الإزالة لديك محتاجة تحديث 052 في Supabase (مرة واحدة).' : errMsg(error))
+    setMsgs((l) => l.filter((m) => m.id !== id))
+  }
   const onDelete = async (id: string) => {
     const { error } = await supabase.from('chat_room_messages').delete().eq('id', id)
     if (error) throw new Error(error.message)
@@ -71,7 +79,7 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
   const seenN = lastMineM ? reads.filter((r) => r.user_id !== uid && r.last_read_at >= lastMineM.created_at).length : 0
   const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at }))
   return <>
-    <ChatBox onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
+    <ChatBox onHide={onHide} onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
     {fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}
   </>
 }

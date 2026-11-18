@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { askConfirm } from '../lib/dialog'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, uploadImage, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -64,13 +65,13 @@ export default function SupportThread({ userId, staff, topic, hint, channel = 's
     await load(id)
   }
   const finish = async () => {
-    if (!chatId || !confirm('إنهاء المحادثة؟')) return
+    if (!chatId || !(await askConfirm('إنهاء المحادثة؟', { ok: 'تأكيد' }))) return
     const { error } = await supabase.rpc('close_support_chat', { p_chat: chatId })
     if (error) return setErr(errMsg(error))
     await load(chatId)
   }
   const del = async () => {
-    if (!chatId || !confirm('حذف المحادثة نهائيًا؟ هتتمسح عند الطرفين.')) return
+    if (!chatId || !(await askConfirm('حذف المحادثة نهائيًا؟ هتتمسح عند الطرفين.', { ok: 'حذف', danger: true }))) return
     const { error } = await supabase.rpc('delete_support_chat', { p_chat: chatId })
     if (error) return setErr(errMsg(error))
     setChatId(fixedChat ? fixedChat : null); setChat(null); setMsgs([])

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { askConfirm } from '../lib/dialog'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { searchReady, findPeople } from '../lib/search'
@@ -93,7 +94,7 @@ export default function Friends() {
         {friends.length === 0 && <span className="mut">لسه مفيش أصدقاء. ابحث بالاسم فوق وابعت طلب صداقة.</span>}
         {friends.map((r) => (
           <div key={r.other} className="row"><Link to={`/u/${r.other}`} className="row grow"><Avatar name={P(r.profile)?.name} url={P(r.profile)?.avatar_url} size={44} /><Name p={r.profile} /></Link>
-            <button className="btn sm danger" onClick={() => confirm('حذف الصديق؟') && remove(r.other)}>حذف</button></div>
+            <button className="btn sm danger" onClick={() => { void askConfirm('حذف الصديق؟', { ok: 'حذف', danger: true }).then((ok) => { if (ok) remove(r.other) }) }}>حذف</button></div>
         ))}
       </div>
       {sent.length > 0 && (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { askConfirm, tell } from '../lib/dialog'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase, errMsg, uploadImage, type Group, type Post } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -100,7 +101,7 @@ export default function GroupPage() {
     if (error) setErr(errMsg(error)); else load()
   }
   const leave = async () => {
-    if (!confirm('تغادر المجموعة؟')) return
+    if (!(await askConfirm('تغادر المجموعة؟', { ok: 'مغادرة', danger: true }))) return
     const { error } = await supabase.from('group_members').delete().eq('group_id', g.id).eq('user_id', uid)
     if (error) setErr(errMsg(error)); else nav('/')
   }
@@ -122,7 +123,7 @@ export default function GroupPage() {
   }
   const setPrivacy = async (v: 'public' | 'private') => {
     if (v === g.privacy) return
-    if (v === 'private' && !confirm('تخلي المجموعة خاصة؟ الأعضاء الحاليين هيفضلوا زي ما هم، والجداد هيحتاجوا موافقتك.')) return
+    if (v === 'private' && !(await askConfirm('تخلي المجموعة خاصة؟ الأعضاء الحاليين هيفضلوا زي ما هم، والجداد هيحتاجوا موافقتك.', { ok: 'تأكيد' }))) return
     const { error } = await supabase.from('groups').update({ privacy: v }).eq('id', g.id)
     if (error) return setErr(errMsg(error))
     setG({ ...g, privacy: v })
@@ -148,7 +149,7 @@ export default function GroupPage() {
   }
   const link = `${window.location.origin}/g/${g.id}`
   const copy = async () => {
-    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { window.prompt('انسخ الرابط:', link) }
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { void tell('انسخ رابط المجموعة', link) }
   }
   const share = async () => {
     if (navigator.share) { try { await navigator.share({ title: g.name, text: `انضم لمجموعة "${g.name}" على ${pf.name}`, url: link }); return } catch { /* المستخدم لغى */ } }
@@ -169,12 +170,12 @@ export default function GroupPage() {
     if (error) setErr(errMsg(error)); else setMembers((l) => l.map((m) => (m.user_id === u ? { ...m, role } : m)))
   }
   const kick = async (u: string) => {
-    if (!confirm('إزالة العضو من المجموعة؟')) return
+    if (!(await askConfirm('إزالة العضو من المجموعة؟', { ok: 'إزالة', danger: true }))) return
     const { error } = await supabase.from('group_members').delete().eq('group_id', g.id).eq('user_id', u)
     if (error) setErr(errMsg(error)); else { setMembers((l) => l.filter((m) => m.user_id !== u)); setCount((c) => c - 1) }
   }
   const del = async () => {
-    if (!confirm('حذف المجموعة وكل بوستاتها نهائيًا؟')) return
+    if (!(await askConfirm('حذف المجموعة وكل بوستاتها نهائيًا؟', { ok: 'حذف', danger: true }))) return
     const { error } = await supabase.from('groups').delete().eq('id', g.id)
     if (error) setErr(errMsg(error)); else nav('/')
   }

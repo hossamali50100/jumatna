@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { askConfirm } from '../lib/dialog'
 import { Navigate } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -40,7 +41,7 @@ export default function StaffSupport({ channel = 'support' }: { channel?: Channe
   const openCount = chats.filter(isOpen).length
 
   const setPlan = async (plan: 'premium' | 'free') => {
-    if (!cur || !confirm(plan === 'premium' ? 'تفعيل الباقة المميزة 30 يوم لهذا الحساب؟' : 'إلغاء الباقة المميزة لهذا الحساب؟')) return
+    if (!cur || !(await askConfirm(plan === 'premium' ? 'تفعيل الباقة المميزة 30 يوم لهذا الحساب؟' : 'إلغاء الباقة المميزة لهذا الحساب؟', { ok: 'تأكيد', danger: false }))) return
     setErr(''); setOk('')
     const { error } = await supabase.rpc('admin_set_plan', { target: cur.user_id, new_plan: plan, days: 30 })
     if (error) setErr(errMsg(error)); else { setOk(plan === 'premium' ? 'تم تفعيل المميز 30 يوم' : 'تم الإلغاء'); load() }

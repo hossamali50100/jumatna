@@ -3,6 +3,7 @@ import { errMsg } from '../lib/supabase'
 import { Avatar, Err, Icon, timeAgo } from '../lib/ui'
 import { VOICE_MAX, canRecord, pickType } from '../lib/voice'
 import { pastedImages } from '../lib/paste'
+import { askChoice, askConfirm } from '../lib/dialog'
 
 export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; edited?: boolean; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
 // علامات الرسالة (زي واتساب): ✓ اتبعتت — ✓✓ وصلت — ✓✓ خضرا اتقرت
@@ -37,7 +38,7 @@ function FileThumb({ f }: { f: File }) {
   return u ? <img src={u} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8 }} /> : null
 }
 
-export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { onEdit?: (id: string, body: string) => Promise<void>; onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
+export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { onHide?: (id: string) => Promise<void>; onEdit?: (id: string, body: string) => Promise<void>; onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
@@ -88,7 +89,9 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
   }
   // لو الشات اتقفل والتسجيل شغال: نوقفه من غير إرسال
   useEffect(() => () => { keep.current = false; clearInterval(tick.current); try { mr.current?.state === 'recording' && mr.current.stop() } catch { /* ignore */ } }, [])
-  const inp = useRef<HTMLInputElement>(null)
+  const inp = useRef<HTMLTextAreaElement>(null)
+  // خانة الكتابة بتكبر مع الكلام لحد 5 سطور تقريبًا، وبعدها بيظهر تمرير جواها
+  useEffect(() => { const el = inp.current; if (!el) return; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 128) + 'px'; el.style.overflowY = el.scrollHeight > 128 ? 'auto' : 'hidden' }, [body])
   useEffect(() => { const b = box.current; if (b) b.scrollTop = b.scrollHeight }, [msgs.length, typing])
 
   const startEdit = (m: ChatMsg) => { setPop(null); setEditing(m); setBody(m.body); setFile(null); setEmoji(false); setErr(''); setTimeout(() => inp.current?.focus(), 0) }
@@ -122,7 +125,23 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
       <button type="button" className="cm-tb" title="المزيد" aria-label="المزيد" onClick={(e) => openPop(e, m, 'menu')}>⋮</button>
     </span>
   )
-  const doDelete = async (m: ChatMsg) => { setPop(null); if (!onDelete || !confirm('تلغي إرسال الرسالة دي؟ هتتمسح عند الطرفين.')) return; try { await onDelete(m.id) } catch (e) { setErr(errMsg(e)) } }
+  const doDelete = async (m: ChatMsg) => {
+    setPop(null)
+    if (!onDelete && !onHide) return
+    const v = onDelete && onHide
+      ? await askChoice('من الذي تريد إلغاء إرسال هذه الرسالة له؟', [
+          { value: 'all', label: 'إلغاء الإرسال لدى الجميع', hint: 'هتتمسح الرسالة من المحادثة عند الكل. ممكن يكون حد شافها أو عمل لها إعادة توجيه قبل كده.' },
+          { value: 'me', label: 'إلغاء الإرسال لديك', hint: 'هتختفي الرسالة من عندك أنت بس، والباقيين هيفضلوا شايفينها.' },
+        ], { ok: 'إزالة' })
+      : (await askConfirm('إلغاء إرسال الرسالة؟', { body: 'هتتمسح الرسالة من المحادثة عند الكل.', ok: 'إزالة', danger: true })) ? 'all' : null
+    if (!v) return
+    try { if (v === 'all') await onDelete!(m.id); else await onHide!(m.id) } catch (e) { setErr(errMsg(e)) }
+  }
+  const doHide = async (m: ChatMsg) => {
+    setPop(null)
+    if (!onHide || !(await askConfirm('إزالة الرسالة لديك؟', { body: 'هتختفي الرسالة من عندك أنت بس، والباقيين هيفضلوا شايفينها.', ok: 'إزالة' }))) return
+    try { await onHide(m.id) } catch (e) { setErr(errMsg(e)) }
+  }
 
   return (
     <div className="col" style={{ gap: 8, ...(fill ? { height: '100%', minHeight: 0 } : {}) }}>
@@ -135,7 +154,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
               {(gap || i === 0) && <div className="mut" style={{ fontSize: 12, textAlign: 'center', margin: '8px 0 4px' }}>{timeAgo(m.created_at)}</div>}
               <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', display: 'flex', alignItems: m.label ? 'flex-end' : 'center', gap: 6, flexDirection: 'row' }}>
               {!m.mine && m.label && <Avatar name={m.label} url={m.avatar} size={30} />}
-              {m.mine && !m.id.startsWith('tmp-') && (onReact || onDelete || onForward) && tools(m)}
+              {m.mine && !m.id.startsWith('tmp-') && (onReact || onDelete || onForward || onHide) && tools(m)}
               <div style={{ minWidth: 0, position: 'relative', marginBottom: m.rx && Object.keys(m.rx).length ? 10 : 0 }}>
                 {m.label && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.label}</div>}
                 {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener" style={{ display: 'block' }}><img src={m.image_url} alt="" style={{ width: 'min(240px,100%)', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></a>}
@@ -151,7 +170,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
                   </button>
                 )}
               </div>
-              {!m.mine && !m.id.startsWith('tmp-') && (onReact || onForward) && tools(m)}
+              {!m.mine && !m.id.startsWith('tmp-') && (onReact || onForward || onHide) && tools(m)}
               </div>
               {m.tick && <div style={{ alignSelf: 'flex-end', padding: '0 8px', lineHeight: 0 }} title={m.tickTitle}><Ticks t={m.tick} /></div>}
             </div>
@@ -167,7 +186,8 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
               {pop.m.mine && onEdit && pop.m.body && !pop.m.audio_url && (Date.now() - new Date(pop.m.created_at).getTime() < 15 * 60e3
                 ? <button type="button" onClick={() => startEdit(pop.m)}><IcEdit />تعديل الرسالة</button>
                 : <button type="button" disabled style={{ opacity: 0.55, cursor: 'not-allowed' }}><IcEdit />تعديل الرسالة</button>)}
-              {pop.m.mine && onDelete && <button type="button" onClick={() => doDelete(pop.m)}><IcUnsend />إلغاء الإرسال</button>}
+              {pop.m.mine && (onDelete || onHide) && <button type="button" onClick={() => doDelete(pop.m)}><IcUnsend />إلغاء الإرسال</button>}
+              {!pop.m.mine && onHide && <button type="button" onClick={() => doHide(pop.m)}><IcUnsend />إزالة لديك</button>}
               {onForward && <button type="button" onClick={() => { onForward(pop.m); setPop(null) }}><IcFwd />إعادة توجيه</button>}
               {pop.m.body && !pop.m.audio_url && <button type="button" onClick={() => { try { navigator.clipboard.writeText(pop.m.body) } catch { /* ignore */ } setPop(null) }}><IcCopy />نسخ النص</button>}
             </div>}
@@ -198,12 +218,12 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
           <button type="button" style={ib} aria-label="إرسال التسجيل" title="إرسال" onClick={() => stopRec(true)}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
         </div>
       ) : (
-      <div className="row" style={{ gap: 4, padding: '0 2px 6px' }}>
+      <div className="row" style={{ gap: 4, padding: '0 2px 6px', alignItems: 'flex-end' }}>
         <label style={ib} aria-label="إرفاق صورة" title="صورة"><Icon n="image" s={22} />
           <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         <button type="button" style={ib} aria-label="إيموجي" title="إيموجي" onClick={() => setEmoji((v) => !v)}>🙂</button>
-        <input ref={inp} onPaste={(e) => { if (editing) return; const im = pastedImages(e); if (im.length) { e.preventDefault(); setFile(im[0]); setErr('') } }} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter') send(); else if (e.key === 'Escape' && editing) cancelEdit() }} />
+        <textarea ref={inp} rows={1} onPaste={(e) => { if (editing) return; const im = pastedImages(e); if (im.length) { e.preventDefault(); setFile(im[0]); setErr('') } }} className="in grow cm-in" style={{ borderRadius: 20, minHeight: 40, padding: '9px 16px', minWidth: 0, resize: 'none', lineHeight: 1.4, display: 'block' }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } else if (e.key === 'Escape' && editing) cancelEdit() }} />
         {body.trim() || file || editing
           ? <button type="button" style={ib} aria-label={editing ? 'حفظ التعديل' : 'إرسال'} title={editing ? 'حفظ التعديل' : 'إرسال'} disabled={busy} onClick={() => send()}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
           : <>

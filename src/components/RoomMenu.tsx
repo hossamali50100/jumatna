@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { askConfirm, tell } from '../lib/dialog'
 import { supabase, errMsg } from '../lib/supabase'
 import { refreshRooms, type RoomInfo } from '../lib/rooms'
 import { useChatPrefs, setMute } from '../lib/chatprefs'
@@ -13,13 +14,13 @@ export default function RoomMenu({ room, onLeft, wrap }: { room: RoomInfo; onLef
   const { muted } = useChatPrefs()
   const key = 'room:' + room.id
   const isMuted = muted.has(key)
-  const doMute = async () => { setPos(null); const e = await setMute(session!.user.id, key, !isMuted); if (e) alert(e) }
+  const doMute = async () => { setPos(null); const e = await setMute(session!.user.id, key, !isMuted); if (e) void tell(e) }
   const [dlg, setDlg] = useState<'' | 'members' | 'edit' | 'add'>('')
   const leave = async () => {
     setPos(null)
-    if (!confirm(`تغادر الشات الجماعي «${room.name}»؟`)) return
+    if (!(await askConfirm(`تغادر الشات الجماعي «${room.name}»؟`, { ok: 'مغادرة', danger: true }))) return
     const { error } = await supabase.rpc('leave_chat_room', { p_room: room.id })
-    if (error) return alert(errMsg(error))
+    if (error) return void tell(errMsg(error))
     refreshRooms(); onLeft?.()
   }
   const open = (d: 'members' | 'edit' | 'add') => { setPos(null); setDlg(d) }

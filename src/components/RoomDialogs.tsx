@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { askConfirm } from '../lib/dialog'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { useCrop } from './CropModal'
@@ -129,7 +130,7 @@ export function MembersModal({ room, onClose }: { room: RoomInfo; onClose: () =>
   const canKick = room.created_by === uid
   const [err, setErr] = useState('')
   const kick = async (id: string, name?: string) => {
-    if (!confirm(`تطرد ${name ?? 'العضو ده'} من الشات؟`)) return
+    if (!(await askConfirm(`تطرد ${name ?? 'العضو ده'} من الشات؟`, { ok: 'طرد', danger: true }))) return
     const { error } = await supabase.rpc('remove_room_member', { p_room: room.id, p_user: id })
     if (error) return setErr(/remove_room_member|schema cache/i.test(error.message) ? 'الطرد محتاج تحديث 032 في Supabase (مرة واحدة).' : errMsg(error))
     refreshRooms()
