@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { askConfirm } from '../lib/dialog'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { refreshRooms, type RoomInfo } from '../lib/rooms'
 import { Avatar, Err, Name } from '../lib/ui'
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => { const f = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f) }, [onClose])
   return createPortal(
     <div className="fw-ov" onClick={onClose}>
       <div className="fw" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>

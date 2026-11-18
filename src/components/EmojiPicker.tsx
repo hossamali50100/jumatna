@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const CATS: [string, string, string][] = [
+export const CATS: [string, string, string][] = [
   ['😀', 'وجوه', '😀 😃 😄 😁 😆 😅 😂 🤣 🥲 ☺️ 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😜 🤪 😝 🤗 🤭 🤔 🤐 😐 😑 😶 😏 😒 🙄 😬 😮‍💨 😴 😪 🤤 😷 🤒 🤕 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🥺 😢 😭 😤 😡 🤬 😱 😨 😰 😥 😓'],
   ['❤️', 'قلوب', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ♥️ 😍 🥰 😘 💋 💌 🌹 🌸 💐 🌺 🌷 ✨ 💫 ⭐ 🌟'],
   ['👍', 'إيدين', '👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤝 🙏 👏 🙌 👐 🤲 💪 ✍️ 🤳 🫶 🫰'],
@@ -35,5 +35,24 @@ export default function EmojiPicker({ onPick }: { onPick: (e: string) => void })
         </div>
       )}
     </div>
+  )
+}
+
+// شبكة الإيموجي لوحدها (بتستخدمها نوافذ تانية زي التفاعل على رسالة)
+export function EmojiGrid({ onPick }: { onPick: (e: string) => void }) {
+  const [tab, setTab] = useState(0)
+  return (
+    <>
+      <div className="row" style={{ gap: 4, borderBottom: '1px solid #E4E4E7', paddingBottom: 6, marginBottom: 6 }}>
+        {CATS.map(([ic, name], i) => (
+          <button key={name} type="button" title={name} onClick={() => setTab(i)} style={{ border: 0, cursor: 'pointer', fontSize: 20, padding: '4px 8px', borderRadius: 8, background: tab === i ? '#E7F0FF' : 'transparent' }}>{ic}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 2, maxHeight: 190, overflowY: 'auto' }}>
+        {CATS[tab][2].split(' ').map((e, i) => (
+          <button key={e + i} type="button" onClick={() => onPick(e)} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 22, padding: 2, borderRadius: 8 }}>{e}</button>
+        ))}
+      </div>
+    </>
   )
 }

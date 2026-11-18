@@ -33,13 +33,25 @@ export default function App() {
   const loc = useLocation()
   usePlatform()   // يطبّق لون وهوية المنصة على الموقع كله
   const nav = useNavigate()
-  // رابط دعوة لمجموعة: نفتكره لحد ما الشخص يسجّل دخول وبعدين نوديه عليه
+  // أي رابط في الموقع (بروفايل، مجموعة، بوست…) اتفتح من غير تسجيل دخول: نفتكره، وبعد الدخول نوديه عليه.
+  // بنحفظه في localStorage (لمدة يوم) عشان يفضل موجود حتى لو الدخول رجع على الصفحة الرئيسية
+  // (الدخول بجوجل) أو اتفتح في تاب جديد (رابط تأكيد الإيميل).
   useEffect(() => {
     try {
-      if (!session) { if (loc.pathname.startsWith('/g/')) sessionStorage.setItem('next', loc.pathname) }
-      else { const n = sessionStorage.getItem('next'); if (n) { sessionStorage.removeItem('next'); nav(n, { replace: true }) } }
+      if (loading) return
+      const path = loc.pathname + loc.search
+      if (!session) {
+        if (loc.pathname !== '/' && !loc.pathname.startsWith('/admin')) localStorage.setItem('jm_next', JSON.stringify({ path, at: Date.now() }))
+      } else {
+        const raw = localStorage.getItem('jm_next')
+        if (raw) {
+          localStorage.removeItem('jm_next')
+          const n = JSON.parse(raw) as { path?: string; at?: number }
+          if (n.path && n.path.startsWith('/') && !n.path.startsWith('//') && Date.now() - (n.at ?? 0) < 864e5 && n.path !== path) nav(n.path, { replace: true })
+        }
+      }
     } catch { /* التخزين مش متاح */ }
-  }, [session, loc.pathname, nav])
+  }, [session, loading, loc.pathname, loc.search, nav])
   if (!configured) return <div className="wrap"><div className="card">لازم تضيف VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY (راجع README).</div></div>
   if (loc.pathname === '/admin' || loc.pathname.startsWith('/admin/')) return <AdminApp />
   if (loading) return <div className="wrap mut">جاري التحميل…</div>

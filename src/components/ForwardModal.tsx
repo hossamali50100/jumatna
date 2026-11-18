@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase, errMsg } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -48,6 +48,7 @@ export default function ForwardModal({ msg, onClose }: { msg: { body: string; im
     if (ok.length) setDone(`اتبعتت لـ ${ok.length} ${ok.length === 1 ? 'شخص' : 'أشخاص'} ✓`)
   }
 
+  useEffect(() => { const f = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f) }, [onClose])
   return createPortal(
     <div className="fw-ov" onClick={onClose}>
       <div className="fw" role="dialog" aria-label="إعادة توجيه" onClick={(e) => e.stopPropagation()}>

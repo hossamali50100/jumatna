@@ -16,6 +16,7 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
   const [reads, setReads] = useState<{ user_id: string; last_read_at: string }[]>([])
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [err, setErr] = useState('')
+  const [reacts, setReacts] = useState<{ message_id: string; user_id: string; emoji: string }[]>([])
   const marked = useRef('')
   const markRead = useCallback(() => { supabase.from('chat_room_members').update({ last_read_at: new Date().toISOString() }).eq('room_id', roomId).eq('user_id', uid).then(() => {}) }, [roomId, uid])
   const load = useCallback(async () => {
@@ -30,6 +31,9 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     const allIds = list.map((m) => m.id)
     if (allIds.length) { const h = await supabase.from('message_hides').select('msg_id').in('msg_id', allIds); if (!h.error && h.data?.length) { const hid = new Set(h.data.map((x) => x.msg_id as string)); list = list.filter((m) => !hid.has(m.id)) } }
     setMsgs((old) => { const keep = old.filter((o) => o.id.startsWith('tmp-') && !list.some((m) => m.sender_id === o.sender_id && m.body === o.body)); return [...list, ...keep] })
+    // التفاعلات (تحديث 053)
+    const ids = list.map((m) => m.id)
+    if (ids.length) { const r = await supabase.from('room_reactions').select('message_id,user_id,emoji').in('message_id', ids); if (!r.error) setReacts((r.data ?? []) as typeof reacts) }
     const rd = await supabase.from('chat_room_members').select('user_id,last_read_at').eq('room_id', roomId)
     if (!rd.error) setReads((rd.data ?? []) as { user_id: string; last_read_at: string }[])
     const lastOther = [...list].reverse().find((m) => m.sender_id !== uid)?.created_at ?? ''
@@ -39,7 +43,8 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     setMsgs([]); marked.current = ''; load()
     const t = setInterval(load, 2500)
     const ch = supabase.channel('room-' + roomId + '-' + Math.random().toString(36).slice(2))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_room_messages' }, () => { load() }).subscribe()
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_room_messages' }, () => { load() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_reactions' }, () => { load() }).subscribe()
     return () => { clearInterval(t); supabase.removeChannel(ch) }
   }, [load, roomId])
 
@@ -69,17 +74,35 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     if (error && !/duplicate/i.test(error.message)) throw new Error(/message_hides|schema cache|relation/i.test(error.message) ? 'الإزالة لديك محتاجة تحديث 052 في Supabase (مرة واحدة).' : errMsg(error))
     setMsgs((l) => l.filter((m) => m.id !== id))
   }
+  const onReact = async (id: string, emoji: string | null) => {
+    setErr('')
+    const prev = reacts
+    setReacts((l) => { const o = l.filter((r) => !(r.message_id === id && r.user_id === uid)); return emoji ? [...o, { message_id: id, user_id: uid, emoji }] : o })
+    let error
+    if (!emoji) ({ error } = await supabase.from('room_reactions').delete().eq('message_id', id).eq('user_id', uid))
+    else {
+      const u = await supabase.from('room_reactions').update({ emoji }).eq('message_id', id).eq('user_id', uid).select('message_id')
+      error = u.error
+      if (!error && !u.data?.length) ({ error } = await supabase.from('room_reactions').insert({ message_id: id, user_id: uid, emoji }))
+    }
+    if (error) { setReacts(prev); setErr(/room_reactions|schema cache|relation/i.test(error.message) ? 'التفاعل على رسايل الشات الجماعي محتاج تحديث 053 في Supabase (مرة واحدة).' : errMsg(error)) }
+  }
   const onDelete = async (id: string) => {
     const { error } = await supabase.from('chat_room_messages').delete().eq('id', id)
     if (error) throw new Error(error.message)
     setMsgs((l) => l.filter((m) => m.id !== id))
   }
+  const rxOf = (mid: string) => {
+    const rs = reacts.filter((r) => r.message_id === mid)
+    const rx: Record<string, number> = {}; for (const r of rs) rx[r.emoji] = (rx[r.emoji] ?? 0) + 1
+    return { rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
+  }
   const lastMineM = [...msgs].reverse().find((m) => m.sender_id === uid)
   const lastMine = lastMineM?.id
   const seenN = lastMineM ? reads.filter((r) => r.user_id !== uid && r.last_read_at >= lastMineM.created_at).length : 0
-  const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at }))
+  const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at, ...rxOf(m.id) }))
   return <>
-    <ChatBox onHide={onHide} onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
+    <ChatBox onReact={onReact} onHide={onHide} onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
     {fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}
   </>
 }

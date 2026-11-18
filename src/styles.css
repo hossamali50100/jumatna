@@ -324,3 +324,6 @@ input::placeholder,textarea::placeholder{line-height:1.7}
 .rxm-l{overflow-y:auto;padding:8px 14px 14px;flex:1}
 .rxm-r{gap:12px;padding:6px 0}
 .rxm-badge{position:absolute;bottom:-3px;inset-inline-end:-3px;width:20px;height:20px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:12px;box-shadow:0 0 0 2px #fff}
+.cm-pop.rx button.on{background:#E7F0FF}
+.cm-pop.rx .rx-more{font-size:22px;width:36px;height:36px;margin-inline-start:2px;background:#F0F2F5;color:#050505;font-weight:700;display:grid;place-items:center;align-self:center}
+.cm-pop.rx .rx-more:hover{transform:none;background:#E4E6EB}

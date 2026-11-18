@@ -3,6 +3,7 @@ import { errMsg } from '../lib/supabase'
 import { Avatar, Err, Icon, timeAgo } from '../lib/ui'
 import { VOICE_MAX, canRecord, pickType } from '../lib/voice'
 import { pastedImages } from '../lib/paste'
+import { EmojiGrid } from './EmojiPicker'
 import { askChoice, askConfirm } from '../lib/dialog'
 
 export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; edited?: boolean; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
@@ -45,7 +46,7 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
   const [err, setErr] = useState('')
   const [emoji, setEmoji] = useState(false)
   const [editing, setEditing] = useState<ChatMsg | null>(null) // الرسالة اللي بتتعدّل دلوقتي
-  const [pop, setPop] = useState<{ m: ChatMsg; kind: 'rx' | 'menu'; x: number; y: number } | null>(null)
+  const [pop, setPop] = useState<{ m: ChatMsg; kind: 'rx' | 'rxall' | 'menu'; x: number; y: number } | null>(null)
   const openPop = (e: React.MouseEvent, m: ChatMsg, kind: 'rx' | 'menu') => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
     setPop({ m, kind, x: Math.min(Math.max(8, r.left - 70), window.innerWidth - 200), y: Math.min(r.bottom + 6, window.innerHeight - 190) })
@@ -152,16 +153,16 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
           return (
             <div key={m.id} className="col" style={{ gap: 3 }}>
               {(gap || i === 0) && <div className="mut" style={{ fontSize: 12, textAlign: 'center', margin: '8px 0 4px' }}>{timeAgo(m.created_at)}</div>}
-              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', display: 'flex', alignItems: m.label ? 'flex-end' : 'center', gap: 6, flexDirection: 'row' }}>
+              {m.label && <div className="mut" style={{ fontSize: 12, padding: '0 8px', marginInlineStart: m.mine ? 0 : 36, alignSelf: m.mine ? 'flex-end' : 'flex-start' }}>{m.label}</div>}
+              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', display: 'flex', alignItems: 'center', gap: 6, flexDirection: 'row' }}>
               {!m.mine && m.label && <Avatar name={m.label} url={m.avatar} size={30} />}
               {m.mine && !m.id.startsWith('tmp-') && (onReact || onDelete || onForward || onHide) && tools(m)}
               <div style={{ minWidth: 0, position: 'relative', marginBottom: m.rx && Object.keys(m.rx).length ? 10 : 0 }}>
-                {m.label && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.label}</div>}
                 {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener" style={{ display: 'block' }}><img src={m.image_url} alt="" style={{ width: 'min(240px,100%)', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></a>}
                 {m.audio_url && <div className={'cm-voice' + (m.mine ? ' mine' : '')}><audio controls preload="metadata" src={m.audio_url} /></div>}
                 {m.body && !m.audio_url && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
-                  : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '7px 12px', lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
+                  : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '6px 12px', lineHeight: 1.4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
                 {m.edited && <div className="mut" style={{ fontSize: 11, padding: '1px 8px', textAlign: m.mine ? 'end' : 'start' }}>معدّلة</div>}
                 {m.rx && Object.keys(m.rx).length > 0 && (
                   <button type="button" className="cm-rxc" onClick={() => onReact && m.myRx && onReact(m.id, null)} title={m.myRx ? 'دوس لإزالة تفاعلك' : undefined}>
@@ -181,7 +182,14 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
       {pop && (<>
         <div className="cm-ov" onClick={() => setPop(null)} />
         {pop.kind === 'rx'
-          ? <div className="cm-pop rx" style={{ left: pop.x, top: pop.y }}>{QUICK.map((e) => <button key={e} type="button" onClick={() => { onReact?.(pop.m.id, pop.m.myRx === e ? null : e); setPop(null) }}>{e}</button>)}</div>
+          ? <div className="cm-pop rx" style={{ left: pop.x, top: pop.y }}>
+              {QUICK.map((e) => <button key={e} type="button" className={pop.m.myRx === e ? 'on' : ''} onClick={() => { onReact?.(pop.m.id, pop.m.myRx === e ? null : e); setPop(null) }}>{e}</button>)}
+              {/* إيموجي تاني من القايمة الكاملة */}
+              {pop.m.myRx && !QUICK.includes(pop.m.myRx) && <button type="button" className="on" title="إزالة تفاعلك" onClick={() => { onReact?.(pop.m.id, null); setPop(null) }}>{pop.m.myRx}</button>}
+              <button type="button" className="rx-more" aria-label="إيموجي تاني" title="إيموجي تاني" onClick={() => setPop({ ...pop, kind: 'rxall', x: Math.max(8, Math.min(pop.x, window.innerWidth - 316)), y: Math.max(8, Math.min(pop.y, window.innerHeight - 290)) })}>+</button>
+            </div>
+          : pop.kind === 'rxall'
+          ? <div className="cm-pop" style={{ left: pop.x, top: pop.y, width: 300, padding: 8 }}><EmojiGrid onPick={(e) => { onReact?.(pop.m.id, pop.m.myRx === e ? null : e); setPop(null) }} /></div>
           : <div className="cm-pop" style={{ left: pop.x, top: pop.y }}>
               {pop.m.mine && onEdit && pop.m.body && !pop.m.audio_url && (Date.now() - new Date(pop.m.created_at).getTime() < 15 * 60e3
                 ? <button type="button" onClick={() => startEdit(pop.m)}><IcEdit />تعديل الرسالة</button>
