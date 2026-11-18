@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase, errMsg, type Group } from '../lib/supabase'
+import { SEARCH_MIN, searchReady, findGroups } from '../lib/search'
 import { useAuth } from '../lib/auth'
 import { Err, gcolor, initial } from '../lib/ui'
 
@@ -34,10 +35,8 @@ export default function Discover() {
   const load = useCallback(async () => {
     setErr('')
     // من غير بحث: مفيش قائمة (ممكن يبقى فيه آلاف المجموعات العامة). المجموعة تظهر بالبحث بس.
-    if (!qt) { setGroups(null); return }
-    let query = supabase.from('groups').select('*').order('created_at', { ascending: false }).limit(40)
-    if (q) query = query.ilike('name', `%${q.replace(/[\\%_]/g, '\\$&')}%`)
-    const [g, m] = await Promise.all([query, supabase.from('group_members').select('group_id,status').eq('user_id', uid)])
+    if (!searchReady(qt)) { setGroups(null); return }
+    const [g, m] = await Promise.all([findGroups<Group>(qt, 40), supabase.from('group_members').select('group_id,status').eq('user_id', uid)])
     if (g.error) return setErr(errMsg(g.error))
     setGroups((g.data as Group[]) ?? [])
     setMine(Object.fromEntries((m.data ?? []).map((r) => [r.group_id, r.status])))
@@ -57,10 +56,11 @@ export default function Discover() {
       <input className="in" placeholder="ابحث عن مجموعة" aria-label="ابحث" value={q} maxLength={60} onChange={(e) => setSp(e.target.value ? { q: e.target.value } : {}, { replace: true })} />
       <Err>{err}</Err>
       {!qt && <div className="crd col" style={{ alignItems: 'center', textAlign: 'center', padding: 32, gap: 6 }}><b>ابحث عن اسم المجموعة</b><span className="mut" style={{ fontSize: 14 }}>اكتب اسم المجموعة اللي عايز تنضم ليها في خانة البحث فوق وهتظهرلك.</span></div>}
-      {qt && groups === null && !err && <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>}
-      {qt && groups?.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش مجموعات مطابقة.</div>}
+      {qt && !searchReady(qt) && <div className="crd mut" style={{ textAlign: 'center' }}>اكتب {SEARCH_MIN} حروف على الأقل من اسم المجموعة.</div>}
+      {searchReady(qt) && groups === null && !err && <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>}
+      {searchReady(qt) && groups?.length === 0 && <div className="crd mut" style={{ textAlign: 'center' }}>مفيش مجموعات مطابقة.</div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
-        {qt && groups?.map((g) => <GroupCard key={g.id} g={g} state={mine[g.id]} onJoin={join} />)}
+        {searchReady(qt) && groups?.map((g) => <GroupCard key={g.id} g={g} state={mine[g.id]} onJoin={join} />)}
       </div>
     </>
   )

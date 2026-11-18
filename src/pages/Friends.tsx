@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, errMsg } from '../lib/supabase'
+import { searchReady, findPeople } from '../lib/search'
 import { useAuth } from '../lib/auth'
 import { useFriends, type PubProfile } from '../lib/friends'
 import { Avatar, Err, Name } from '../lib/ui'
@@ -27,10 +28,10 @@ export default function Friends() {
   useEffect(() => { loadInv() }, [loadInv])
 
   useEffect(() => {
-    const t = q.trim().replace(/[%_,()]/g, ' ')
-    if (t.length < 2) { setFound([]); return }
+    const t = q.trim()
+    if (!searchReady(t)) { setFound([]); return }
     const h = setTimeout(async () => {
-      const { data } = await supabase.from('profiles').select('id,name,avatar_url,plan,plan_until').ilike('name', `%${t}%`).neq('id', uid).limit(10)
+      const { data } = await findPeople<Found>(t, 10, uid)
       setFound((data as Found[]) ?? [])
     }, 300)
     return () => clearTimeout(h)

@@ -5,10 +5,10 @@ import { useAuth } from '../lib/auth'
 import { useFriends } from '../lib/friends'
 import { usePlatform } from '../lib/platform'
 import { Avatar, Err, Icon, Name } from '../lib/ui'
+import { SEARCH_MIN, searchReady, findGroups, findPeople } from '../lib/search'
 
 type Person = { id: string; name: string; avatar_url: string | null; bio: string | null; plan: 'free' | 'premium'; plan_until: string | null }
 type Kind = 'all' | 'people' | 'groups'
-const esc = (s: string) => s.replace(/[\\%_]/g, '\\$&')
 
 // صفحة البحث: أشخاص + مجموعات، وفلتر على اليمين يحدد البحث في إيه
 export default function Search() {
@@ -28,14 +28,14 @@ export default function Search() {
 
   useEffect(() => {
     const term = q.trim()
-    if (!term) { setPeople([]); setGroups([]); return }
+    if (!searchReady(term)) { setPeople([]); setGroups([]); return }
     let live = true
     setErr('')
     const lim = kind === 'all' ? 5 : 40
     ;(async () => {
       const [p, g, m] = await Promise.all([
-        kind === 'groups' ? null : supabase.from('profiles').select('id,name,avatar_url,bio,plan,plan_until').ilike('name', `%${esc(term)}%`).neq('id', uid).order('name').limit(lim),
-        kind === 'people' ? null : supabase.from('groups').select('*').ilike('name', `%${esc(term)}%`).order('created_at', { ascending: false }).limit(lim),
+        kind === 'groups' ? null : findPeople<Person>(term, lim, uid),
+        kind === 'people' ? null : findGroups<Group>(term, lim),
         supabase.from('group_members').select('group_id,status').eq('user_id', uid),
       ])
       if (!live) return
@@ -84,8 +84,9 @@ export default function Search() {
       <div className="col" style={{ gap: 16, minWidth: 0 }}>
         <Err>{err}</Err>
         {!q.trim() && <div className="card mut" style={{ textAlign: 'center' }}>اكتب اسم شخص أو مجموعة في خانة البحث.</div>}
-        {q.trim() && loading && !err && <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>}
-        {q.trim() && none && <div className="card mut" style={{ textAlign: 'center' }}>مفيش نتائج لـ «{q}».</div>}
+        {q.trim() && !searchReady(q) && <div className="card mut" style={{ textAlign: 'center' }}>اكتب {SEARCH_MIN} حروف على الأقل عشان تبحث.</div>}
+        {searchReady(q) && loading && !err && <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>}
+        {searchReady(q) && none && <div className="card mut" style={{ textAlign: 'center' }}>مفيش نتائج لـ «{q}».</div>}
 
         {!!people?.length && (
           <section className="card">
