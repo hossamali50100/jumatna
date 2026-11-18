@@ -327,3 +327,6 @@ input::placeholder,textarea::placeholder{line-height:1.7}
 .cm-pop.rx button.on{background:#E7F0FF}
 .cm-pop.rx .rx-more{font-size:22px;width:36px;height:36px;margin-inline-start:2px;background:#F0F2F5;color:#050505;font-weight:700;display:grid;place-items:center;align-self:center}
 .cm-pop.rx .rx-more:hover{transform:none;background:#E4E6EB}
+/* صور اللي شافوا الرسالة في الشات الجماعي */
+.cm-seen{display:flex;gap:2px;align-items:center;align-self:flex-end;padding:1px 6px 0;flex-wrap:wrap;justify-content:flex-end}
+.cm-seen > *{box-shadow:0 0 0 1px #fff;border-radius:50%}

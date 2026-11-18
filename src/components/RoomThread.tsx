@@ -13,7 +13,7 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
   const { session, profile } = useAuth()
   const uid = session!.user.id
   const tp = useTyping('room-' + roomId, uid, profile?.name ?? '')
-  const [reads, setReads] = useState<{ user_id: string; last_read_at: string }[]>([])
+  const [reads, setReads] = useState<{ user_id: string; last_read_at: string; profiles?: { name: string; avatar_url: string | null } | null }[]>([])
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [err, setErr] = useState('')
   const [reacts, setReacts] = useState<{ message_id: string; user_id: string; emoji: string }[]>([])
@@ -34,8 +34,9 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     // التفاعلات (تحديث 053)
     const ids = list.map((m) => m.id)
     if (ids.length) { const r = await supabase.from('room_reactions').select('message_id,user_id,emoji').in('message_id', ids); if (!r.error) setReacts((r.data ?? []) as typeof reacts) }
-    const rd = await supabase.from('chat_room_members').select('user_id,last_read_at').eq('room_id', roomId)
-    if (!rd.error) setReads((rd.data ?? []) as { user_id: string; last_read_at: string }[])
+    let rd = await supabase.from('chat_room_members').select('user_id,last_read_at,profiles!user_id(name,avatar_url)').eq('room_id', roomId)
+    if (rd.error) rd = await supabase.from('chat_room_members').select('user_id,last_read_at').eq('room_id', roomId) as typeof rd
+    if (!rd.error) setReads((rd.data ?? []) as unknown as typeof reads)
     const lastOther = [...list].reverse().find((m) => m.sender_id !== uid)?.created_at ?? ''
     if (lastOther > marked.current) { marked.current = lastOther; markRead() }
   }, [roomId, uid, markRead])
@@ -97,10 +98,19 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     const rx: Record<string, number> = {}; for (const r of rs) rx[r.emoji] = (rx[r.emoji] ?? 0) + 1
     return { rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
   }
+  // كل عضو (غيري) صورته بتظهر تحت آخر رسالة قراها (زي فيسبوك)
+  const seenAt: Record<string, { id: string; name: string; avatar_url: string | null }[]> = {}
+  const realMsgs = msgs.filter((m) => !m.id.startsWith('tmp-'))
+  for (const r of reads) {
+    if (r.user_id === uid || !r.last_read_at) continue
+    const last = [...realMsgs].reverse().find((m) => m.created_at <= r.last_read_at)
+    if (!last) continue
+    ;(seenAt[last.id] ??= []).push({ id: r.user_id, name: r.profiles?.name ?? 'عضو', avatar_url: r.profiles?.avatar_url ?? null })
+  }
   const lastMineM = [...msgs].reverse().find((m) => m.sender_id === uid)
   const lastMine = lastMineM?.id
   const seenN = lastMineM ? reads.filter((r) => r.user_id !== uid && r.last_read_at >= lastMineM.created_at).length : 0
-  const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at, ...rxOf(m.id) }))
+  const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at, seenBy: seenAt[m.id], ...rxOf(m.id) }))
   return <>
     <ChatBox onReact={onReact} onHide={onHide} onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
     {fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}

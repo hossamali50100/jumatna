@@ -55,10 +55,10 @@ function Messenger({ other }: { other?: string }) {
   const { items } = useConvItems()
   const online = useOnline(items.map((i) => i.other))
   const [q, setQ] = useState('')
-  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [roomsOnly, setRoomsOnly] = useState(false) // تاب «الشات الجماعي»
   const pins = usePins()
   let shown = [...items].sort((a, b) => Number(pins.has(b.other)) - Number(pins.has(a.other)))
-  if (unreadOnly) shown = shown.filter((i) => i.unread > 0)
+  if (roomsOnly) shown = shown.filter((i) => i.room)
   if (q.trim()) shown = shown.filter((i) => (i.profile?.name ?? '').toLowerCase().includes(q.trim().toLowerCase()))
   const [cur, setCur] = useState<P | null>(null)
   const isR = isRoom(other)
@@ -79,12 +79,12 @@ function Messenger({ other }: { other?: string }) {
           <div className="dsearch" style={{ display: 'flex', width: '100%', maxWidth: 'none', boxSizing: 'border-box' }}><Icon n="search" s={18} /><input placeholder="ابحث في الدردشات" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث في الدردشات" /></div>
         </div>
         <div className="row" style={{ padding: '0 14px 8px', gap: 8 }}>
-          {([['الكل', false], ['غير المقروءة', true]] as const).map(([l, v]) => (
-            <button key={l} onClick={() => setUnreadOnly(v)} style={{ fontFamily: 'inherit', border: 0, cursor: 'pointer', borderRadius: 18, padding: '8px 14px', flex: 1, display: 'flex', justifyContent: 'center', fontWeight: 700, fontSize: 14, background: unreadOnly === v ? 'var(--brand)' : '#EFEFF1', color: unreadOnly === v ? '#fff' : '#111111' }}>{l}</button>
+          {([['الكل', false], ['الشات الجماعي', true]] as const).map(([l, v]) => (
+            <button key={l} onClick={() => setRoomsOnly(v)} style={{ fontFamily: 'inherit', border: 0, cursor: 'pointer', borderRadius: 18, padding: '8px 14px', flex: 1, display: 'flex', justifyContent: 'center', fontWeight: 700, fontSize: 14, background: roomsOnly === v ? 'var(--brand)' : '#EFEFF1', color: roomsOnly === v ? '#fff' : '#111111' }}>{l}</button>
           ))}
         </div>
         <div className="col" style={{ gap: 2, overflowY: 'auto', padding: '0 8px 10px', flex: 1, minHeight: 0 }}>
-          {shown.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 24 }}>{unreadOnly ? 'مفيش رسائل غير مقروءة.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
+          {shown.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 24 }}>{roomsOnly ? 'مفيش شاتات جماعية لسه.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
           {shown.map((i) => <DeskRow key={i.other} i={i} active={other === i.other} on={online.has(i.other)} />)}
         </div>
       </aside>
@@ -211,10 +211,9 @@ function MobileList() {
   const online = useOnline(items.map((i) => i.other))
   const pins = usePins()
   const [q, setQ] = useState('')
-  const [f, setF] = useState<'all' | 'unread' | 'groups'>('all')
+  const [f, setF] = useState<'all' | 'groups'>('all')
   const onlineFriends = items.filter((i) => !i.room && online.has(i.other))
   let shown = [...items].sort((a, b) => Number(pins.has(b.other)) - Number(pins.has(a.other)))
-  if (f === 'unread') shown = shown.filter((i) => i.unread > 0)
   if (f === 'groups') shown = shown.filter((i) => i.room)
   if (q.trim()) shown = shown.filter((i) => (i.profile?.name ?? '').toLowerCase().includes(q.trim().toLowerCase()))
   return (
@@ -235,10 +234,10 @@ function MobileList() {
         </div>
       )}
       <div className="row" style={{ gap: 8 }}>
-        {([['all', 'الكل'], ['unread', 'غير مقروءة'], ['groups', 'المجموعات']] as const).map(([k, l]) => <button key={k} className={'cv-chip' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{l}</button>)}
+        {([['all', 'الكل'], ['groups', 'الشات الجماعي']] as const).map(([k, l]) => <button key={k} className={'cv-chip' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{l}</button>)}
       </div>
       <div className="col" style={{ gap: 0 }}>
-        {shown.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 28 }}>{f === 'unread' ? 'مفيش رسائل غير مقروءة.' : f === 'groups' ? 'مفيش شاتات جماعية.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
+        {shown.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 28 }}>{f === 'groups' ? 'مفيش شاتات جماعية.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
         {shown.map((i) => <MobileRow key={i.other} i={i} on={online.has(i.other)} />)}
       </div>
       <span className="mut" style={{ fontSize: 12, textAlign: 'center' }}>اضغط مطوّلًا على أي محادثة لخيارات أكتر</span>

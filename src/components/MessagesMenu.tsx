@@ -10,9 +10,9 @@ export default function MessagesMenu({ onClose }: { onClose: () => void }) {
   const { openChat } = useChatDock()
   const { items: all } = useConvItems()
   const [q, setQ] = useState('')
-  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [roomsOnly, setRoomsOnly] = useState(false) // تاب «الشات الجماعي»
   let items = all
-  if (unreadOnly) items = items.filter((i) => i.unread > 0)
+  if (roomsOnly) items = items.filter((i) => i.room)
   if (q.trim()) items = items.filter((i) => (i.profile?.name ?? '').toLowerCase().includes(q.trim().toLowerCase()))
   const online = useOnline(all.map((i) => i.other))
 
@@ -26,12 +26,12 @@ export default function MessagesMenu({ onClose }: { onClose: () => void }) {
         <div className="dsearch" style={{ display: 'flex', width: '100%', maxWidth: 'none', boxSizing: 'border-box' }}><Icon n="search" s={18} /><input placeholder="ابحث في الدردشات" value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} aria-label="بحث في الدردشات" /></div>
       </div>
       <div className="row" style={{ padding: '0 14px 8px', gap: 8 }}>
-        {([['الكل', false], ['غير المقروءة', true]] as const).map(([l, v]) => (
-          <button key={l} onClick={() => setUnreadOnly(v)} style={{ fontFamily: 'inherit', border: 0, cursor: 'pointer', borderRadius: 18, padding: '8px 14px', flex: 1, display: 'flex', justifyContent: 'center', textAlign: 'center', fontWeight: 700, fontSize: 14, background: unreadOnly === v ? 'var(--brand)' : '#EFEFF1', color: unreadOnly === v ? '#fff' : '#111111' }}>{l}</button>
+        {([['الكل', false], ['الشات الجماعي', true]] as const).map(([l, v]) => (
+          <button key={l} onClick={() => setRoomsOnly(v)} style={{ fontFamily: 'inherit', border: 0, cursor: 'pointer', borderRadius: 18, padding: '8px 14px', flex: 1, display: 'flex', justifyContent: 'center', textAlign: 'center', fontWeight: 700, fontSize: 14, background: roomsOnly === v ? 'var(--brand)' : '#EFEFF1', color: roomsOnly === v ? '#fff' : '#111111' }}>{l}</button>
         ))}
       </div>
       <div className="col" style={{ gap: 2, overflowY: 'auto', padding: '0 8px 10px' }}>
-        {items.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 24 }}>{unreadOnly ? 'مفيش رسائل غير مقروءة.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
+        {items.length === 0 && <div className="mut" style={{ textAlign: 'center', padding: 24 }}>{roomsOnly ? 'مفيش شاتات جماعية لسه.' : 'لسه مفيش أصدقاء أو محادثات.'}</div>}
         {items.map((i) => (
           <button key={i.other} onClick={() => { openChat(i.other); onClose() }} className="row" style={{ fontFamily: 'inherit', textAlign: 'start', width: '100%', border: 0, background: 'none', cursor: 'pointer', borderRadius: 12, padding: 8, gap: 12 }}>
             <AvatarOn online={online.has(i.other)}><Avatar name={i.profile?.name} url={i.profile?.avatar_url} size={52} /></AvatarOn>

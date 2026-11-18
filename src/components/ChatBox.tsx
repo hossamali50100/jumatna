@@ -6,7 +6,7 @@ import { pastedImages } from '../lib/paste'
 import { EmojiGrid } from './EmojiPicker'
 import { askChoice, askConfirm } from '../lib/dialog'
 
-export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; edited?: boolean; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
+export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; seenBy?: { id: string; name: string; avatar_url: string | null }[]; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; edited?: boolean; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
 // علامات الرسالة (زي واتساب): ✓ اتبعتت — ✓✓ وصلت — ✓✓ خضرا اتقرت
 function Ticks({ t }: { t: 'sending' | 'sent' | 'delivered' | 'read' }) {
   const col = t === 'read' ? '#16A34A' : '#8A8D91'
@@ -173,7 +173,14 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
               </div>
               {!m.mine && !m.id.startsWith('tmp-') && (onReact || onForward || onHide) && tools(m)}
               </div>
-              {m.tick && <div style={{ alignSelf: 'flex-end', padding: '0 8px', lineHeight: 0 }} title={m.tickTitle}><Ticks t={m.tick} /></div>}
+              {m.tick && !m.seenBy?.length && <div style={{ alignSelf: 'flex-end', padding: '0 8px', lineHeight: 0 }} title={m.tickTitle}><Ticks t={m.tick} /></div>}
+              {/* صور صغيرة للي شافوا لحد الرسالة دي (في الدردشات الجماعية) */}
+              {!!m.seenBy?.length && (
+                <div className="cm-seen" title={'شافها: ' + m.seenBy.map((x) => x.name).join('، ')}>
+                  {m.seenBy.slice(0, 6).map((x) => <Avatar key={x.id} name={x.name} url={x.avatar_url} size={16} />)}
+                  {m.seenBy.length > 6 && <span className="mut" style={{ fontSize: 11 }}>+{m.seenBy.length - 6}</span>}
+                </div>
+              )}
             </div>
           )
         })}

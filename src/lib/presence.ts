@@ -41,7 +41,11 @@ export function useOnline(allIds: string[]) {
     if (!ids.length) { setOn(new Set()); return }
     let live = true
     const load = async () => {
-      // الأول: دالة الأصدقاء المتصلين (تحديث 035)
+      // الأول: الأصدقاء + اللي بينا محادثة من الطرفين (تحديث 054)
+      const c = await supabase.rpc('online_contacts', { ids })
+      if (!live) return
+      if (!c.error) { setPresErr(''); setOn(new Set(((c.data ?? []) as unknown as string[]).map(String))); return }
+      // لو 054 لسه ما اتشغّلش: دالة الأصدقاء المتصلين (تحديث 035)
       const f = await supabase.rpc('online_friends')
       if (!live) return
       if (!f.error) { setPresErr(''); const set = new Set(ids); setOn(new Set(((f.data ?? []) as unknown as string[]).map(String).filter((x) => set.has(x)))); return }
