@@ -8,6 +8,7 @@ import { hideFeed } from '../lib/hides'
 import { ReactButton, RxStack, buildRx, applyRx, rxTotal, emptyRx, type Rx } from './Reactions'
 import { Avatar, Err, Icon, Name, timeAgo, Check } from '../lib/ui'
 import EmojiPicker from './EmojiPicker'
+import { ReactorsSummary } from './Reactors'
 import SquareImage from './SquareImage'
 
 type Cm = { id: string; body: string; created_at: string; author_id: string; parent_id: string | null; profiles: { name: string; avatar_url: string | null; plan: 'free' | 'premium'; plan_until: string | null } | null }
@@ -297,7 +298,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
           <button className="btn p" onClick={() => { setZoom(false); if (!open) toggleComments() }}>عرض التعليقات</button>
         </>} />
       )}
-      <div className="mut" style={{ paddingBottom: 8, borderBottom: '1px solid #E4E4E7' }}>{likes > 0 && <><RxStack by={rx.by} /> {likes} · </>}{ccount} تعليق</div>
+      <div className="mut" style={{ paddingBottom: 8, borderBottom: '1px solid #E4E4E7', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>{likes > 0 && <><ReactorsSummary postId={post.id} by={rx.by} total={likes} me={me} /> · </>}{ccount} تعليق</div>
       <div className="row" style={{ justifyContent: 'space-around', marginTop: 4 }}>
         <ReactButton mine={rx.mine} onPick={react} />
         <button className="btn ghost" onClick={toggleComments}><Icon n="comment" s={20} />تعليق</button>

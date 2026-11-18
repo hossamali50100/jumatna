@@ -308,3 +308,18 @@ textarea.in{resize:vertical;min-height:90px}
 /* خط النسخ حروفه بتنزل لتحت (زي نقط الياء)، فبنسيب ارتفاع السطر طبيعي في الخانات عشان ما تتقصّش */
 input,select{line-height:1.7}
 input::placeholder,textarea::placeholder{line-height:1.7}
+/* ملخص التفاعلات تحت البوست + قايمة الأسماء عند الوقوف + نافذة اللي تفاعلوا */
+.rxs{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.rxs:hover>span:last-child{text-decoration:underline}
+.rxtip{position:fixed;z-index:1500;background:rgba(0,0,0,.82);color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;line-height:1.55;display:flex;flex-direction:column;max-width:240px;pointer-events:none;white-space:nowrap}
+.rxtip b{font-size:14px;margin-bottom:2px}
+.rxtip span{overflow:hidden;text-overflow:ellipsis}
+.rxm{width:min(560px,100%);height:min(560px,86vh)}
+.rxm-h{display:flex;align-items:center;gap:8px;padding:8px 14px 0;border-bottom:1px solid #E4E6EB}
+.rxm-tabs{display:flex;gap:2px;flex:1;overflow-x:auto;min-width:0}
+.rxm-tabs button{border:0;background:none;font:inherit;font-weight:600;color:#65676B;padding:12px 14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.rxm-tabs button:hover{background:#F2F3F5;border-radius:8px 8px 0 0}
+.rxm-tabs button.on{color:var(--brand);border-bottom-color:var(--brand)}
+.rxm-l{overflow-y:auto;padding:8px 14px 14px;flex:1}
+.rxm-r{gap:12px;padding:6px 0}
+.rxm-badge{position:absolute;bottom:-3px;inset-inline-end:-3px;width:20px;height:20px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:12px;box-shadow:0 0 0 2px #fff}
