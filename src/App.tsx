@@ -70,7 +70,7 @@ export default function App() {
         <Route path="search" element={<Search />} />
         <Route path="create" element={<CreateGroup />} />
         <Route path="g/:id" element={<GroupPage />} />
-        <Route path="profile" element={<UserPage />} />
+        <Route path="profile" element={<Navigate to={`/u/${profile.id}`} replace />} />
         <Route path="profile/edit" element={<EditProfile />} />
         <Route path="u/:id" element={<UserPage />} />
         <Route path="plans" element={<Plans />} />

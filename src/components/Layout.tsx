@@ -19,6 +19,7 @@ function PremName({ name, prem }: { name?: string; prem: boolean }) {
 
 function Desktop() {
   const { profile, signOut } = useAuth()
+  const myUrl = profile ? `/u/${profile.id}` : '/profile' // رابط حسابي فيه رقم الحساب عشان لو اتبعت لحد يفتح حسابي أنا
   const pf = usePlatform()
   const loc = useLocation()
   const nav = useNavigate()
@@ -79,7 +80,7 @@ function Desktop() {
             </button>
             {menu && (
               <div className="pop" style={{ insetInlineStart: 'auto', insetInlineEnd: 'auto', left: 0, width: 260 }}>
-                <Link to="/profile" style={{ padding: 10 }}>
+                <Link to={myUrl} style={{ padding: 10 }}>
                   <Avatar name={profile?.name} url={profile?.avatar_url} size={48} />
                   <div><PremName name={profile?.name} prem={prem} /><div className="mut">عرض ملفك الشخصي</div></div>
                 </Link>
@@ -96,7 +97,7 @@ function Desktop() {
       </header>
       <div className={loc.pathname.startsWith('/messages') ? 'dbody wide full' : wide ? 'dbody wide' : loc.pathname.startsWith('/upgrade') ? 'dbody span2' : 'dbody'}>
         {!wide && <aside className="dside">
-          <Link className="nav fb" to="/profile"><Avatar name={profile?.name} url={profile?.avatar_url} size={36} /><b><PremName name={profile?.name} prem={prem} /></b></Link>
+          <Link className="nav fb" to={myUrl}><Avatar name={profile?.name} url={profile?.avatar_url} size={36} /><b><PremName name={profile?.name} prem={prem} /></b></Link>
           {!prem && <Link className="nav fb" to="/plans"><span className="sbi g"><Icon n="check" s={22} /></span><span>الترقية للحساب المميز<small>أنشئ حتى 10 مجموعات وعلامة خضراء</small></span></Link>}
           <Link className="nav fb" to="/support"><span className="sbi"><Icon n="msg" s={22} on /></span><span>الدعم<small>مشكلة أو اقتراح أو سؤال</small></span></Link>
           <div className="hr" style={{ margin: '8px 4px' }} />
@@ -115,6 +116,7 @@ function Desktop() {
 
 function Mobile() {
   const { profile, signOut } = useAuth()
+  const myUrl = profile ? `/u/${profile.id}` : '/profile' // رابط حسابي فيه رقم الحساب عشان لو اتبعت لحد يفتح حسابي أنا
   const pf = usePlatform()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
@@ -139,12 +141,12 @@ function Mobile() {
       <nav className="mtabs" aria-label="التنقل">
         {tab('/', 'الرئيسية', 'home', p === '/')}
         {tab('/messages', 'الرسائل', 'msg', p.startsWith('/messages'), bd.msgs)}
-        {tab('/profile', 'حسابي', 'user', p === '/profile')}
+        {tab(myUrl, 'حسابي', 'user', p === myUrl || p === '/profile')}
       </nav>
       {open && (<>
         <div className="sbg" onClick={() => setOpen(false)} />
         <aside className="drawer" aria-label="القائمة">
-          <Link to="/profile" style={{ gap: 12, padding: '8px 8px 14px', borderBottom: '1px solid #E4E4E7', marginBottom: 8, minHeight: 0 }}>
+          <Link to={myUrl} style={{ gap: 12, padding: '8px 8px 14px', borderBottom: '1px solid #E4E4E7', marginBottom: 8, minHeight: 0 }}>
             <Avatar name={profile?.name} url={profile?.avatar_url} size={52} />
             <div style={{ flex: 1 }}><PremName name={profile?.name} prem={prem} /><div className="mut">عرض حسابي</div></div>
           </Link>
