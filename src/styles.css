@@ -285,3 +285,7 @@ textarea.in{resize:vertical;min-height:90px}
 .fw-r.on{background:#E7F0FF}
 .fw-ck{width:20px;height:20px;accent-color:var(--brand);cursor:pointer;flex:none}
 .fw-f{border-top:1px solid #E4E6EB;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+
+/* أيقونات الرسالة (تفاعل / المزيد) بتطلع جنب الفقاعة في المساحة الفاضية، من غير ما تاخد من عرض الفقاعة */
+.cm-wrap .cm-tools{position:absolute;top:50%;transform:translateY(-50%);right:calc(100% + 2px);left:auto}
+.cm-wrap .cm-tools.mine{right:auto;left:calc(100% + 2px)}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { errMsg } from '../lib/supabase'
 import { Avatar, Err, Icon, timeAgo } from '../lib/ui'
 import { VOICE_MAX, canRecord, pickType } from '../lib/voice'
+import { pastedImages } from '../lib/paste'
 
 export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; edited?: boolean; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
 // علامات الرسالة (زي واتساب): ✓ اتبعتت — ✓✓ وصلت — ✓✓ خضرا اتقرت
@@ -28,6 +29,13 @@ const IcEdit = () => <MI d={<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 
 const IcUnsend = () => <MI d={<><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /></>} />
 const IcFwd = () => <span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><MI d={<><path d="M15 5l6 6-6 6" /><path d="M21 11H10a6 6 0 0 0-6 6v2" /></>} /></span>
 const IcCopy = () => <MI d={<><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>} />
+
+// معاينة صغيرة للصورة قبل الإرسال
+function FileThumb({ f }: { f: File }) {
+  const [u, setU] = useState('')
+  useEffect(() => { const x = URL.createObjectURL(f); setU(x); return () => URL.revokeObjectURL(x) }, [f])
+  return u ? <img src={u} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8 }} /> : null
+}
 
 export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { onEdit?: (id: string, body: string) => Promise<void>; onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
@@ -109,7 +117,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
   const ib: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', border: 0, background: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', color: '#111111', flexShrink: 0, fontSize: 22, fontFamily: 'inherit', padding: 0 }
 
   const tools = (m: ChatMsg) => (
-    <span className="cm-tools">
+    <span className={'cm-tools' + (m.mine ? ' mine' : '')}>
       {onReact && <button type="button" className="cm-tb" title="تفاعل" aria-label="تفاعل" onClick={(e) => openPop(e, m, 'rx')}>☺</button>}
       <button type="button" className="cm-tb" title="المزيد" aria-label="المزيد" onClick={(e) => openPop(e, m, 'menu')}>⋮</button>
     </span>
@@ -125,7 +133,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
           return (
             <div key={m.id} className="col" style={{ gap: 3 }}>
               {(gap || i === 0) && <div className="mut" style={{ fontSize: 12, textAlign: 'center', margin: '8px 0 4px' }}>{timeAgo(m.created_at)}</div>}
-              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '78%', display: 'flex', alignItems: m.label ? 'flex-end' : 'center', gap: 6, flexDirection: 'row' }}>
+              <div className="cm-wrap" style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', display: 'flex', alignItems: m.label ? 'flex-end' : 'center', gap: 6, flexDirection: 'row' }}>
               {!m.mine && m.label && <Avatar name={m.label} url={m.avatar} size={30} />}
               {m.mine && !m.id.startsWith('tmp-') && (onReact || onDelete || onForward) && tools(m)}
               <div style={{ minWidth: 0, position: 'relative', marginBottom: m.rx && Object.keys(m.rx).length ? 10 : 0 }}>
@@ -134,7 +142,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
                 {m.audio_url && <div className={'cm-voice' + (m.mine ? ' mine' : '')}><audio controls preload="metadata" src={m.audio_url} /></div>}
                 {m.body && !m.audio_url && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
-                  : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '8px 14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
+                  : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '7px 12px', lineHeight: 1.45, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
                 {m.edited && <div className="mut" style={{ fontSize: 11, padding: '1px 8px', textAlign: m.mine ? 'end' : 'start' }}>معدّلة</div>}
                 {m.rx && Object.keys(m.rx).length > 0 && (
                   <button type="button" className="cm-rxc" onClick={() => onReact && m.myRx && onReact(m.id, null)} title={m.myRx ? 'دوس لإزالة تفاعلك' : undefined}>
@@ -173,7 +181,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
           <button type="button" className="btn sm" onClick={cancelEdit} aria-label="إلغاء التعديل">✕</button>
         </div>
       )}
-      {file && <div className="mut row" style={{ fontSize: 13 }}>الصورة: {file.name} <button className="btn sm" onClick={() => setFile(null)}>إزالة</button></div>}
+      {file && <div className="mut row" style={{ fontSize: 13, gap: 8 }}><FileThumb f={file} /><span className="grow">صورة جاهزة للإرسال</span><button className="btn sm" onClick={() => setFile(null)}>إزالة</button></div>}
       {emoji && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 2, background: '#fff', border: '1px solid #E4E4E7', borderRadius: 14, padding: 6, maxHeight: 108, overflowY: 'auto' }}>
           {EMOJIS.map((e) => <button key={e} type="button" onClick={() => addEmoji(e)} style={{ ...ib, width: '100%', fontSize: 20 }}>{e}</button>)}
@@ -195,7 +203,7 @@ export default function ChatBox({ onEdit, onSendVoice, msgs, onSend, empty, heig
           <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         <button type="button" style={ib} aria-label="إيموجي" title="إيموجي" onClick={() => setEmoji((v) => !v)}>🙂</button>
-        <input ref={inp} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter') send(); else if (e.key === 'Escape' && editing) cancelEdit() }} />
+        <input ref={inp} onPaste={(e) => { if (editing) return; const im = pastedImages(e); if (im.length) { e.preventDefault(); setFile(im[0]); setErr('') } }} className="in grow" style={{ borderRadius: 22, minHeight: 40, padding: '8px 16px', minWidth: 0 }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter') send(); else if (e.key === 'Escape' && editing) cancelEdit() }} />
         {body.trim() || file || editing
           ? <button type="button" style={ib} aria-label={editing ? 'حفظ التعديل' : 'إرسال'} title={editing ? 'حفظ التعديل' : 'إرسال'} disabled={busy} onClick={() => send()}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
           : <>
