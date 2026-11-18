@@ -85,11 +85,12 @@ export function timeAgo(iso: string) {
 }
 
 // نقطة إشعار حمرا بعدد فوق أيقونة (صغيرة عشان ماتغطيش الأيقونة)
-export function Badged({ n, children }: { n: number; children: React.ReactNode }) {
+// low: الرقم يطلع تحت على شمال الأيقونة (لأيقونات التابات اللي تحتها اسم)
+export function Badged({ n, children, low }: { n: number; children: React.ReactNode; low?: boolean }) {
   return (
     <span style={{ position: 'relative', display: 'inline-flex' }}>
       {children}
-      {n > 0 && <span aria-label={`${n} جديد`} style={{ position: 'absolute', top: -7, insetInlineStart: -9, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8, background: '#E5383B', color: '#fff', fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1, boxShadow: '0 0 0 2px #fff', boxSizing: 'border-box' }}>{n > 9 ? '9+' : n}</span>}
+      {n > 0 && <span aria-label={`${n} جديد`} style={{ position: 'absolute', ...(low ? { bottom: -2, left: -13 } : { top: -7, insetInlineStart: -9 }), minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8, background: '#E5383B', color: '#fff', fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1, boxShadow: '0 0 0 2px #fff', boxSizing: 'border-box', direction: 'ltr' }}>{n > 9 ? '9+' : n}</span>}
     </span>
   )
 }

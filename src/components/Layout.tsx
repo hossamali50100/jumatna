@@ -61,7 +61,7 @@ function Desktop() {
         </div>
         <nav className="tnav" aria-label="التنقل">
           {tabs.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} title={t.label} className={({ isActive }) => (isActive ? 'on' : '')}>{({ isActive }) => <>{t.to === '/friends' ? <Badged n={bd.friends}><Icon n={t.i} on={isActive} /></Badged> : <Icon n={t.i} on={isActive} />}{t.label}</>}</NavLink>
+            <NavLink key={t.to} to={t.to} end={t.end} title={t.label} className={({ isActive }) => (isActive ? 'on' : '')}>{({ isActive }) => <>{t.to === '/friends' ? <Badged low n={bd.friends}><Icon n={t.i} on={isActive} /></Badged> : <Icon n={t.i} on={isActive} />}{t.label}</>}</NavLink>
           ))}
         </nav>
         <div className="row grow" style={{ justifyContent: 'flex-end', gap: 12 }}>
@@ -124,7 +124,7 @@ function Mobile() {
   const p = loc.pathname
   const bd = useBadges(p)
   const tab = (to: string, label: string, i: string, on: boolean, n = 0) => (
-    <Link to={to} className={on ? 'on' : ''}><Badged n={n}><Icon n={i} on={on} /></Badged>{label}</Link>
+    <Link to={to} className={on ? 'on' : ''}><Badged low n={n}><Icon n={i} on={on} /></Badged>{label}</Link>
   )
   const item = (to: string, label: string, i: string, n = 0) => <Link to={to}><Icon n={i} /><span style={{ flex: 1 }}>{label}</span>{n > 0 && <span style={{ background: '#E5383B', color: '#fff', borderRadius: 10, padding: '1px 8px', fontSize: 12, fontWeight: 700 }}>{n}</span>}</Link>
   return (

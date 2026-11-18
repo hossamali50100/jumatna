@@ -28,7 +28,7 @@ export default function GroupPromos({ gid }: { gid: string }) {
       {rows?.length === 0 && <span className="mut" style={{ fontSize: 14, lineHeight: 1.8 }}>مفيش منشورات متروّجة. لو عايز توصّل بوست لناس أكتر برّه المجموعة، <Link to="/support" style={{ color: 'var(--brand)', fontWeight: 700 }}>كلّم الإدارة</Link> وهنحدد معاك المدة والجمهور وطريقة الدفع.</span>}
       {rows?.map((p) => (
         <div key={p.id} className="col" style={{ gap: 6, padding: 12, borderRadius: 12, border: '1px solid #E4E4E7' }}>
-          <div className="row" style={{ gap: 8 }}><span className="pill">{state(p)}</span><span className="mut grow" style={{ fontSize: 13 }}>{who(p)} · ينتهي {new Date(p.ends_at).toLocaleDateString('ar-EG')}</span></div>
+          <div className="row" style={{ gap: 8 }}><span className="pill">{state(p)}</span><span className="mut grow" style={{ fontSize: 13 }}>{who(p)} · ينتهي {new Date(p.ends_at).toLocaleDateString('ar-EG-u-nu-latn')}</span></div>
           <Link to={'/post/' + p.post_id} style={{ lineHeight: 1.6 }}>{p.body.length > 90 ? p.body.slice(0, 90) + '…' : p.body}</Link>
           <div className="row" style={{ gap: 14, fontSize: 14, flexWrap: 'wrap' }}><span>👁 ظهر لـ <b>{p.views}</b> من {p.target_viewers}</span><span>❤️ {p.likes}</span><span>💬 {p.comments}</span></div>
         </div>

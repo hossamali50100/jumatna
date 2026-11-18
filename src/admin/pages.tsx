@@ -247,14 +247,14 @@ export function UserDetail() {
           <div className="card" style={{ flex: '1 1 380px', maxWidth: 560 }}>
             <b>بيانات الحساب</b>
             <Row k="الإيميل" v={u.email ?? '—'} />
-            <Row k="انضم" v={new Date(u.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })} />
+            <Row k="انضم" v={new Date(u.created_at).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })} />
             <Row k="الجنس" v={priv ? (priv.gender === 'male' ? 'ذكر' : 'أنثى') : '—'} />
-            <Row k="تاريخ الميلاد" v={priv ? `${new Date(priv.birth_date).toLocaleDateString('ar-EG')}${age !== null ? ` (${age} سنة)` : ''}` : '—'} />
+            <Row k="تاريخ الميلاد" v={priv ? `${new Date(priv.birth_date).toLocaleDateString('ar-EG-u-nu-latn')}${age !== null ? ` (${age} سنة)` : ''}` : '—'} />
             <Row k="النبذة" v={full?.bio || <span className="mut">—</span>} />
             <Row k="الحساب" v={full?.is_locked ? 'مقفول 🔒' : 'عام'} />
-            <Row k="الباقة" v={isPremium(u) ? `مميز${u.plan_until ? ' لحد ' + new Date(u.plan_until).toLocaleDateString('ar-EG') : ''}` : 'مجاني'} />
+            <Row k="الباقة" v={isPremium(u) ? `مميز${u.plan_until ? ' لحد ' + new Date(u.plan_until).toLocaleDateString('ar-EG-u-nu-latn') : ''}` : 'مجاني'} />
             {full && full.onboarded === false && <Row k="ملاحظة" v={<span className="mut">لسه ما كمّلش بياناته أول مرة</span>} />}
-            {full?.deletion_requested_at && <Row k="حذف الحساب" v={<span style={{ color: '#B91C1C' }}>طلب حذف في {new Date(full.deletion_requested_at).toLocaleDateString('ar-EG')}</span>} />}
+            {full?.deletion_requested_at && <Row k="حذف الحساب" v={<span style={{ color: '#B91C1C' }}>طلب حذف في {new Date(full.deletion_requested_at).toLocaleDateString('ar-EG-u-nu-latn')}</span>} />}
           </div>
           {isAdmin && u.id !== me!.id && (
             <div className="card col" style={{ gap: 10, flex: '0 0 280px' }}>
@@ -343,7 +343,7 @@ export function UserDetail() {
                       {openChat.kind === 'room' && <div className="mut" style={{ fontSize: 12, padding: '0 8px' }}>{m.sender_name ?? '—'}</div>}
                       {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener"><img src={m.image_url} alt="" style={{ width: 200, maxHeight: 220, objectFit: 'cover', borderRadius: 12, display: 'block' }} /></a>}
                       {m.body && <div style={{ background: mine ? 'var(--brand, #0866FF)' : '#EFEFF1', color: mine ? '#fff' : '#111', borderRadius: 16, padding: '7px 12px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>}
-                      <div className="mut" style={{ fontSize: 11, padding: '0 8px', textAlign: mine ? 'end' : 'start' }}>{new Date(m.created_at).toLocaleString('ar-EG')}</div>
+                      <div className="mut" style={{ fontSize: 11, padding: '0 8px', textAlign: mine ? 'end' : 'start' }}>{new Date(m.created_at).toLocaleString('ar-EG-u-nu-latn')}</div>
                     </div>
                   )
                 })}
@@ -353,7 +353,7 @@ export function UserDetail() {
           <div className="card col" style={{ gap: 4 }}>
             <b>سجل الاطلاع على محادثات {u.name}</b>
             {audit.length === 0 && <span className="mut">لسه محدش فتح محادثاته.</span>}
-            {audit.map((a) => <div key={a.id} className="mut" style={{ fontSize: 13 }}>• {a.admin?.name ?? 'أدمن'} فتح {a.action === 'view_room' ? 'شات جماعي' : 'محادثة خاصة'} — {new Date(a.created_at).toLocaleString('ar-EG')}</div>)}
+            {audit.map((a) => <div key={a.id} className="mut" style={{ fontSize: 13 }}>• {a.admin?.name ?? 'أدمن'} فتح {a.action === 'view_room' ? 'شات جماعي' : 'محادثة خاصة'} — {new Date(a.created_at).toLocaleString('ar-EG-u-nu-latn')}</div>)}
           </div>
         </div>
       )}
@@ -486,7 +486,7 @@ export function GroupDetail() {
             <Row k="الوصف" v={g.description || <span className="mut">—</span>} />
             <Row k="النوع" v={g.privacy === 'public' ? 'عامة' : 'خاصة'} />
             <Row k="المالك" v={<Link to={'/admin/users/' + g.owner_id} className="row" style={{ gap: 8 }}><Avatar name={g.owner_name ?? '؟'} url={g.owner_avatar} size={28} />{g.owner_name ?? '—'}</Link>} />
-            <Row k="أُنشئت" v={new Date(g.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })} />
+            <Row k="أُنشئت" v={new Date(g.created_at).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })} />
           </div>
           {me?.role === 'admin' && (
             <div className="card col" style={{ gap: 10, flex: '0 0 260px' }}>
@@ -593,7 +593,7 @@ function useAds() {
   return { rows, err, load }
 }
 const dayLeft = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000))
-const dstr = (iso: string) => new Date(iso).toLocaleDateString('ar-EG')
+const dstr = (iso: string) => new Date(iso).toLocaleDateString('ar-EG-u-nu-latn')
 
 // جدول كل الإعلانات + زرار إضافة إعلان جديد فوقه
 export function Ads() {

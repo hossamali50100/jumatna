@@ -252,7 +252,7 @@ export default function GroupPage() {
           {g.description ? <div className="body">{g.description}</div> : <span className="mut">مفيش وصف للمجموعة.</span>}
           <div className="mut">{g.privacy === 'public' ? '🌐 مجموعة عامة: أي حد ينضم ويشوف البوستات' : '🔒 مجموعة خاصة: الانضمام بموافقة المشرف'}</div>
           <div className="mut">{count} عضو</div>
-          <div className="mut">تأسست في {new Date(g.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long' })}</div>
+          <div className="mut">تأسست في {new Date(g.created_at).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long' })}</div>
         </div>
       </aside>
       <div className="col" style={{ gap: 16, minWidth: 0 }}>

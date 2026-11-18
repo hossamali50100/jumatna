@@ -298,7 +298,7 @@ export default function PostCard({ post, liked, canModerate, hideGroup, autoOpen
           <button className="btn p" onClick={() => { setZoom(false); if (!open) toggleComments() }}>عرض التعليقات</button>
         </>} />
       )}
-      <div className="mut" style={{ paddingBottom: 8, borderBottom: '1px solid #E4E4E7', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>{likes > 0 && <><ReactorsSummary postId={post.id} by={rx.by} total={likes} me={me} /> · </>}{ccount} تعليق</div>
+      <div className="mut" style={{ paddingBottom: 8, borderBottom: '1px solid #E4E4E7', textAlign: 'end' }}>{likes > 0 && <><ReactorsSummary postId={post.id} by={rx.by} total={likes} me={me} /> · </>}{ccount} تعليق</div>
       <div className="row" style={{ justifyContent: 'space-around', marginTop: 4 }}>
         <ReactButton mine={rx.mine} onPick={react} />
         <button className="btn ghost" onClick={toggleComments}><Icon n="comment" s={20} />تعليق</button>

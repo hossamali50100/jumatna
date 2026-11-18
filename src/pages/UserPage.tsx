@@ -185,7 +185,7 @@ export default function UserPage() {
         <div className="crd col">
           <b>نبذة</b>
           <div className="body">{p.bio || <span className="mut">مفيش نبذة لسه.</span>}</div>
-          {p.created_at && <div className="mut">انضم في {new Date(p.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long' })}</div>}
+          {p.created_at && <div className="mut">انضم في {new Date(p.created_at).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long' })}</div>}
           <div className="mut">{prem ? 'حساب مميز' : 'حساب مجاني'}</div>
         </div>
       )}
