@@ -7,6 +7,7 @@ const BADGE: Record<Notif['type'], { icon: string; bg: string }> = {
   post_comment: { icon: 'comment', bg: '#31A24C' }, comment_reply: { icon: 'comment', bg: '#31A24C' },
   friend_request: { icon: 'friends', bg: 'var(--brand)' }, friend_accept: { icon: 'friends', bg: 'var(--brand)' },
   group_invite: { icon: 'groups', bg: '#7C3AED' }, group_join: { icon: 'groups', bg: '#7C3AED' },
+  room_mention: { icon: 'msg', bg: '#0866FF' },
 }
 
 // قايمة إشعارات بشكل فيسبوك، والمتشابه بيتجمّع في إشعار واحد ("أحمد و3 آخرين علّقوا على منشورك")
@@ -38,7 +39,7 @@ export default function NotifList({ items, markMany, onGo, empty, max }: { items
         </span>
         <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
           <span style={{ fontSize: 15, lineHeight: 1.45, color: unread ? '#111' : '#65676B' }}>
-            {names} {many ? NOTIF_PLURAL[n.type] : NOTIF_TEXT[n.type]}{withGroup && <> <b style={{ color: '#111' }}>{n.groups?.name ?? ''}</b>.</>}
+            {names} {many ? NOTIF_PLURAL[n.type] : NOTIF_TEXT[n.type]}{withGroup && <> <b style={{ color: '#111' }}>{n.groups?.name ?? ''}</b>.</>}{n.type === 'room_mention' && <> «<b style={{ color: '#111' }}>{n.chat_rooms?.name ?? ''}</b>».</>}
           </span>
           <span style={{ fontSize: 13, fontWeight: unread ? 700 : 400, color: unread ? 'var(--brand)' : '#65676B' }}>{timeAgo(n.created_at)}</span>
         </span>

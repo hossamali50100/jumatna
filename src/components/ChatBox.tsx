@@ -39,13 +39,36 @@ function FileThumb({ f }: { f: File }) {
   return u ? <img src={u} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8 }} /> : null
 }
 
-export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { onHide?: (id: string) => Promise<void>; onEdit?: (id: string, body: string) => Promise<void>; onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
+export type Mentionable = { id: string; name: string; avatar_url: string | null }
+
+export default function ChatBox({ mentionables, onHide, onEdit, onSendVoice, msgs, onSend, empty, height = 420, error, fill, readOnly, onDelete, onReact, onForward, typing, onTyping, onStopTyping }: { mentionables?: Mentionable[]; onHide?: (id: string) => Promise<void>; onEdit?: (id: string, body: string) => Promise<void>; onSendVoice?: (blob: Blob, secs: number) => Promise<void>; typing?: string; onTyping?: () => void; onStopTyping?: () => void; onDelete?: (id: string) => Promise<void>; onReact?: (id: string, emoji: string | null) => void; onForward?: (m: ChatMsg) => void; msgs: ChatMsg[]; onSend: (text: string, file: File | null, mentions?: string[]) => Promise<void>; empty: string; height?: number; error?: string; fill?: boolean; readOnly?: boolean }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [emoji, setEmoji] = useState(false)
   const [editing, setEditing] = useState<ChatMsg | null>(null) // الرسالة اللي بتتعدّل دلوقتي
+  // ---- المنشن (@اسم) في الشات الجماعي ----
+  const [mq, setMq] = useState<string | null>(null)       // اللي اتكتب بعد @ (null = القايمة مقفولة)
+  const [mi, setMi] = useState(0)                           // الاختيار الحالي في القايمة
+  const chosen = useRef<Mentionable[]>([])                  // الأشخاص اللي اتعملهم منشن في الرسالة الحالية
+  const mList = mq === null || !mentionables?.length ? [] : mentionables.filter((x) => x.name.toLowerCase().includes(mq.toLowerCase())).slice(0, 8)
+  const checkMention = (val: string, caret: number) => {
+    if (!mentionables?.length) return
+    const m = /(?:^|\s)@([^\s@]{0,30})$/.exec(val.slice(0, caret))
+    setMq(m ? m[1] : null); setMi(0)
+  }
+  const pickMention = (x: Mentionable) => {
+    const el = inp.current; const caret = el?.selectionStart ?? body.length
+    const before = body.slice(0, caret).replace(/@([^\s@]{0,30})$/, '@' + x.name + ' ')
+    const nb = before + body.slice(caret)
+    setBody(nb); setMq(null)
+    if (!chosen.current.some((c) => c.id === x.id)) chosen.current.push(x)
+    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(before.length, before.length) } })
+  }
+  // تلوين @الاسم جوه الفقاعة (لأسماء أعضاء الشات بس)
+  const mentionRe = mentionables?.length ? new RegExp('(@(?:' + [...mentionables].map((x) => x.name).sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + '))', 'g') : null
+  const renderBody = (t: string, mine: boolean) => !mentionRe ? t : t.split(mentionRe).map((part, k) => (k % 2 === 1 ? <b key={k} className={'cm-mention' + (mine ? ' mine' : '')}>{part}</b> : part))
   const [pop, setPop] = useState<{ m: ChatMsg; kind: 'rx' | 'rxall' | 'menu'; x: number; y: number } | null>(null)
   const openPop = (e: React.MouseEvent, m: ChatMsg, kind: 'rx' | 'menu') => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -113,7 +136,9 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
     const prev = body; const prevFile = file
     if (text === body.trim()) setBody('')   // نفضّي الخانة فورًا، ولو فشل الإرسال نرجّع النص
     setFile(null); setEmoji(false); onStopTyping?.()
-    try { await onSend(text, f) } catch (e) { setErr(errMsg(e)); if (text === prev.trim()) setBody(prev); setFile(prevFile) }
+    const ments = chosen.current.filter((c) => text.includes('@' + c.name)).map((c) => c.id)
+    chosen.current = []; setMq(null)
+    try { await onSend(text, f, ments.length ? ments : undefined) } catch (e) { setErr(errMsg(e)); if (text === prev.trim()) setBody(prev); setFile(prevFile) }
     setBusy(false)
     inp.current?.focus()
   }
@@ -162,7 +187,7 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
                 {m.audio_url && <div className={'cm-voice' + (m.mine ? ' mine' : '')}><audio controls preload="metadata" src={m.audio_url} /></div>}
                 {m.body && !m.audio_url && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
-                  : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '6px 12px', lineHeight: 1.4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{m.body}</div>)}
+                  : <div style={{ background: m.mine ? 'var(--brand)' : '#EFEFF1', color: m.mine ? '#fff' : '#111111', borderRadius: 18, padding: '6px 12px', lineHeight: 1.4, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', textAlign: 'start' }}>{renderBody(m.body, m.mine)}</div>)}
                 {m.edited && <div className="mut" style={{ fontSize: 11, padding: '1px 8px', textAlign: m.mine ? 'end' : 'start' }}>معدّلة</div>}
                 {m.rx && Object.keys(m.rx).length > 0 && (
                   <button type="button" className="cm-rxc" onClick={() => onReact && m.myRx && onReact(m.id, null)} title={m.myRx ? 'دوس لإزالة تفاعلك' : undefined}>
@@ -222,6 +247,15 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
           {EMOJIS.map((e) => <button key={e} type="button" onClick={() => addEmoji(e)} style={{ ...ib, width: '100%', fontSize: 20 }}>{e}</button>)}
         </div>
       )}
+      {mList.length > 0 && (
+        <div className="cm-mlist" role="listbox" aria-label="اختار شخص للمنشن">
+          {mList.map((x, k) => (
+            <button key={x.id} type="button" role="option" aria-selected={k === mi} className={k === mi ? 'on' : ''} onMouseDown={(e) => { e.preventDefault(); pickMention(x) }} onMouseEnter={() => setMi(k)}>
+              <Avatar name={x.name} url={x.avatar_url} size={28} /><span>{x.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {rec ? (
         <div className="row" style={{ gap: 8, padding: '0 2px 6px' }} role="group" aria-label="تسجيل رسالة صوتية">
           <button type="button" style={{ ...ib, color: '#B91C1C', fontSize: 18 }} aria-label="إلغاء التسجيل" title="إلغاء" onClick={() => stopRec(false)}>✕</button>
@@ -238,7 +272,14 @@ export default function ChatBox({ onHide, onEdit, onSendVoice, msgs, onSend, emp
           <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         <button type="button" style={ib} aria-label="إيموجي" title="إيموجي" onClick={() => setEmoji((v) => !v)}>🙂</button>
-        <textarea ref={inp} rows={1} onPaste={(e) => { if (editing) return; const im = pastedImages(e); if (im.length) { e.preventDefault(); setFile(im[0]); setErr('') } }} className="in grow cm-in" style={{ borderRadius: 20, minHeight: 40, padding: '9px 16px', minWidth: 0, resize: 'none', lineHeight: 1.4, display: 'block' }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } else if (e.key === 'Escape' && editing) cancelEdit() }} />
+        <textarea ref={inp} rows={1} onPaste={(e) => { if (editing) return; const im = pastedImages(e); if (im.length) { e.preventDefault(); setFile(im[0]); setErr('') } }} className="in grow cm-in" style={{ borderRadius: 20, minHeight: 40, padding: '9px 16px', minWidth: 0, resize: 'none', lineHeight: 1.4, display: 'block' }} value={body} maxLength={2000} placeholder="اكتب رسالة…" onChange={(e) => { setBody(e.target.value); checkMention(e.target.value, e.target.selectionStart ?? e.target.value.length); if (e.target.value) onTyping?.() }} onBlur={() => onStopTyping?.()} onKeyDown={(e) => {
+            if (mList.length) {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setMi((i) => (i + 1) % mList.length); return }
+              if (e.key === 'ArrowUp') { e.preventDefault(); setMi((i) => (i - 1 + mList.length) % mList.length); return }
+              if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) { e.preventDefault(); pickMention(mList[Math.min(mi, mList.length - 1)]); return }
+              if (e.key === 'Escape') { e.preventDefault(); setMq(null); return }
+            }
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } else if (e.key === 'Escape' && editing) cancelEdit() }} />
         {body.trim() || file || editing
           ? <button type="button" style={ib} aria-label={editing ? 'حفظ التعديل' : 'إرسال'} title={editing ? 'حفظ التعديل' : 'إرسال'} disabled={busy} onClick={() => send()}><span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Icon n="plane" s={22} /></span></button>
           : <>

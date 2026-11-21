@@ -3,11 +3,13 @@ import { supabase } from './supabase'
 import { useAuth } from './auth'
 
 export type Notif = {
-  id: string; type: 'post_like' | 'post_comment' | 'comment_reply' | 'comment_like' | 'friend_request' | 'friend_accept' | 'group_invite' | 'group_join'
+  id: string; type: 'post_like' | 'post_comment' | 'comment_reply' | 'comment_like' | 'friend_request' | 'friend_accept' | 'group_invite' | 'group_join' | 'room_mention'
   actor_id: string | null; post_id: string | null; group_id: string | null; comment_id: string | null
   read_at: string | null; created_at: string
   profiles: { name: string; avatar_url: string | null } | null
   groups: { name: string } | null
+  room_id?: string | null
+  chat_rooms?: { name: string } | null
 }
 
 // نص الإشعار: [اسم اللي عمل الحدث] + الباقي
@@ -20,6 +22,7 @@ export const NOTIF_TEXT: Record<Notif['type'], string> = {
   friend_accept: 'قبل طلب صداقتك.',
   group_invite: 'دعاك للانضمام إلى مجموعة',
   group_join: 'طلب الانضمام إلى مجموعة',
+  room_mention: 'أشار إليك في الشات الجماعي',
 }
 export const NOTIF_PLURAL: Record<Notif['type'], string> = {
   post_like: 'تفاعلوا مع منشورك.',
@@ -30,6 +33,7 @@ export const NOTIF_PLURAL: Record<Notif['type'], string> = {
   friend_accept: 'قبلوا طلب صداقتك.',
   group_invite: 'دعوك للانضمام إلى مجموعة',
   group_join: 'طلبوا الانضمام إلى مجموعة',
+  room_mention: 'أشاروا إليك في الشات الجماعي',
 }
 // تجميع الإشعارات المتشابهة (نفس النوع على نفس المنشور/التعليق/المجموعة) في إشعار واحد: "أحمد و3 آخرين علّقوا على منشورك"
 export type NGroup = { key: string; type: Notif['type']; latest: Notif; ids: string[]; actors: { id: string | null; name: string; avatar: string | null }[]; unread: boolean }
@@ -40,6 +44,7 @@ export function groupNotifs(items: Notif[]): NGroup[] {
       case 'post_like': case 'post_comment': case 'comment_reply': return `${n.type}:${n.post_id}`
       case 'comment_like': return `${n.type}:${n.comment_id}`
       case 'group_join': case 'group_invite': return `${n.type}:${n.group_id}`
+      case 'room_mention': return `${n.type}:${n.room_id}`
       default: return `${n.type}:${day(n.created_at)}`   // طلبات/قبول الصداقة: لكل يوم
     }
   }
@@ -65,6 +70,7 @@ export const NOTIF_PREF_TYPES: { type: Notif['type']; label: string; hint: strin
   { type: 'comment_like', label: 'التفاعلات على تعليقاتك', hint: 'لما حد يتفاعل مع تعليقك' },
   { type: 'group_invite', label: 'دعوات المجموعات', hint: 'لما حد يدعوك لمجموعة' },
   { type: 'group_join', label: 'طلبات الانضمام لمجموعاتك', hint: 'لما حد يطلب ينضم لمجموعتك' },
+  { type: 'room_mention', label: 'المنشن في الشات الجماعي', hint: 'لما حد يكتب @اسمك في شات جماعي' },
 ]
 export function useNotifPrefs() {
   const { session } = useAuth()
@@ -94,6 +100,7 @@ export const notifLink = (n: Notif) =>
   n.type.startsWith('post_') || n.type.startsWith('comment_') ? `/post/${n.post_id}`
     : n.type === 'friend_request' || n.type === 'group_invite' ? '/friends'
     : n.type === 'friend_accept' ? `/u/${n.actor_id}`
+    : n.type === 'room_mention' ? `/messages/room:${n.room_id}`
     : `/g/${n.group_id}`
 
 // قايمة إشعاراتي + عدّاد غير المقروء (تحديث كل 12 ثانية)
@@ -105,7 +112,10 @@ export function useNotifs(limit = 40) {
   const [missing, setMissing] = useState(false)
   const load = useCallback(async () => {
     if (!uid) return
-    const r = (await supabase.from('notifications').select('id,type,actor_id,post_id,group_id,comment_id,read_at,created_at,profiles!actor_id(name,avatar_url),groups!group_id(name)').order('created_at', { ascending: false }).limit(limit)) as unknown as { data: Notif[] | null; error: unknown }
+    const q = (cols: string) => supabase.from('notifications').select(cols).order('created_at', { ascending: false }).limit(limit)
+    const base = 'id,type,actor_id,post_id,group_id,comment_id,read_at,created_at,profiles!actor_id(name,avatar_url),groups!group_id(name)'
+    let r = (await q(base + ',room_id,chat_rooms!room_id(name)')) as unknown as { data: Notif[] | null; error: unknown }
+    if (r.error) r = (await q(base)) as unknown as { data: Notif[] | null; error: unknown }   // تحديث 055 (المنشن) لسه ما اتشغّلش
     if (r.error) return setMissing(true)   // تحديث 019 لسه ما اتشغلش
     setMissing(false); setItems(r.data ?? [])
     const c = await supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null)

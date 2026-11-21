@@ -49,11 +49,13 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
     return () => { clearInterval(t); supabase.removeChannel(ch) }
   }, [load, roomId])
 
-  const onSend = async (text: string, file: File | null) => {
+  const onSend = async (text: string, file: File | null, mentions?: string[]) => {
     const image_url = file ? await uploadImage(file, uid) : null
     const tmp: Msg = { id: 'tmp-' + Date.now(), sender_id: uid, body: text, image_url, created_at: new Date().toISOString(), profiles: null }
     setMsgs((l) => [...l, tmp])
-    const { error } = await supabase.from('chat_room_messages').insert({ room_id: roomId, sender_id: uid, body: text, image_url })
+    let { error } = await supabase.from('chat_room_messages').insert({ room_id: roomId, sender_id: uid, body: text, image_url, ...(mentions?.length ? { mentions } : {}) })
+    // لو تحديث 055 (المنشن) لسه ما اتشغّلش: نبعت الرسالة من غير إشعار المنشن
+    if (error && mentions?.length && /mentions|schema cache|column/i.test(error.message)) ({ error } = await supabase.from('chat_room_messages').insert({ room_id: roomId, sender_id: uid, body: text, image_url }))
     if (error) { setMsgs((l) => l.filter((m) => m.id !== tmp.id)); throw error }
     load()
   }
@@ -112,7 +114,7 @@ export default function RoomThread({ roomId, height, fill }: { roomId: string; h
   const seenN = lastMineM ? reads.filter((r) => r.user_id !== uid && r.last_read_at >= lastMineM.created_at).length : 0
   const list: ChatMsg[] = msgs.map((m) => ({ id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : seenN > 0 ? 'read' : 'sent') : undefined, tickTitle: seenN > 0 ? `شاهدها ${seenN}` : undefined, label: m.sender_id === uid ? undefined : (m.profiles?.name ?? 'عضو'), avatar: m.profiles?.avatar_url ?? null, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at, seenBy: seenAt[m.id], ...rxOf(m.id) }))
   return <>
-    <ChatBox onReact={onReact} onHide={onHide} onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
+    <ChatBox mentionables={reads.filter((r) => r.user_id !== uid && r.profiles).map((r) => ({ id: r.user_id, name: r.profiles!.name, avatar_url: r.profiles!.avatar_url }))} onReact={onReact} onHide={onHide} onEdit={onEdit} onForward={(m) => setFwd(m)} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={err} fill={fill} onDelete={onDelete} />
     {fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}
   </>
 }

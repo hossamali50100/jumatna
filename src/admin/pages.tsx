@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { usePlatform, applyBrand, DEFAULT_BRAND } from '../lib/platform'
 import { Avatar, Err, timeAgo } from '../lib/ui'
 import StaffSupport from '../pages/StaffSupport'
+import { askConfirm } from '../lib/dialog'
 
 const ROLE: Record<string, string> = { admin: 'أدمن', mod: 'مشرف', support: 'دعم', user: 'مستخدم' }
 type Counts = { u: number; pr: number; g: number; po: number; rp: number; nu: number }
@@ -535,35 +536,100 @@ export function GroupDetail() {
 }
 
 type Rep = { id: string; reason: string; status: string; created_at: string; post_id: string | null; profiles: { name: string } | null }
+type RepPost = { id: string; body: string; image_url: string | null; extra_images: string[] | null; created_at: string; author_id: string; group_id: string | null
+  profiles: { name: string; avatar_url: string | null } | null; groups: { name: string } | null }
 export function Reports() {
   const [reps, setReps] = useState<Rep[]>([]); const [err, setErr] = useState('')
+  const [posts, setPosts] = useState<Record<string, RepPost | null>>({})
+  const [show, setShow] = useState<'open' | 'all'>('open')
   const load = useCallback(async () => {
     const { data, error } = (await supabase.from('reports').select('id,reason,status,created_at,post_id,profiles!reporter_id(name)').order('created_at', { ascending: false }).limit(200)) as unknown as { data: Rep[] | null; error: { message: string } | null }
-    if (error) setErr(errMsg(error)); else setReps(data ?? [])
+    if (error) return setErr(errMsg(error))
+    setReps(data ?? [])
+    // المنشورات المُبلَّغ عنها (عشان تتشاف وتتقيّم قبل القرار)
+    const ids = [...new Set((data ?? []).map((r) => r.post_id).filter((x): x is string => !!x))]
+    if (!ids.length) return setPosts({})
+    let p = await supabase.from('posts').select('id,body,image_url,extra_images,created_at,author_id,group_id,profiles!author_id(name,avatar_url),groups!group_id(name)').in('id', ids)
+    if (p.error) p = await supabase.from('posts').select('id,body,image_url,created_at,author_id,group_id,profiles!author_id(name,avatar_url),groups!group_id(name)').in('id', ids) as typeof p
+    const map: Record<string, RepPost | null> = {}
+    for (const id of ids) map[id] = null   // لو مش راجع يبقى اتمسح
+    for (const x of (p.data ?? []) as unknown as RepPost[]) map[x.id] = x
+    setPosts(map)
   }, [])
   useEffect(() => { load() }, [load])
   const act = async (r: Rep, del: boolean) => {
-    if (del && !confirm('حذف المنشور المُبلَّغ عنه؟')) return
+    if (del && !(await askConfirm('حذف المنشور المُبلَّغ عنه؟', { body: 'المنشور هيتمسح نهائيًا، وكل البلاغات اللي عليه هتتقفل.', ok: 'حذف', danger: true }))) return
     setErr('')
     if (del && r.post_id) { const e1 = await supabase.from('posts').delete().eq('id', r.post_id); if (e1.error) return setErr(errMsg(e1.error)) }
-    const { error } = await supabase.from('reports').update({ status: 'done' }).eq('id', r.id)
+    // كل البلاغات المفتوحة على نفس المنشور بتتقفل مع بعض
+    const ids = r.post_id ? reps.filter((x) => x.post_id === r.post_id && x.status === 'open').map((x) => x.id) : [r.id]
+    const { error } = await supabase.from('reports').update({ status: 'done' }).in('id', ids.length ? ids : [r.id])
     if (error) setErr(errMsg(error)); else load()
+  }
+  const list = reps.filter((r) => show === 'all' || r.status === 'open')
+  // كل البلاغات على نفس المنشور في كارت واحد
+  const groups: { key: string; reps: Rep[] }[] = []
+  for (const r of list) {
+    const k = r.post_id ? r.post_id + ':' + r.status : r.id
+    const g = groups.find((x) => x.key === k)
+    if (g) g.reps.push(r); else groups.push({ key: k, reps: [r] })
   }
   return (
     <>
-      <Head title="البلاغات" />
+      <Head title="البلاغات">
+        <div className="row" style={{ gap: 6 }}>
+          <button className={'btn sm' + (show === 'open' ? ' p' : ' line')} onClick={() => setShow('open')}>المفتوحة</button>
+          <button className={'btn sm' + (show === 'all' ? ' p' : ' line')} onClick={() => setShow('all')}>الكل</button>
+        </div>
+      </Head>
       <Err>{err}</Err>
-      <div className="adm-table">
-        {reps.map((r) => (
-          <div key={r.id} className="adm-row">
-            <div className="grow"><b>{r.profiles?.name ?? 'مستخدم'}</b> <span className="mut" style={{ fontSize: 13 }}>· {timeAgo(r.created_at)} · {r.status === 'open' ? 'مفتوح' : 'تم'}</span><div>{r.reason}</div></div>
-            {r.status === 'open' && <>
-              {r.post_id && <button className="btn sm line danger" onClick={() => act(r, true)}>حذف المنشور + إغلاق</button>}
-              <button className="btn sm p" onClick={() => act(r, false)}>تم الحل</button>
-            </>}
-          </div>
-        ))}
-        {!reps.length && <div className="adm-row mut">لا بلاغات 🎉</div>}
+      <div className="col" style={{ gap: 12 }}>
+        {groups.map(({ key, reps: rs }) => {
+          const r = rs[0]
+          const p = r.post_id ? posts[r.post_id] : undefined
+          const imgs = p ? [p.image_url, ...(p.extra_images ?? [])].filter((x): x is string => !!x) : []
+          return (
+            <div key={key} className="card col" style={{ gap: 12 }}>
+              <div className="row" style={{ gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div className="grow col" style={{ minWidth: 220, gap: 6 }}>
+                  <div className="row" style={{ gap: 8 }}>
+                    <b>{rs.length === 1 ? 'بلاغ واحد' : `${rs.length} بلاغات`}</b>
+                    <span className="pill" style={r.status === 'open' ? { color: '#B91C1C', background: '#FEE2E2' } : { color: '#52525B', background: '#F4F4F5' }}>{r.status === 'open' ? 'مفتوح' : 'تم'}</span>
+                  </div>
+                  {rs.map((x) => (
+                    <div key={x.id} style={{ fontSize: 14 }}><b>{x.reason}</b> <span className="mut" style={{ fontSize: 13 }}>— من {x.profiles?.name ?? 'مستخدم'} · {timeAgo(x.created_at)}</span></div>
+                  ))}
+                </div>
+                {r.status === 'open' && <div className="row" style={{ gap: 8 }}>
+                  {r.post_id && p !== null && <button className="btn sm line danger" onClick={() => act(r, true)}>حذف المنشور + إغلاق</button>}
+                  <button className="btn sm p" onClick={() => act(r, false)}>{p === null ? 'إغلاق البلاغ' : 'المنشور سليم — إغلاق'}</button>
+                </div>}
+              </div>
+              {r.post_id && p === undefined && <div className="mut" style={{ fontSize: 14 }}>جاري تحميل المنشور…</div>}
+              {r.post_id && p === null && <div className="mut" style={{ fontSize: 14, background: '#F4F4F5', borderRadius: 10, padding: 12 }}>المنشور ده اتمسح بالفعل.</div>}
+              {p && (
+                <div className="col" style={{ gap: 8, background: '#F7F8FA', border: '1px solid #E4E4E7', borderRadius: 12, padding: 12 }}>
+                  <div className="row" style={{ gap: 10 }}>
+                    <Avatar name={p.profiles?.name ?? '؟'} url={p.profiles?.avatar_url ?? null} size={36} />
+                    <div className="grow" style={{ lineHeight: 1.4 }}>
+                      <Link to={'/admin/users/' + p.author_id} style={{ fontWeight: 700 }}>{p.profiles?.name ?? 'مستخدم'}</Link>
+                      <div className="mut" style={{ fontSize: 12 }}>{p.groups ? <>في مجموعة <Link to={'/admin/groups/' + p.group_id}>{p.groups.name}</Link> · </> : 'منشور شخصي · '}{timeAgo(p.created_at)}</div>
+                    </div>
+                    <Link className="btn sm line" to={'/post/' + p.id} target="_blank">فتح المنشور ↗</Link>
+                  </div>
+                  {p.body && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, maxHeight: 240, overflow: 'auto' }}>{p.body}</div>}
+                  {imgs.length > 0 && (
+                    <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                      {imgs.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" style={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 10, display: 'block', background: '#E4E4E7' }} /></a>)}
+                    </div>
+                  )}
+                  <div className="mut" style={{ fontSize: 12 }}>دوس على اسم الكاتب لو عايز تحظره أو تشوف حسابه.</div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {!groups.length && <div className="card mut">{show === 'open' ? 'مفيش بلاغات مفتوحة 🎉' : 'لا بلاغات'}</div>}
       </div>
     </>
   )
