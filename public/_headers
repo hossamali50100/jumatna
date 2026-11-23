@@ -8,19 +8,3 @@
 
 /sw.js
   Cache-Control: no-cache
-  Service-Worker-Allowed: /
-
-/manifest.webmanifest
-  Content-Type: application/manifest+json
-  Cache-Control: no-cache
-
-/index.html
-  Cache-Control: no-cache
-
-/lammmah.apk
-  Content-Type: application/vnd.android.package-archive
-  Content-Disposition: attachment; filename="Lammmah.apk"
-  Cache-Control: no-cache
-
-/.well-known/assetlinks.json
-  Content-Type: application/json
