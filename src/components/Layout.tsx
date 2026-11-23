@@ -12,6 +12,7 @@ import { useMyGroups } from '../lib/groups'
 import { Badged, Avatar, Check, Icon, useIsMobile } from '../lib/ui'
 import { isPremium } from '../lib/supabase'
 import { usePlatform } from '../lib/platform'
+import { useInstall } from '../lib/install'
 
 function PremName({ name, prem }: { name?: string; prem: boolean }) {
   return <span>{prem && <Check />}<b>{name}</b></span>
@@ -25,6 +26,7 @@ function Desktop() {
   const nav = useNavigate()
   const groups = useMyGroups(loc.pathname)
   const [q, setQ] = useState('')
+  const inst = useInstall()
   const [menu, setMenu] = useState(false)
   const [dms, setDms] = useState(false)
   const [nots, setNots] = useState(false)
@@ -89,6 +91,7 @@ function Desktop() {
                 <Link to="/plans"><Icon n="card" />الباقات والترقية</Link>
                 {profile && profile.role !== 'user' && <a href="/admin"><Icon n="card" />لوحة الإدارة</a>}
                 {profile && profile.role !== 'user' && <Link to="/staff/support"><Icon n="msg" />صندوق الدعم</Link>}
+                {inst.show && <button onClick={() => { setMenu(false); inst.install() }}><Icon n="dl" />تثبيت التطبيق</button>}
                 <button onClick={signOut}><Icon n="out" />تسجيل الخروج</button>
               </div>
             )}
@@ -100,6 +103,7 @@ function Desktop() {
           <Link className="nav fb" to={myUrl}><Avatar name={profile?.name} url={profile?.avatar_url} size={36} /><b><PremName name={profile?.name} prem={prem} /></b></Link>
           {!prem && <Link className="nav fb" to="/plans"><span className="sbi g"><Icon n="check" s={22} /></span><span>الترقية للحساب المميز<small>أنشئ حتى 10 مجموعات وعلامة خضراء</small></span></Link>}
           <Link className="nav fb" to="/support"><span className="sbi"><Icon n="msg" s={22} on /></span><span>الدعم<small>مشكلة أو اقتراح أو سؤال</small></span></Link>
+          {inst.show && <button type="button" className="nav fb" onClick={inst.install} style={{ width: '100%', border: 0, background: 'none', fontFamily: 'inherit', textAlign: 'start', cursor: 'pointer' }}><span className="sbi"><Icon n="dl" s={22} /></span><span>تحميل التطبيق<small>على موبايلك أو جهازك</small></span></button>}
           <div className="hr" style={{ margin: '8px 4px' }} />
           <div className="sbh">مجموعاتك</div>
           {groups.filter((g) => g.myStatus === 'active').slice(0, 3).map((g) => (
@@ -118,6 +122,7 @@ function Mobile() {
   const { profile, signOut } = useAuth()
   const myUrl = profile ? `/u/${profile.id}` : '/profile' // رابط حسابي فيه رقم الحساب عشان لو اتبعت لحد يفتح حسابي أنا
   const pf = usePlatform()
+  const inst = useInstall()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
   const main = useRef<HTMLElement>(null)
@@ -162,6 +167,7 @@ function Mobile() {
           {item('/plans', 'الباقات والترقية', 'card')}
           {profile && profile.role !== 'user' && item('/admin', 'لوحة الإدارة', 'card')}
           {profile && profile.role !== 'user' && item('/staff/support', 'صندوق الدعم', 'msg')}
+          {inst.show && <button onClick={() => { setOpen(false); inst.install() }}><Icon n="dl" /><span style={{ flex: 1 }}>تثبيت التطبيق</span></button>}
           <button onClick={signOut}><Icon n="out" /><span style={{ flex: 1 }}>تسجيل الخروج</span></button>
         </aside>
       </>)}

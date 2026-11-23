@@ -5,6 +5,9 @@ import './fonts.css'
 import './styles.css'
 import App from './App'
 import { AuthProvider } from './lib/auth'
+import { registerSW } from './lib/install'
+
+registerSW()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><BrowserRouter><AuthProvider><App /></AuthProvider></BrowserRouter></StrictMode>,
