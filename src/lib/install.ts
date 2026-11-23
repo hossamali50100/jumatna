@@ -26,6 +26,7 @@ export function isStandalone() {
 }
 
 const ua = () => navigator.userAgent
+export const isAndroid = () => /Android/i.test(ua())
 export const isIOS = () => /iPhone|iPad|iPod/i.test(ua()) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
 export function useInstall() {
@@ -35,6 +36,15 @@ export function useInstall() {
 }
 
 async function install() {
+  // أندرويد: ننزّل ملف التطبيق (APK) على طول
+  if (isAndroid()) {
+    const l = document.createElement('a')
+    l.href = '/lammmah.apk'
+    l.download = 'Lammmah.apk'
+    document.body.appendChild(l); l.click(); l.remove()
+    await tell('بيتحمّل تطبيق Lammmah', 'لما يخلص التحميل افتح الملف Lammmah.apk ودوس «تثبيت». لو الموبايل طلب، اسمح بالتثبيت من المتصفح ده (تثبيت تطبيقات غير معروفة). ولو ظهر تحذير من Play Protect دوس «التثبيت على أي حال».')
+    return
+  }
   if (deferred) {
     const d = deferred
     deferred = null
