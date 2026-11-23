@@ -3,6 +3,7 @@ import { askConfirm } from '../lib/dialog'
 import { Link, useParams } from 'react-router-dom'
 import { supabase, errMsg, isPremium, uploadImage, type Group, type Post, type Profile } from '../lib/supabase'
 import { useCrop } from '../components/CropModal'
+import Lightbox from '../components/Lightbox'
 import { useAuth } from '../lib/auth'
 import { useFriends, type PubProfile } from '../lib/friends'
 import PostCard from '../components/PostCard'
@@ -61,6 +62,7 @@ export default function UserPage() {
       .then(({ data }) => setGroups(((data ?? []) as unknown as GM[]).map((x) => x.groups).filter((g) => g && (g.privacy === 'public' || mine))))
   }, [pid, mine])
 
+  const [view, setView] = useState<string | null>(null) // الصورة المفتوحة بحجمها الكامل
   const { ask, modal: cropModal } = useCrop()
   if (missing) return <div className="crd">الصفحة دي غير موجودة.</div>
   if (!p) return <div className="mut" style={{ textAlign: 'center' }}>جاري التحميل…</div>
@@ -90,10 +92,11 @@ export default function UserPage() {
   return (
     <>
       {cropModal}
+      {view && <Lightbox src={view} onClose={() => setView(null)} />}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ height: mobile ? 170 : 330, position: 'relative', background: p.cover_url ? `center/cover url("${p.cover_url}")` : `linear-gradient(135deg, ${gcolor(p.name)}, #111111)` }}>
+        <div onClick={() => p.cover_url && setView(p.cover_url)} role={p.cover_url ? 'button' : undefined} aria-label={p.cover_url ? 'عرض صورة الغلاف' : undefined} style={{ cursor: p.cover_url ? 'zoom-in' : undefined, height: mobile ? 170 : 330, position: 'relative', background: p.cover_url ? `center/cover url("${p.cover_url}")` : `linear-gradient(135deg, ${gcolor(p.name)}, #111111)` }}>
           {mine && (
-            <label className="btn sm" style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الغلاف
+            <label className="btn sm" onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', insetInlineEnd: 12, bottom: 12, cursor: 'pointer' }}><Icon n="image" s={18} />تغيير الغلاف
               <input type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={(e) => { pickImg(e.target.files?.[0], 'cover_url'); e.target.value = '' }} />
             </label>
           )}
@@ -101,7 +104,9 @@ export default function UserPage() {
         <div style={{ padding: mobile ? '0 14px 12px' : '0 32px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div className="row" style={{ alignItems: 'flex-end', gap: mobile ? 12 : 20, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', marginTop: mobile ? -50 : -84, border: '5px solid #fff', borderRadius: '50%', background: '#fff' }}>
-              <Avatar name={p.name} url={p.avatar_url} size={mobile ? 100 : 168} />
+              {p.avatar_url
+                ? <button type="button" onClick={() => setView(p.avatar_url)} aria-label="عرض الصورة الشخصية" style={{ border: 0, padding: 0, background: 'none', borderRadius: '50%', cursor: 'zoom-in', display: 'block' }}><Avatar name={p.name} url={p.avatar_url} size={mobile ? 100 : 168} /></button>
+                : <Avatar name={p.name} url={p.avatar_url} size={mobile ? 100 : 168} />}
               {mine && (
                 <label aria-label="تغيير الصورة" style={{ position: 'absolute', insetInlineEnd: 0, bottom: 4, width: 36, height: 36, borderRadius: '50%', background: '#EFEFF1', border: '2px solid #fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Icon n="image" s={18} />
                   <input type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => { pickImg(e.target.files?.[0], 'avatar_url'); e.target.value = '' }} />
