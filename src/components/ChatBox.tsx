@@ -5,6 +5,7 @@ import { VOICE_MAX, canRecord, pickType } from '../lib/voice'
 import { pastedImages } from '../lib/paste'
 import { EmojiGrid } from './EmojiPicker'
 import { askChoice, askConfirm } from '../lib/dialog'
+import Lightbox from './Lightbox'
 
 export type ChatMsg = { id: string; mine: boolean; tick?: 'sending' | 'sent' | 'delivered' | 'read'; tickTitle?: string; seenBy?: { id: string; name: string; avatar_url: string | null }[]; label?: string; body: string; image_url: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; edited?: boolean; avatar?: string | null; rx?: Record<string, number>; myRx?: string | null }
 // علامات الرسالة (زي واتساب): ✓ اتبعتت — ✓✓ وصلت — ✓✓ خضرا اتقرت
@@ -76,6 +77,8 @@ export default function ChatBox({ mentionables, onHide, onEdit, onSendVoice, msg
   }
   const box = useRef<HTMLDivElement>(null)
   // ---- تسجيل رسالة صوتية ----
+  const [view, setView] = useState<string | null>(null) // الصورة المفتوحة في العارض
+  const pics = msgs.filter((m) => m.image_url).map((m) => m.image_url as string) // كل صور المحادثة بالترتيب
   const [rec, setRec] = useState(false)
   const [secs, setSecs] = useState(0)
   const mr = useRef<MediaRecorder | null>(null)
@@ -183,7 +186,7 @@ export default function ChatBox({ mentionables, onHide, onEdit, onSendVoice, msg
               {!m.mine && m.label && <Avatar name={m.label} url={m.avatar} size={30} />}
               {m.mine && !m.id.startsWith('tmp-') && (onReact || onDelete || onForward || onHide) && tools(m)}
               <div style={{ minWidth: 0, position: 'relative', marginBottom: m.rx && Object.keys(m.rx).length ? 10 : 0 }}>
-                {m.image_url && <a href={m.image_url} target="_blank" rel="noreferrer noopener" style={{ display: 'block' }}><img src={m.image_url} alt="" style={{ width: 'min(240px,100%)', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></a>}
+                {m.image_url && <button type="button" onClick={() => setView(m.image_url)} aria-label="عرض الصورة" style={{ display: 'block', padding: 0, border: 0, background: 'none', cursor: 'zoom-in', width: 'min(240px,100%)' }}><img src={m.image_url} alt="" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', borderRadius: 16, display: 'block', marginBottom: m.body ? 3 : 0 }} /></button>}
                 {m.audio_url && <div className={'cm-voice' + (m.mine ? ' mine' : '')}><audio controls preload="metadata" src={m.audio_url} /></div>}
                 {m.body && !m.audio_url && (/^[\p{Extended_Pictographic}‍️\s]{1,12}$/u.test(m.body)
                   ? <div style={{ fontSize: 34, lineHeight: 1.3, padding: '0 4px' }}>{m.body}</div>
@@ -289,6 +292,7 @@ export default function ChatBox({ mentionables, onHide, onEdit, onSendVoice, msg
       </div>
       )}
       </>)}
+      {view && <Lightbox key={view} srcs={pics} start={Math.max(0, pics.lastIndexOf(view))} onClose={() => setView(null)} />}
     </div>
   )
 }

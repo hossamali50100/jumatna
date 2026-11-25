@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChatDockProvider } from './ChatDock'
+import { CallProvider } from '../lib/call'
+import CallScreen from './CallScreen'
 import { useBadges } from '../lib/badges'
 import { useNotifs } from '../lib/notifs'
 import NotificationsMenu from './NotificationsMenu'
@@ -173,5 +175,5 @@ export default function Layout() {
   const mobile = useIsMobile()
   useHeartbeat() // لازم يشتغل على الموبايل والكمبيوتر (كان في نسخة الكمبيوتر بس)
   useMessageSound()
-  return <ChatDockProvider enabled={!mobile}>{mobile ? <Mobile /> : <Desktop />}</ChatDockProvider>
+  return <CallProvider><ChatDockProvider enabled={!mobile}>{mobile ? <Mobile /> : <Desktop />}</ChatDockProvider><CallScreen /></CallProvider>
 }

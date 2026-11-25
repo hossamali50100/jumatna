@@ -9,6 +9,7 @@ import { useOnline } from '../lib/presence'
 import { usePins } from '../lib/pins'
 import ConvActions, { useLongPress, type ActItem } from '../components/ConvActions'
 import ChatMenu from '../components/ChatMenu'
+import { CallButtons } from '../components/CallScreen'
 import RoomMenu from '../components/RoomMenu'
 import Thread from '../components/Thread'
 import { isRoom, roomKey, useRoom } from '../lib/rooms'
@@ -35,7 +36,7 @@ export default function Messages() {
       <div className="row">
         {isRm
           ? <span className="row grow"><Avatar name={rinfo?.name} url={rinfo?.avatar_url} size={44} /><b>{rinfo?.name}</b>{rinfo && <RoomMenu room={rinfo} onLeft={() => navM('/messages')} />}</span>
-          : <Link to={`/u/${other}`} className="row grow"><Avatar name={cur?.name} url={cur?.avatar_url} size={44} /><Name p={cur} /></Link>}
+          : <><Link to={`/u/${other}`} className="row grow"><Avatar name={cur?.name} url={cur?.avatar_url} size={44} /><Name p={cur} /></Link><CallButtons peer={cur ? { id: other, name: cur.name, avatar_url: cur.avatar_url } : null} /></>}
         {mobile && <Link className="btn sm" to="/messages">رجوع</Link>}
       </div>
       <Thread key={other} id={other} height={mobile ? 380 : 440} />
@@ -106,6 +107,7 @@ function Messenger({ other }: { other?: string }) {
               </>) : (<>
                 <AvatarOn online={isOn}><Avatar name={cur?.name} url={cur?.avatar_url} size={44} /></AvatarOn>
                 <Link to={`/u/${other}`} className="grow col" style={{ gap: 0 }}><Name p={cur} /><span className="mut" style={{ fontSize: 12 }}>{isOn ? 'نشط الآن' : ''}</span></Link>
+                <CallButtons peer={cur ? { id: other!, name: cur.name, avatar_url: cur.avatar_url } : null} />
                 <ChatMenu otherId={other!} name={cur?.name} onRoom={(id) => nav('/messages/' + id)} />
               </>)}
             </div>

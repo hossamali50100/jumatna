@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode, type TouchEvent as RTouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 // عارض الصور بملء الشاشة (زي الفيس): خلفية سودا + تكبير/تصغير + قفل + لوحة جانبية اختيارية
@@ -15,6 +15,14 @@ export default function Lightbox({ src, srcs, start = 0, onClose, side }: { src?
     return () => { document.removeEventListener('keydown', k); document.body.style.overflow = o }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, list.length])
+  // سحب بالصباع يمين وشمال على الموبايل
+  const [tx, setTx] = useState<number | null>(null)
+  const onTouchStart = (e: RTouchEvent) => { if (z === 1 && e.touches.length === 1) setTx(e.touches[0].clientX) }
+  const onTouchEnd = (e: RTouchEvent) => {
+    if (tx === null || list.length < 2) return
+    const dx = e.changedTouches[0].clientX - tx; setTx(null)
+    if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1)
+  }
   const full = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen?.() }
   const rb = { background: 'rgba(255,255,255,.14)', border: 0, color: '#fff', width: 40, height: 40, borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 22, fontFamily: 'inherit' } as const
   return createPortal(
@@ -28,7 +36,7 @@ export default function Lightbox({ src, srcs, start = 0, onClose, side }: { src?
       </div>
       <div className="lb-body">
         <div className="lb-stage">
-        <div className="lb-img" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <div className="lb-img" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
           <img src={list[i]} alt="" style={{ transform: `scale(${z})` }} onClick={() => setZ((v) => (v > 1 ? 1 : 2))} />
         </div>
         {list.length > 1 && <><button dir="ltr" className="lb-nav l" aria-label="التالية" onClick={() => go(1)}>‹</button><button dir="ltr" className="lb-nav r" aria-label="السابقة" onClick={() => go(-1)}>›</button><span dir="ltr" className="lb-count">{i + 1} / {list.length}</span></>}

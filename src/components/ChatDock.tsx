@@ -5,6 +5,7 @@ import { Avatar, AvatarOn, Icon, Name } from '../lib/ui'
 import { useOnline, usePresenceError } from '../lib/presence'
 import { useFriends } from '../lib/friends'
 import ChatMenu from './ChatMenu'
+import { CallButtons } from './CallScreen'
 import RoomMenu from './RoomMenu'
 import Thread from './Thread'
 import { isRoom, roomKey, useRoom } from '../lib/rooms'
@@ -43,6 +44,7 @@ function ChatWindow({ id, index, base, min, onMin, onClose }: { id: string; inde
             </span>} />
         </>)}
         <span className="grow" />
+        {!isR && !min && <CallButtons size="sm" peer={p ? { id, name: p.name, avatar_url: p.avatar_url } : null} />}
         <Link to={`/messages/${id}`} onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="تكبير (فتح في صفحة الرسائل)" title="تكبير (فتح في صفحة الرسائل)" style={{ display: 'grid', placeItems: 'center', width: 28, height: 28 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg></Link>
         <button onClick={(e) => { e.stopPropagation(); onClose() }} aria-label="إغلاق" style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit' }}>✕</button>
       </div>
