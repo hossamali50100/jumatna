@@ -22,6 +22,11 @@ export default function Messages() {
   const isRm = isRoom(other)
   const { room: rinfo } = useRoom(isRm ? roomKey(other!) : null)
   const navM = useNavigate()
+  // لو الدردشة المفتوحة اتحذفت: نرجع لقايمة الدردشات
+  useEffect(() => {
+    const f = (e: Event) => { if ((e as CustomEvent<string>).detail === other) navM('/messages', { replace: true }) }
+    window.addEventListener('jm:chat-cleared', f); return () => window.removeEventListener('jm:chat-cleared', f)
+  }, [other, navM])
   const [cur, setCur] = useState<P | null>(null)
 
   // اسم الطرف التاني لو مفيش محادثة سابقة معاه

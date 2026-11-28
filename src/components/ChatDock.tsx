@@ -60,6 +60,11 @@ export function ChatDockProvider({ children, enabled }: { children: ReactNode; e
     setWins((w) => [{ id, min: false }, ...w.filter((x) => x.id !== id)].slice(0, MAX))
   }, [])
   const loc = useLocation()
+  // الدردشة اتحذفت: نقفل نافذتها
+  useEffect(() => {
+    const f = (e: Event) => { const id = (e as CustomEvent<string>).detail; setWins((w) => w.filter((x) => x.id !== id)) }
+    window.addEventListener('jm:chat-cleared', f); return () => window.removeEventListener('jm:chat-cleared', f)
+  }, [])
   // رسالة جديدة وصلتني: نفتح نافذتها المصغرة تلقائيًا (لو مش مفتوحة)
   const onPage = !loc.pathname.startsWith('/messages') && !loc.pathname.startsWith('/admin')
   useEffect(() => {

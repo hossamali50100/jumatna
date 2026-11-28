@@ -47,6 +47,8 @@ export default function ConvActions({ item, at, sheet, onClose }: { item: ActIte
     if (!(await askConfirm('تحذف الدردشة دي من عندك؟ الرسايل هتختفي عندك بس، والطرف التاني هيفضل شايفها.', { ok: 'حذف', danger: true }))) return
     const { error } = await supabase.rpc('clear_chat', { other: item.other })
     if (error) return void tell(hint(error)); refreshChatPrefs()
+    // نقفل نافذتها المصغرة ونخرج من صفحتها لو مفتوحة
+    window.dispatchEvent(new CustomEvent('jm:chat-cleared', { detail: item.other }))
   })
   const leave = go(async () => {
     if (!(await askConfirm(`تغادر الشات الجماعي «${item.name}»؟`, { ok: 'مغادرة', danger: true }))) return

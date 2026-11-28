@@ -30,6 +30,8 @@ export default function ChatMenu({ otherId, name, onRoom, wrap }: { otherId: str
     const { error } = await supabase.rpc('clear_chat', { other: otherId })
     if (error) return void tell(hint(error))
     refreshChatPrefs()
+    // نقفل نافذتها المصغرة ونخرج من صفحتها لو مفتوحة
+    window.dispatchEvent(new CustomEvent('jm:chat-cleared', { detail: otherId }))
   }
   return (
     <>
