@@ -55,6 +55,7 @@ export function authErrMsg(e: unknown): string {
   if (/email_domain_not_allowed/.test(m) || (/database error saving new user/.test(m) && /email_domain/.test(m))) return 'التسجيل متاح بإيميل Gmail أو Yahoo بس.'
   if (/database error saving new user/.test(m)) return 'مش قادر أعمل الحساب. اتأكد إن الإيميل Gmail أو Yahoo، ولو المشكلة فضلت بلّغ الدعم.'
   if (/invalid.*email|email.*invalid/.test(m)) return 'الإيميل غير صحيح.'
+  if (/captcha/.test(m)) return 'علامة التحقق انتهت أو ماكملتش. استنى ✓ تظهر وجرّب تاني.'
   if (/fetch|network/.test(m)) return 'مفيش اتصال بالإنترنت أو السيرفر مش بيرد. جرّب تاني.'
   return (e as { message?: string })?.message || 'حصلت مشكلة، جرّب تاني.'
 }

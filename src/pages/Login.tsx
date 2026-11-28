@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase, authErrMsg } from '../lib/supabase'
 import { signupEmailError } from '../lib/emailrules'
+import { useTurnstile } from '../components/Turnstile'
 import { Err, useIsMobile } from '../lib/ui'
 import { usePlatform } from '../lib/platform'
 import BirthGender, { BirthField, GenderField, checkBG, emptyBG, type BG } from '../components/BirthGender'
@@ -23,6 +24,7 @@ export default function Login() {
   const [pw2, setPw2] = useState('')
   const [bg, setBg] = useState<BG>(emptyBG)
   const [err, setErr] = useState('')
+  const ts = useTurnstile()
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -42,23 +44,26 @@ export default function Login() {
     if (mode === 'up' && pw !== pw2) return setErr('كلمتا السر مش متطابقتين.')
     const chk = mode === 'up' ? checkBG(bg) : {}
     if (mode === 'up' && chk.error) return setErr(chk.error)
+    if (ts.missing) return setErr(ts.missing)
+    const captchaToken = ts.token
     setBusy(true)
     try {
       if (mode === 'in') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pw, options: { captchaToken } })
         if (error) throw new Error('الإيميل أو كلمة السر غير صحيحة.')
       } else if (mode === 'up') {
-        const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pw, options: { data: { full_name: name.trim(), birth_date: chk.iso, gender: bg.gender }, emailRedirectTo: window.location.origin } })
+        const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pw, options: { data: { full_name: name.trim(), birth_date: chk.iso, gender: bg.gender }, emailRedirectTo: window.location.origin, captchaToken } })
         if (error) throw error
         // Supabase بيرجّع نجاح وهمي لو الإيميل مسجّل قبل كده (identities فاضية)
         if (data.user && (data.user.identities?.length ?? 1) === 0) throw new Error('already registered')
         if (!data.session) setInfo('بعتنالك رسالة على الإيميل. دوس على رابط التأكيد اللي فيها وهتدخل حسابك على طول. لو ماوصلتش شوف الـ Spam.')
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin, captchaToken })
         if (error) throw error
         setInfo('لو الإيميل مسجّل عندنا هيوصلك رابط لتغيير كلمة السر.')
       }
     } catch (e) { setErr(authErrMsg(e)) }
+    ts.reset() // كل علامة تحقق تنفع لمحاولة واحدة
     setBusy(false)
   }
   const title = mobile ? (mode === 'in' ? 'تسجيل الدخول' : mode === 'up' ? 'إنشاء حساب' : 'استرجاع كلمة السر') : (mode === 'in' ? 'أهلًا بعودتك' : mode === 'up' ? 'إنشاء حساب جديد' : 'استرجاع كلمة السر')
@@ -83,6 +88,7 @@ export default function Login() {
       {mode === 'up' && <label className="col" style={{ gap: 6 }}><b>تأكيد كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" /></label>}
         {mode === 'up' && <BirthGender value={bg} onChange={setBg} minHeight={inp.minHeight} />}
       </>)}
+      {ts.el}
       <Err>{err}</Err>
       {info && <div className="okmsg">{info}</div>}
       <button className={'btn p' + (mobile ? ' prim' : '')} disabled={busy}>{busy ? '…' : mode === 'in' ? 'دخول' : mode === 'up' ? 'إنشاء الحساب' : 'إرسال الرابط'}</button>

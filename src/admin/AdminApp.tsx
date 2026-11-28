@@ -6,6 +6,7 @@ import { usePlatform } from '../lib/platform'
 import { Err, useIsMobile } from '../lib/ui'
 import { Overview, Users, UserDetail, Groups, GroupDetail, Reports, Inbox, Upgrades, Ads, AdNew, AdPromote, AdDetail, Team, Identity, useCounts } from './pages'
 import './admin.css'
+import { useTurnstile } from '../components/Turnstile'
 
 type Role = 'admin' | 'mod' | 'support'
 const NAV: { to: string; label: string; icon: string; roles: Role[]; sec?: string; badge?: 'reports' }[] = [
@@ -26,11 +27,15 @@ function Gate({ denied }: { denied?: boolean }) {
   const pf = usePlatform()
   const [email, setEmail] = useState(''); const [pw, setPw] = useState('')
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
+  const ts = useTurnstile()
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setErr(''); setBusy(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
+    e.preventDefault(); setErr('')
+    if (ts.missing) return setErr(ts.missing)
+    setBusy(true)
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pw, options: { captchaToken: ts.token } })
+    ts.reset()
     setBusy(false)
-    if (error) setErr('الإيميل أو كلمة السر غير صحيحة.')
+    if (error) setErr(/captcha/i.test(error.message) ? 'علامة التحقق انتهت. استنى ✓ تظهر وجرّب تاني.' : 'الإيميل أو كلمة السر غير صحيحة.')
   }
   return (
     <div className="adm-gate">
@@ -47,6 +52,7 @@ function Gate({ denied }: { denied?: boolean }) {
           <form onSubmit={submit} className="col" style={{ gap: 10 }}>
             <input className="adm-in" type="email" placeholder="الإيميل" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
             <input className="adm-in" type="password" placeholder="كلمة السر" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" />
+            {ts.el}
             <Err>{err}</Err>
             <button className="btn p" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول'}</button>
           </form>
