@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase, authErrMsg } from '../lib/supabase'
+import { signupEmailError } from '../lib/emailrules'
 import { Err, useIsMobile } from '../lib/ui'
 import { usePlatform } from '../lib/platform'
 import BirthGender, { BirthField, GenderField, checkBG, emptyBG, type BG } from '../components/BirthGender'
@@ -36,6 +37,7 @@ export default function Login() {
     e.preventDefault(); setErr(''); setInfo('')
     if (!/^\S+@\S+\.\S+$/.test(email)) return setErr('اكتب إيميل صحيح.')
     if (mode !== 'reset' && pw.length < 8) return setErr('كلمة السر لازم تكون 8 أحرف على الأقل.')
+    if (mode === 'up') { const ee = signupEmailError(email); if (ee) return setErr(ee) }
     if (mode === 'up' && name.trim().length < 2) return setErr('اكتب اسمك.')
     if (mode === 'up' && pw !== pw2) return setErr('كلمتا السر مش متطابقتين.')
     const chk = mode === 'up' ? checkBG(bg) : {}
@@ -46,7 +48,7 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
         if (error) throw new Error('الإيميل أو كلمة السر غير صحيحة.')
       } else if (mode === 'up') {
-        const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { data: { full_name: name.trim(), birth_date: chk.iso, gender: bg.gender }, emailRedirectTo: window.location.origin } })
+        const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pw, options: { data: { full_name: name.trim(), birth_date: chk.iso, gender: bg.gender }, emailRedirectTo: window.location.origin } })
         if (error) throw error
         // Supabase بيرجّع نجاح وهمي لو الإيميل مسجّل قبل كده (identities فاضية)
         if (data.user && (data.user.identities?.length ?? 1) === 0) throw new Error('already registered')
@@ -68,7 +70,7 @@ export default function Login() {
       {mode === 'up' && !mobile ? (<>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
         <label className="col" style={{ gap: 6 }}><b>الاسم</b><input className="in" style={inp} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>
-      <label className="col" style={{ gap: 6 }}><b>البريد الإلكتروني</b><input className="in" style={inp} type="email" dir="ltr" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
+      <label className="col" style={{ gap: 6 }}><b>البريد الإلكتروني</b><input className="in" style={inp} type="email" dir="ltr" placeholder="name@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
         </div>
         <label className="col" style={{ gap: 6 }}><b>كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" /></label>
         <label className="col" style={{ gap: 6 }}><b>تأكيد كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" /></label>
@@ -76,7 +78,7 @@ export default function Login() {
         <BirthField value={bg} onChange={setBg} minHeight={inp.minHeight} />
       </>) : (<>
       {mode === 'up' && <label className="col" style={{ gap: 6 }}><b>الاسم</b><input className="in" style={inp} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} autoComplete="name" /></label>}
-      <label className="col" style={{ gap: 6 }}><b>البريد الإلكتروني</b><input className="in" style={inp} type="email" dir="ltr" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
+      <label className="col" style={{ gap: 6 }}><b>البريد الإلكتروني</b><input className="in" style={inp} type="email" dir="ltr" placeholder="name@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
       {mode !== 'reset' && <label className="col" style={{ gap: 6 }}><b>كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} /></label>}
       {mode === 'up' && <label className="col" style={{ gap: 6 }}><b>تأكيد كلمة السر</b><input className="in" style={inp} type="password" dir="ltr" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" /></label>}
         {mode === 'up' && <BirthGender value={bg} onChange={setBg} minHeight={inp.minHeight} />}
