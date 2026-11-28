@@ -39,6 +39,56 @@ export function CallButtons({ peer, size = 'md' }: { peer: Peer | null; size?: '
   )
 }
 
+type Corner = 'tl' | 'tr' | 'bl' | 'br'
+const loadCorner = (): Corner => { try { const v = localStorage.getItem('call-self-corner'); if (v === 'tl' || v === 'tr' || v === 'bl' || v === 'br') return v } catch { /* */ } return 'tl' }
+
+/** صورتك الصغيرة في المكالمة: بتتسحب لأي ركن، بتصغر لما الكاميرا تتقفل، وممكن تتخفي */
+function SelfView({ stream, camOff }: { stream: MediaStream | null; camOff: boolean }) {
+  const [corner, setCorner] = useState<Corner>(loadCorner)
+  const [hidden, setHidden] = useState(false)
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const start = useRef<{ px: number; py: number; ox: number; oy: number; moved: boolean } | null>(null)
+
+  const onDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    const el = ref.current; const parent = el?.parentElement; if (!el || !parent) return
+    const r = el.getBoundingClientRect(); const pr = parent.getBoundingClientRect()
+    start.current = { px: e.clientX, py: e.clientY, ox: r.left - pr.left, oy: r.top - pr.top, moved: false }
+    el.setPointerCapture(e.pointerId)
+  }
+  const onMove = (e: React.PointerEvent) => {
+    const st = start.current; const el = ref.current; const parent = el?.parentElement; if (!st || !el || !parent) return
+    const dx = e.clientX - st.px; const dy = e.clientY - st.py
+    if (!st.moved && Math.hypot(dx, dy) < 5) return
+    st.moved = true
+    const pr = parent.getBoundingClientRect()
+    setDrag({ x: Math.max(0, Math.min(st.ox + dx, pr.width - el.offsetWidth)), y: Math.max(0, Math.min(st.oy + dy, pr.height - el.offsetHeight)) })
+  }
+  const onUp = () => {
+    const st = start.current; start.current = null
+    const el = ref.current; const parent = el?.parentElement
+    if (!st?.moved || !el || !parent || !drag) { setDrag(null); return }
+    // نثبّتها في أقرب ركن
+    const pr = parent.getBoundingClientRect()
+    const cx = drag.x + el.offsetWidth / 2; const cy = drag.y + el.offsetHeight / 2
+    const c = ((cy < pr.height / 2 ? 't' : 'b') + (cx < pr.width / 2 ? 'l' : 'r')) as Corner
+    setCorner(c); setDrag(null)
+    try { localStorage.setItem('call-self-corner', c) } catch { /* */ }
+  }
+
+  if (hidden) return <button type="button" className={'call-self-show c-' + corner} onClick={() => setHidden(false)} aria-label="إظهار صورتك">أنت ▸</button>
+  return (
+    <div ref={ref} className={'call-self c-' + corner + (camOff ? ' off' : '') + (drag ? ' dragging' : '')}
+      style={drag ? { left: drag.x, top: drag.y, right: 'auto', bottom: 'auto' } : undefined}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      title="اسحبها لأي ركن">
+      {camOff ? <div className="call-self-off"><IcoCam off /></div> : <Video stream={stream} muted mirror />}
+      <button type="button" className="call-self-hide" onClick={() => setHidden(true)} aria-label="إخفاء صورتك" title="إخفاء صورتك">–</button>
+    </div>
+  )
+}
+
 export default function CallScreen() {
   const c = useCall()
   const [chat, setChat] = useState(false)
@@ -94,7 +144,7 @@ export default function CallScreen() {
         {showRemoteVideo && <div className="call-top"><b>{peer.name}</b><span>{status}</span></div>}
         {live && c.peerMicOff && <span className="call-chip call-chip-top">🔇 {peer.name} قافل المايك</span>}
         {kind === 'video' && c.local && phase !== 'ended' && (
-          <div className="call-self">{c.camOff ? <div className="call-self-off"><IcoCam off /></div> : <Video stream={c.local} muted mirror />}</div>
+          <SelfView stream={c.local} camOff={c.camOff} />
         )}
         {phase !== 'ended' && (
           <div className="call-bar">

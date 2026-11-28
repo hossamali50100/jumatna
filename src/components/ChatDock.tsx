@@ -89,13 +89,14 @@ export function ChatDockProvider({ children, enabled }: { children: ReactNode; e
   return (
     <Ctx.Provider value={{ openChat }}>
       {children}
-      {enabled && (
+      {/* في صفحة الرسائل (والإدارة) النوافذ المصغرة بتستخبى، وبترجع زي ما هي لما تخرج منها */}
+      {eligible && (
         <div className="dockcol">
-          {eligible && <ContactsPanel open={open} onToggle={toggle} onPick={openChat} />}
+          <ContactsPanel open={open} onToggle={toggle} onPick={openChat} />
           {wins.slice(visible).map((w) => <Bubble key={w.id} id={w.id} onOpen={() => openChat(w.id)} onClose={() => setWins((l) => l.filter((x) => x.id !== w.id))} />)}
         </div>
       )}
-      {enabled && wins.slice(0, visible).map((w, i) => (
+      {eligible && wins.slice(0, visible).map((w, i) => (
         <ChatWindow key={w.id} id={w.id} index={i} base={left0} min={w.min}
           onMin={() => setWins((l) => l.map((x) => x.id === w.id ? { ...x, min: !x.min } : x))}
           onClose={() => setWins((l) => l.filter((x) => x.id !== w.id))} />
