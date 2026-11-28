@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { errMsg } from '../lib/supabase'
 import { supabase, uploadImage } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import ChatBox, { type ChatMsg } from './ChatBox'
+import ChatBox, { type ChatMsg, snippet, replyLabel } from './ChatBox'
 import { VOICE_BODY, uploadVoice, voiceErr } from '../lib/voice'
 import ForwardModal from './ForwardModal'
 import { useChatPrefs } from '../lib/chatprefs'
 import { useTyping } from '../lib/typing'
 
-type Msg = { id: string; sender_id: string; body: string; image_url: string | null; edited_at?: string | null; audio_url?: string | null; audio_secs?: number | null; created_at: string; read_at: string | null; delivered_at?: string | null }
+type Msg = { id: string; sender_id: string; body: string; image_url: string | null; edited_at?: string | null; audio_url?: string | null; audio_secs?: number | null; reply_to?: string | null; created_at: string; read_at: string | null; delivered_at?: string | null }
 
 export default function DmThread({ otherId, height, fill }: { otherId: string; height?: number; fill?: boolean }) {
   const { session, profile } = useAuth()
@@ -22,11 +22,17 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
   const [reacts, setReacts] = useState<{ message_id: string; user_id: string; emoji: string }[]>([])
   const [fwd, setFwd] = useState<ChatMsg | null>(null)
   const [rxErr, setRxErr] = useState('')
+  // الرسايل القديمة اللي حد رد عليها ومش ضمن آخر 200 رسالة
+  const [olds, setOlds] = useState<Record<string, Msg>>({})
+  const [otherName, setOtherName] = useState('')
+  useEffect(() => { supabase.from('profiles').select('name').eq('id', otherId).maybeSingle().then(({ data }) => setOtherName((data as { name?: string } | null)?.name ?? '')) }, [otherId])
   const load = useCallback(async () => {
     const q = (cols: string) => supabase.from('dm_messages').select(cols)
       .or(`and(sender_id.eq.${uid},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${uid})`)
       .order('created_at', { ascending: true }).limit(200)
-    let { data, error } = await q('id,sender_id,body,image_url,audio_url,audio_secs,edited_at,created_at,read_at,delivered_at')
+    let { data, error } = await q('id,sender_id,body,image_url,audio_url,audio_secs,edited_at,reply_to,created_at,read_at,delivered_at')
+    // لو تحديث 058 (الرد على رسالة) لسه ما اتشغّلش
+    if (error) ({ data, error } = await q('id,sender_id,body,image_url,audio_url,audio_secs,edited_at,created_at,read_at,delivered_at'))
     // لو تحديث 048 (تعديل الرسائل) لسه ما اتشغّلش
     if (error) ({ data, error } = await q('id,sender_id,body,image_url,audio_url,audio_secs,created_at,read_at,delivered_at'))
     // لو تحديث 046 (الصوت) لسه ما اتشغّلش نقرأ من غير أعمدة الصوت
@@ -41,6 +47,10 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     const allIds = list.map((m) => m.id)
     if (allIds.length) { const h = await supabase.from('message_hides').select('msg_id').in('msg_id', allIds); if (!h.error && h.data?.length) { const hid = new Set(h.data.map((x) => x.msg_id as string)); list = list.filter((m) => !hid.has(m.id)) } }
     setMsgs((old) => { const keep = old.filter((o) => o.id.startsWith('tmp-') && !list.some((m) => m.sender_id === o.sender_id && m.body === o.body)); return [...list, ...keep] })
+    // الرسايل اللي اترد عليها ومش موجودة في القايمة (أقدم من آخر 200)
+    const have = new Set(list.map((m) => m.id))
+    const miss = [...new Set(list.map((m) => m.reply_to).filter((x): x is string => !!x && !have.has(x)))]
+    if (miss.length) { const o = await supabase.from('dm_messages').select('id,sender_id,body,image_url,audio_url,created_at,read_at').in('id', miss); if (!o.error) setOlds((prev) => { const n = { ...prev }; for (const m of (o.data ?? []) as Msg[]) n[m.id] = m; return n }) }
     // تفاعلات الرسائل (لو تحديث 029 متشغّل)
     const ids = list.map((m) => m.id).filter((i) => !i.startsWith('tmp-'))
     if (ids.length) { const r = await supabase.from('dm_reactions').select('message_id,user_id,emoji').in('message_id', ids); if (!r.error) setReacts((r.data ?? []) as typeof reacts) }
@@ -55,18 +65,21 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages' }, () => { load() }).subscribe()
     return () => { clearInterval(t); supabase.removeChannel(ch) } }, [load, otherId])
 
-  const onSend = async (text: string, file: File | null) => {
+  const onSend = async (text: string, file: File | null, _m?: string[], replyTo?: string) => {
     const image_url = file ? await uploadImage(file, uid) : null
     // تظهر عندي فورًا، وبعدها السيرفر يأكدها
-    const tmp: Msg = { id: 'tmp-' + Date.now(), sender_id: uid, body: text, image_url, created_at: new Date().toISOString(), read_at: null }
+    const tmp: Msg = { id: 'tmp-' + Date.now(), sender_id: uid, body: text, image_url, reply_to: replyTo ?? null, created_at: new Date().toISOString(), read_at: null }
     setMsgs((l) => [...l, tmp])
-    const { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: text, image_url })
+    let { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: text, image_url, ...(replyTo ? { reply_to: replyTo } : {}) })
+    // لو تحديث 058 لسه ما اتشغّلش: نبعت الرسالة من غير الرد
+    if (error && replyTo && /reply_to|schema cache|column/i.test(error.message)) { ({ error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: text, image_url })); if (!error) setRxErr('الرد على رسالة معيّنة محتاج تحديث 058 في Supabase (مرة واحدة). الرسالة اتبعتت عادي.') }
     if (error) { setMsgs((l) => l.filter((m) => m.id !== tmp.id)); throw /row-level|policy/i.test(error.message) ? new Error('مش تقدر تبعت رسالة للشخص ده (حظر).') : error }
     load()
   }
-  const onSendVoice = async (blob: Blob, secs: number) => {
+  const onSendVoice = async (blob: Blob, secs: number, replyTo?: string) => {
     const audio_url = await uploadVoice(blob, uid)
-    const { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: VOICE_BODY, audio_url, audio_secs: secs })
+    let { error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: VOICE_BODY, audio_url, audio_secs: secs, ...(replyTo ? { reply_to: replyTo } : {}) })
+    if (error && replyTo && /reply_to|schema cache|column/i.test(error.message)) ({ error } = await supabase.from('dm_messages').insert({ sender_id: uid, recipient_id: otherId, body: VOICE_BODY, audio_url, audio_secs: secs }))
     if (error) throw /row-level|policy/i.test(error.message) ? new Error('مش تقدر تبعت رسالة للشخص ده (حظر).') : voiceErr(error)
     load()
   }
@@ -100,10 +113,12 @@ export default function DmThread({ otherId, height, fill }: { otherId: string; h
     if (error) { setReacts(prev); setRxErr(/dm_reactions|schema cache|relation/i.test(error.message) ? 'التفاعل على الرسائل محتاج تحديث 029 في Supabase (مرة واحدة).' : errMsg(error)) }
   }
   const lastMine = [...msgs].reverse().find((m) => m.sender_id === uid)?.id
+  const byId = new Map(msgs.map((m) => [m.id, m]))
+  const replyOf = (m: Msg) => { const t = m.reply_to ? (byId.get(m.reply_to) ?? olds[m.reply_to]) : null; return t ? { id: t.id, label: replyLabel(m.sender_id === uid, t.sender_id === uid, t.sender_id === m.sender_id, (otherName || 'الطرف التاني')), text: snippet(t) } : null }
   const list: ChatMsg[] = msgs.map((m) => {
     const rs = reacts.filter((r) => r.message_id === m.id)
     const rx: Record<string, number> = {}; for (const r of rs) rx[r.emoji] = (rx[r.emoji] ?? 0) + 1
-    return { id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : undefined, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, created_at: m.created_at, edited: !!m.edited_at, rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
+    return { id: m.id, mine: m.sender_id === uid, tick: m.id === lastMine ? (m.id.startsWith('tmp-') ? 'sending' : m.read_at ? 'read' : m.delivered_at ? 'delivered' : 'sent') : undefined, body: m.body, image_url: m.image_url, audio_url: m.audio_url, audio_secs: m.audio_secs, reply: replyOf(m), created_at: m.created_at, edited: !!m.edited_at, rx, myRx: rs.find((r) => r.user_id === uid)?.emoji ?? null }
   })
-  return <>{isBlocked && <div className="mut" style={{ textAlign: 'center', fontSize: 13, padding: '4px 0' }}>أنت حاظر الشخص ده. ممكن تلغي الحظر من السهم ⌄ فوق.</div>}<ChatBox onHide={onHide} onEdit={onEdit} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} readOnly={isBlocked} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr || rxErr} fill={fill} onDelete={onDelete} onReact={onReact} onForward={(m) => setFwd(m)} />{fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}</>
+  return <>{isBlocked && <div className="mut" style={{ textAlign: 'center', fontSize: 13, padding: '4px 0' }}>أنت حاظر الشخص ده. ممكن تلغي الحظر من السهم ⌄ فوق.</div>}<ChatBox peerName={otherName} onHide={onHide} onEdit={onEdit} onSendVoice={onSendVoice} typing={tp.text} onTyping={tp.ping} onStopTyping={tp.stop} readOnly={isBlocked} msgs={list} onSend={onSend} empty="ابدأ المحادثة بأول رسالة." height={height} error={loadErr || rxErr} fill={fill} onDelete={onDelete} onReact={onReact} onForward={(m) => setFwd(m)} />{fwd && <ForwardModal msg={{ body: fwd.body, image_url: fwd.image_url, audio_url: fwd.audio_url, audio_secs: fwd.audio_secs }} onClose={() => setFwd(null)} />}</>
 }
